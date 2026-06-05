@@ -1,0 +1,42 @@
+version: '3.9'
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: fagoon_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: fagoon_db
+      POSTGRES_USER: fagoon_user
+      POSTGRES_PASSWORD: fagoon_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: fagoon_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  upgrade-fagoon-dev:
+    build: .
+    image: upgrade-fagoon:dev
+    container_name: upgrade-fagoon_dev_container
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "2321:2321"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ENV=development
+      - DATABASE_URL=postgresql+asyncpg://fagoon_user:fagoon_password@db:5432/fagoon_db
+    volumes:
+      - .:/app
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

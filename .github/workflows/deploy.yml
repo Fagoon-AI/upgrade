@@ -1,0 +1,71 @@
+name: Upgrade CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - development
+
+jobs:
+  deploy-to-vm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install UV package manager locally (for the runner)
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install Python 3.11 with UV (on runner)
+        run: |
+          uv python install 3.11
+
+      - name: Create virtual environment (runner)
+        run: uv venv
+
+      - name: Install dependencies (runner)
+        run: uv sync
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Test SSH connection
+        run: |
+          ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} "echo 'SSH connection successful'"
+
+      - name: Deploy to VM via SSH
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            cd /home/vimuser/development/agents-workflow
+            git pull origin development
+
+            # Load user profile to set PATH and NVM environment
+            source ~/.profile
+
+            # Install uv if missing
+            if ! command -v uv > /dev/null 2>&1; then
+              echo "uv not found, installing..."
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH=$PATH:/home/vimuser/.local/bin
+            fi
+
+            # Install pm2 if missing
+            if ! command -v pm2 > /dev/null 2>&1; then
+              echo "pm2 not found, installing..."
+              export NVM_DIR="$HOME/.nvm"
+              [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+              npm install -g pm2
+            fi
+
+            # Run sync and pm2 commands
+            uv sync
+            pm2 reload dev-agent-workflow || pm2 start scripts/run.sh --name dev-agent-workflow
