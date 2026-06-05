@@ -186,3 +186,7 @@ cython_debug/
 
 # ignore researh outputs
 outputs/
+
+#ignore md files
+PostgreSQL_Migration_Plan.md
+Workflow.md
