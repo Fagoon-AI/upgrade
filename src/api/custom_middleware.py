@@ -209,11 +209,48 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return None
 
     def _is_public_path(self, path: str) -> bool:
-        dynamic_public_paths = [
-            f"{system_setting.API_V1_STR}/auth/verify-email/",
-            f"{system_setting.API_V1_STR}/auth/reset-password/",
+        # Normalize path: remove trailing slash for comparison
+        path_to_check = path.rstrip("/") if path != "/" else path
+        
+        # 1. Check against static ALLOWED_URL_PATH_WITHOUT_AUTHORIZATION
+        normalized_allowed = [p.rstrip("/") for p in ALLOWED_URL_PATH_WITHOUT_AUTHORIZATION]
+        if path_to_check in normalized_allowed:
+            return True
+
+        # 2. Check against dynamic paths based on current API_V1_STR
+        v1 = system_setting.API_V1_STR.rstrip("/")
+        dynamic_allowed = [
+            f"{v1}/auth/login",
+            f"{v1}/auth/register",
+            f"{v1}/auth/forgot-password",
+            f"{v1}/auth/refresh-token",
+            f"{v1}/users/login",
+            f"{v1}/users/signup",
+            f"{v1}/users/forgot-password",
+            f"{v1}/users/refresh-token",
         ]
-        return path in ALLOWED_URL_PATH_WITHOUT_AUTHORIZATION or any(path.startswith(dp) for dp in dynamic_public_paths)
+        if path_to_check in dynamic_allowed:
+            return True
+
+        # 3. Dynamic prefix-based paths
+        dynamic_prefixes = [
+            f"{v1}/auth/verify-email/",
+            f"{v1}/auth/reset-password/",
+            f"{v1}/users/verify-email/",
+            f"{v1}/users/reset-password/",
+        ]
+        if any(path.startswith(dp) for dp in dynamic_prefixes):
+            return True
+
+        # 4. Handle potential swagger path prefix (or other known prefixes)
+        swagger_prefix = system_setting.API_SWAGGER_PATH.rstrip("/")
+        if swagger_prefix and path.startswith(swagger_prefix) and path != swagger_prefix:
+            sub_path = path[len(swagger_prefix):]
+            if not sub_path.startswith("/"):
+                sub_path = "/" + sub_path
+            return self._is_public_path(sub_path)
+
+        return False
 
     def _get_access_token(self, request: Request) -> Optional[str]:
         authorization: str = request.headers.get("Authorization", "")
