@@ -72,6 +72,90 @@ async def create_chat(
         )
 
 
+@router.get("/conversations", operation_id="get_my_upgrade_conversations")
+async def get_my_conversations(
+    request: Request,
+    limit: int = Query(10, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    pg_services: PostgresServices = Depends(get_postgres_services),
+):
+    try:
+        user = request.state.user
+        if not user:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+
+        from src.models.sql.models import UpgradeChatHistory, UpgradeChat
+        from sqlalchemy import select, func
+
+        user_id = uuid.UUID(str(user.id)) if user.id else uuid.UUID(request.state.user_id)
+
+        conversations = []
+        async with request.app.state.postgres_manager.get_session() as session:
+            stmt = (
+                select(UpgradeChatHistory)
+                .where(UpgradeChatHistory.user_id == user_id, UpgradeChatHistory.is_deleted == False)
+                .order_by(UpgradeChatHistory.updated_at.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+            res = await session.execute(stmt)
+            histories = res.scalars().all()
+
+            count_stmt = select(func.count(UpgradeChatHistory.id)).where(
+                UpgradeChatHistory.user_id == user_id, UpgradeChatHistory.is_deleted == False
+            )
+            total_count = await session.scalar(count_stmt)
+
+            # For each history, fetch the most recent chat entry (if any)
+            for h in histories:
+                last_msg = None
+                chat_stmt = (
+                    select(UpgradeChat)
+                    .where(UpgradeChat.history_id == h.id)
+                    .order_by(UpgradeChat.created_at.desc())
+                    .limit(1)
+                )
+                chat_res = await session.execute(chat_stmt)
+                last_chat = chat_res.scalars().first()
+                if last_chat:
+                    last_msg = last_chat.content
+
+                conversations.append(
+                    {
+                        "conversation_id": str(h.id),
+                        "title": h.title,
+                        "last_message": last_msg,
+                        "created_at": h.created_at.isoformat() if h.created_at else None,
+                        "updated_at": h.updated_at.isoformat() if h.updated_at else None,
+                    }
+                )
+
+        response = SuccessResponse(
+            status="success",
+            data={
+                "conversations": conversations,
+                "total": total_count,
+                "limit": limit,
+                "offset": offset,
+            },
+            message="Successfully retrieved user conversations",
+        )
+
+        return JSONResponse(content=response.model_dump(), status_code=status.HTTP_200_OK)
+
+    except Exception as e:
+        logger.error(f"Unable to get my conversations: {str(e)}")
+        response = FailureResponse(
+            status="fail",
+            data=None,
+            message="An error occurred while retrieving conversation list",
+        )
+        return JSONResponse(
+            content=response.model_dump(),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
 @router.get("/{user_id}/conversations", operation_id="get_upgrade_chat")
 async def get_user_conversation_history(
     request: Request,

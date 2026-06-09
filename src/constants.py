@@ -27,6 +27,8 @@ ALLOWED_URL_PATH_WITHOUT_AUTHORIZATION = [
     "/api/v1/users/refresh-token",
     "/api/v1/users/verify-email/",
     "/api/v1/users/reset-password/",
+    "/api/v1/google-auth/google/login",
+    "/api/v1/google-auth/google/callback",
     "/api/v1/chat",
     "/api/v1/tts",
     "/api/v1/generate-image",

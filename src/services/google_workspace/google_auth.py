@@ -42,9 +42,10 @@ class GoogleAuthService:
         """Generates the Google authorization URL."""
         flow = self.get_auth_flow()
         authorization_url, state = flow.authorization_url(
-            access_type="offline", include_granted_scopes="true", prompt="consent"
+            access_type="offline", include_granted_scopes="true"
         )
         logger.info(f"Generated Google authorization URL: {authorization_url}")
+        logger.debug(f"Google auth flow state: {state}")
         return authorization_url
 
     async def exchange_code_for_token(self, auth_code: str) -> dict:

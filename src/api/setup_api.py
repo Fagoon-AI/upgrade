@@ -115,7 +115,7 @@ def setup_and_combine_all_routers() -> APIRouter:
     router.include_router(
         google_auth.router,
         prefix="/google-auth",
-        tags=["Google Workspace Authorization"]
+        tags=["Google Authorization"]
     )
     router.include_router(gmail.router, prefix="/gmail", tags=["Gmail"])
     router.include_router(drive.router, prefix="/drive", tags=["Drive"])
