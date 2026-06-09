@@ -47,19 +47,19 @@ class PDFDocumentExtractor:
     def _extract_all_pages(self, reader: DocumentReader) -> List[PageData]:
         pages_data = []
         total_pages = len(reader.pages)
-        logger.debug(f"Starting extraction of {total_pages} pages.")
+        logger.debug("Starting extraction of {} pages.", total_pages)
 
         for i, page in enumerate(reader.pages, start=1):
             try:
                 page_data = self._extract_single_page(i, page)
                 pages_data.append(page_data)
-                logger.debug(f"Page {i} extracted successfully.")
+                logger.debug("Page {} extracted successfully.", i)
             except ValidationError as ve:
-                logger.error(f"Validation failed for page {i}: {ve}")
+                logger.error("Validation failed for page {}: {}", i, ve)
             except Exception as e:
-                logger.warning(f"Failed to extract page {i}: {e}")
+                logger.warning("Failed to extract page {}: {}", i, e)
 
-        logger.info(f"Extraction completed for {len(pages_data)} pages.")
+        logger.info("Extraction completed for {} pages.", len(pages_data))
         return pages_data
 
     def _extract_single_page(self, page_number: int, page) -> PageData:

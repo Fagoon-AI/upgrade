@@ -49,10 +49,10 @@ class PromptEnhancerService:
             enhanced_prompt = str(response_json.get("enhanced_prompt", str(original_prompt)))
             image_description = str(response_json.get("image_description", "An AI-generated image."))
 
-            logger.info(f"Prompt enhanced: '{original_prompt}' -> '{enhanced_prompt}'")
+            logger.info("Prompt enhanced: '{}' -> '{}'", original_prompt, enhanced_prompt)
             return enhanced_prompt, image_description
 
         except Exception as e:
-            logger.exception(f"Failed to enhance prompt: {e}")
+            logger.exception("Failed to enhance prompt: {}", e)
             # Always return a string for enhanced_prompt to avoid invalid_type errors
             return str(original_prompt), f"An AI-generated image based on the prompt: {original_prompt}"

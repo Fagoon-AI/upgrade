@@ -19,11 +19,12 @@ class AIService:
             try:
                 self.client = Groq(api_key=system_setting.GROQ_API_KEY)
                 logger.info(
-                    f"Groq AI Service initialized with model: {system_setting.GROQ_MODEL_NAME}."
+                    "Groq AI Service initialized with model: {}.", system_setting.GROQ_MODEL_NAME
                 )
             except Exception as e:
                 logger.error(
-                    f"Failed to initialize Groq client: {e}. AI Service will use placeholder logic.",
+                    "Failed to initialize Groq client: {}. AI Service will use placeholder logic.",
+                    e,
                     exc_info=True,
                 )
                 self.client = None
@@ -54,7 +55,7 @@ class AIService:
             )
             return chat_completion.choices[0].message.content
         except Exception as e:
-            logger.error(f"Error calling Groq API: {e}", exc_info=True)
+            logger.error("Error calling Groq API: {}", e, exc_info=True)
             return None
 
     async def summarize_text(self, text: str) -> str:

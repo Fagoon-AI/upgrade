@@ -44,7 +44,7 @@ async def get_available_models():
         )
 
     except Exception as e:
-        logger.error(f"An error occurred while fetching the available models: {e}")
+        logger.error("An error occurred while fetching the available models: {}", e)
         response = FailureResponse(
             status="fail", data=None, message=f"An unexpected error occurred: {e}"
         )

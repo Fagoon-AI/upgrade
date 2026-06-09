@@ -42,7 +42,7 @@ class Crawl4AIService:
         crawler = await self._get_crawler()
 
         async with self._semaphore:
-            logger.info(f"Crawling {len(urls)} URLs with shared Crawl4AI instance: {urls}")
+            logger.info("Crawling {} URLs with shared Crawl4AI instance: {}", len(urls), urls)
             try:
                 # Use wait_for to add a timeout to the overall crawl operation
                 results = await asyncio.wait_for(crawler.arun_many(urls), timeout=60.0)
@@ -51,16 +51,16 @@ class Crawl4AIService:
                     if result.success:
                         content = result.markdown or result.text or ""
                         scraped_contents.append(content)
-                        logger.success(f"Successfully scraped content from {result.url}")
+                        logger.success("Successfully scraped content from {}", result.url)
                     else:
                         scraped_contents.append("")
-                        logger.warning(f"Failed to crawl {result.url} with error: {result.error_message}")
+                        logger.warning("Failed to crawl {} with error: {}", result.url, result.error_message)
                 return scraped_contents
             except asyncio.TimeoutError:
-                logger.error(f"Crawling timed out for URLs: {urls}")
+                logger.error("Crawling timed out for URLs: {}", urls)
                 return [""] * len(urls)
             except Exception as e:
-                logger.error(f"Crawl4AI failed to process multiple URLs: {e}", exc_info=True)
+                logger.error("Crawl4AI failed to process multiple URLs: {}", e, exc_info=True)
                 return [""] * len(urls)
 
     async def close(self):

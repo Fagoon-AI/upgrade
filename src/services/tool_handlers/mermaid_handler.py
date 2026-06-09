@@ -42,7 +42,7 @@ class MermaidHandler(BaseToolHandler):
 
             return full_description.strip()
         except Exception as e:
-            logger.error(f"Failed to generate description for Mermaid code: {e}")
+            logger.error("Failed to generate description for Mermaid code: {}", e)
             return "I've generated the Mermaid diagram code for you."
 
     async def execute(self, conversation_history: List[Dict[str, Any]]) -> AsyncGenerator[str, None]:
@@ -79,7 +79,7 @@ class MermaidHandler(BaseToolHandler):
                 yield chunk
 
         except (ValueError, RuntimeError) as e:
-            logger.error(f"Failed to generate Mermaid diagram code: {e}", exc_info=True)
+            logger.error("Failed to generate Mermaid diagram code: {}", e, exc_info=True)
             error_message = f"I'm sorry, I encountered an error creating the diagram: {str(e)}"
             self.response_manager.append_message_chunk(error_message)
             async for chunk in self.response_manager.send_event(EventType.LLM_RESPONSE, error_message):

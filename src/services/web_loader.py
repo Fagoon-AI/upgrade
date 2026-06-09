@@ -30,7 +30,7 @@ class WebPageLoaderService:
                 page_content = self.loader.load_data(url)
                 content.append(page_content)
             except Exception as e:
-                logger.error(f"Error while fetching content from {url}: {e}")
+                logger.error("Error while fetching content from {}: {}", url, e)
                 content.append(None)
 
         return content
