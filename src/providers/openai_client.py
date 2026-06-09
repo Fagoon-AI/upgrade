@@ -6,12 +6,12 @@ from openai.types.audio.transcription import Transcription
 from src.core.settings import system_setting
 
 
-def get_client():
-    return OpenAI(api_key=system_setting.OPENAI_API_KEY)
+def get_client(api_key: str | None = None):
+    return OpenAI(api_key=api_key or system_setting.OPENAI_API_KEY)
 
 
-def aget_client():
-    return AsyncClient(api_key=system_setting.OPENAI_API_KEY)
+def aget_client(api_key: str | None = None):
+    return AsyncClient(api_key=api_key or system_setting.OPENAI_API_KEY)
 
 
 # Response Completion Type of OpenAI for Non Streaming Response

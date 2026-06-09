@@ -44,10 +44,14 @@ async def upload_agent_file_to_storage(
 
     try:
         uploaded_files = await file_service.process_and_upload_files(effective_user_id, agent_id, files)
+        has_errors = any(item.get("error") for item in uploaded_files)
+        message = "Files uploaded successfully."
+        if has_errors:
+            message = "Files processed, but some uploads failed. Check file metadata for details."
 
         result = SuccessResponse(
             status="success",
-            message="Files uploaded successfully.",
+            message=message,
             data={"agent_id": agent_id, "files": uploaded_files},
         )
         return JSONResponse(status_code=status.HTTP_200_OK, content=result.model_dump())
