@@ -59,7 +59,7 @@ class AuthService:
                         password_changed_at=sql_user.password_changed_at,
                     ), sql_user
             except Exception as e:
-                logger.error(f"Error getting user by email: {e}")
+                logger.error("Error getting user by email: {}", e)
         
         return None, None
 
@@ -111,16 +111,16 @@ class AuthService:
                 await self._send_verification_email(user_data.email, verification_token_raw)
                 return user_in_db
             except Exception as e:
-                logger.error(f"Postgres signup failed: {e}")
+                logger.error("Postgres signup failed: {}", e)
                 raise AppError("Failed to register user.", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     async def _send_verification_email(self, email: str, token: str):
         verification_url = f"{system_setting.FAGOON_URL}/verify-email/{token}"
         try:
             await self.email_service.send_signup_email(email, verification_url)
-            logger.info(f"Verification email sent to {email}")
+            logger.info("Verification email sent to {}", email)
         except Exception as e:
-            logger.error(f"Failed to send signup email for {email}: {e}")
+            logger.error("Failed to send signup email for {}: {}", email, e)
             # We don't raise an error here to avoid failing the whole registration
             # if the user was already created in the DB.
 
@@ -158,10 +158,56 @@ class AuthService:
         if not is_correct_password:
             raise AppError("Incorrect email or password.", status_code=status.HTTP_401_UNAUTHORIZED)
 
-        logger.info(f"User {user_in_db.email} logged in successfully.")
+        logger.info("User {} logged in successfully.", user_in_db.email)
         return user_in_db
 
     async def logout_user(self, user_id: str):
         """Invalidates all refresh tokens for the logged-out user."""
         await invalidate_all_refresh_tokens_for_user(user_id, self.postgres_manager)
-        logger.info(f"All refresh tokens for user {user_id} invalidated upon logout.")
+        logger.info("All refresh tokens for user {} invalidated upon logout.", user_id)
+
+    async def refresh_access_token(
+            self, request: Request, response: Response, refresh_token_raw: str
+    ) -> UserInDB:
+        """
+        Validates a raw refresh token and returns the corresponding UserInDB.
+        The old token is consumed/deleted upon successful validation.
+        """
+        hashed_token = hashlib.sha256(refresh_token_raw.encode("utf-8")).hexdigest()
+
+        async with self.postgres_manager.get_session() as session:
+            from src.models.sql.models import RefreshToken as SQLRefreshToken, User as SQLUser
+            from sqlalchemy import select
+
+            # Find valid, non-expired token
+            stmt = select(SQLRefreshToken).where(
+                SQLRefreshToken.token == hashed_token,
+                SQLRefreshToken.expires_at > datetime.now(timezone.utc)
+            )
+            res = await session.execute(stmt)
+            token_doc = res.scalar_one_or_none()
+
+            if not token_doc:
+                raise AppError("Your session has expired. Please log in again.", status_code=status.HTTP_401_UNAUTHORIZED)
+
+            # Get user and verify they are still active
+            user = await session.get(SQLUser, token_doc.user_id)
+            if not user or not user.active:
+                raise AppError("Unauthorized: user not found or inactive", status_code=status.HTTP_401_UNAUTHORIZED)
+
+            # Consume the old refresh token
+            await session.delete(token_doc)
+            await session.commit()
+
+            return UserInDB(
+                _id=str(user.id),
+                name=user.name,
+                email=user.email,
+                password=user.password_hash,
+                photo=user.photo,
+                role=user.role,
+                active=user.active,
+                verified=user.verified,
+                password_changed_at=user.password_changed_at,
+                social_media=user.social_media
+            )

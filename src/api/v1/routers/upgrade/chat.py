@@ -56,7 +56,7 @@ async def create_chat(
         )
 
     except Exception as e:
-        logger.error(f"Unable to create chat entrypoint: {str(e)}")
+        logger.error("Unable to create chat entrypoint: {}", e)
         response = FailureResponse(
             status="fail",
             data=None,
@@ -77,15 +77,24 @@ async def get_user_conversation_history(
     pg_services: PostgresServices = Depends(get_postgres_services),
 ):
     try:
+        # Validate UUID
+        try:
+            target_user_id = uuid.UUID(user_id)
+        except ValueError:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content=FailureResponse(status="fail", message="Invalid user ID format. UUID expected.").model_dump()
+            )
+
         from src.models.sql.models import UpgradeChatHistory
         from sqlalchemy import select, func
         
         async with request.app.state.postgres_manager.get_session() as session:
-            stmt = select(UpgradeChatHistory).where(UpgradeChatHistory.user_id == uuid.UUID(user_id), UpgradeChatHistory.is_deleted == False).order_by(UpgradeChatHistory.updated_at.desc()).limit(limit).offset(offset)
+            stmt = select(UpgradeChatHistory).where(UpgradeChatHistory.user_id == target_user_id, UpgradeChatHistory.is_deleted == False).order_by(UpgradeChatHistory.updated_at.desc()).limit(limit).offset(offset)
             res = await session.execute(stmt)
             chat_history = res.scalars().all()
             
-            count_stmt = select(func.count(UpgradeChatHistory.id)).where(UpgradeChatHistory.user_id == uuid.UUID(user_id), UpgradeChatHistory.is_deleted == False)
+            count_stmt = select(func.count(UpgradeChatHistory.id)).where(UpgradeChatHistory.user_id == target_user_id, UpgradeChatHistory.is_deleted == False)
             total_count = await session.scalar(count_stmt)
 
         response = SuccessResponse(
@@ -104,7 +113,7 @@ async def get_user_conversation_history(
         )
 
     except Exception as e:
-        logger.error(f"Unable to get conversation history: {str(e)}")
+        logger.error("Unable to get conversation history: {}", e)
         response = FailureResponse(
             status="fail",
             data=None,
@@ -138,7 +147,7 @@ async def get_user_conversation_by_id(
         )
 
     except Exception as e:
-        logger.error(f"Error fetching conversation {conversation_id}: {str(e)}")
+        logger.error("Error fetching conversation {}: {}", conversation_id, e)
         return JSONResponse(
             status_code=500,
             content=FailureResponse(status="fail", message="Error fetching history").model_dump()
@@ -169,7 +178,7 @@ async def delete_conversation(
         )
 
     except Exception as e:
-        logger.error(f"Unable to delete conversation: {str(e)}")
+        logger.error("Unable to delete conversation: {}", e)
         return JSONResponse(
             content=FailureResponse(status="fail", message="Error deleting conversation").model_dump(),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -207,7 +216,7 @@ async def stream_chat_completion_request(
         return StreamingResponse(orchestrator.stream(), media_type="text/event-stream")
 
     except Exception as e:
-        logger.error(f"Error during chat streaming: {e}", exc_info=True)
+        logger.error("Error during chat streaming: {}", e, exc_info=True)
         raise HTTPException(status_code=500, detail="An internal error occurred during streaming.")
 
 
@@ -259,5 +268,5 @@ async def upload_file(
         )
 
     except Exception as e:
-        logger.error(f"Failed to upload file: {e}", exc_info=True)
+        logger.error("Failed to upload file: {}", e, exc_info=True)
         return FailureResponse(status="fail", message=f"Upload failed: {e}")

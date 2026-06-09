@@ -20,7 +20,7 @@ class SpeechToTextService:
         if self._stt_client is None:
             provider = self._config.provider
             if provider not in self._provider_map:
-                logger.error(f"Unsupported STT provider: {provider}")
+                logger.error("Unsupported STT provider: {}", provider)
                 raise ValueError(f"Unsupported provider: {provider}")
             stt_cls = self._provider_map[provider]
             self._stt_client = stt_cls(self._config)
@@ -29,10 +29,10 @@ class SpeechToTextService:
     @async_time_execution
     async def convert_speech_to_text(self, audio: bytes, **kwargs) -> str:
         try:
-            logger.info(f"Starting speech-to-text conversion with provider '{self._config.provider}'.")
+            logger.info("Starting speech-to-text conversion with provider '{}'.", self._config.provider)
             transcribed_text = await self.stt_client.transcribe(audio=audio, **kwargs)
             logger.success("Successfully converted speech to text.")
             return transcribed_text
         except Exception as e:
-            logger.error(f"An error occurred during speech-to-text conversion: {e}", exc_info=True)
+            logger.error("An error occurred during speech-to-text conversion: {}", e, exc_info=True)
             raise e from e

@@ -66,18 +66,18 @@ class WebSearchService:
 
             queries = json.loads(cleaned_response)
             if isinstance(queries, list) and len(queries) > 0:
-                logger.info(f"Generated alternate queries: {queries}")
+                logger.info("Generated alternate queries: {}", queries)
                 return [self.query] + queries[:3]
             return [self.query]
         except Exception as e:
-            logger.warning(f"Failed to generate search queries, using original query. Error: {e}")
+            logger.warning("Failed to generate search queries, using original query. Error: {}", e)
             return [self.query, f"{self.query} benefits", f"{self.query} risks"]
 
     async def _find_relevant_urls(self, query: str) -> List[Dict[str, str]]:
         for provider in self.search_providers:
             if provider.is_configured():
                 try:
-                    logger.info(f"Finding URLs for '{query}' using {provider.name}.")
+                    logger.info("Finding URLs for '{}' using {}.", query, provider.name)
                     results = await provider.search(query)
                     if results: return results
                 except Exception as e:
@@ -139,7 +139,7 @@ class WebSearchService:
                 yield {"type": "llm_token", "data": token}
 
         except Exception as e:
-            logger.error(f"An unexpected error in search_and_respond: {e}", exc_info=True)
+            logger.error("An unexpected error in search_and_respond: {}", e, exc_info=True)
             yield {"type": "final_response", "data": "An unexpected error occurred while processing your request."}
 
     async def _synthesize_response_stream(self, context: str, urls: list) -> AsyncGenerator[str, None]:

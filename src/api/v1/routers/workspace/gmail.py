@@ -50,8 +50,10 @@ async def send_email(
             "message": f"Email sent successfully. Message ID: {sent_message.get('id')}"
         }
     except HttpError as e:
+        error_msg = e.content.decode() if e.content else e
         logger.error(
-            f"Gmail API error sending email: {e.content.decode() if e.content else e}",
+            "Gmail API error sending email: {}",
+            error_msg,
             exc_info=True,
         )
         raise HTTPException(
@@ -60,10 +62,10 @@ async def send_email(
                 if hasattr(e, "resp")
                 else status.HTTP_500_INTERNAL_SERVER_ERROR
             ),
-            detail=f"Failed to send email: {e.content.decode() if e.content else e}",
+            detail=f"Failed to send email: {error_msg}",
         )
     except Exception as e:
-        logger.error(f"Unexpected error sending email: {e}", exc_info=True)
+        logger.error("Unexpected error sending email: {}", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while sending email.",
@@ -97,8 +99,10 @@ async def reply_email(
             "message": f"Reply sent successfully. Message ID: {sent_message.get('id')}"
         }
     except HttpError as e:
+        error_msg = e.content.decode() if e.content else e
         logger.error(
-            f"Gmail API error replying to email: {e.content.decode() if e.content else e}",
+            "Gmail API error replying to email: {}",
+            error_msg,
             exc_info=True,
         )
         raise HTTPException(
@@ -107,10 +111,10 @@ async def reply_email(
                 if hasattr(e, "resp")
                 else status.HTTP_500_INTERNAL_SERVER_ERROR
             ),
-            detail=f"Failed to reply to email: {e.content.decode() if e.content else e}",
+            detail=f"Failed to reply to email: {error_msg}",
         )
     except Exception as e:
-        logger.error(f"Unexpected error replying to email: {e}", exc_info=True)
+        logger.error("Unexpected error replying to email: {}", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while replying to email.",
@@ -145,8 +149,10 @@ async def get_email_details(
             date=headers.get("date"),
         )
     except HttpError as e:
+        error_msg = e.content.decode() if e.content else e
         logger.error(
-            f"Gmail API error getting message details: {e.content.decode() if e.content else e}",
+            "Gmail API error getting message details: {}",
+            error_msg,
             exc_info=True,
         )
         status_code = (
@@ -161,10 +167,10 @@ async def get_email_details(
             )
         raise HTTPException(
             status_code=status_code,
-            detail=f"Failed to retrieve message details: {e.content.decode() if e.content else e}",
+            detail=f"Failed to retrieve message details: {error_msg}",
         )
     except Exception as e:
-        logger.error(f"Unexpected error getting message details: {e}", exc_info=True)
+        logger.error("Unexpected error getting message details: {}", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while retrieving message details.",
@@ -190,8 +196,10 @@ async def list_emails(
         )
         return [EmailInfo(**msg) for msg in messages]
     except HttpError as e:
+        error_msg = e.content.decode() if e.content else e
         logger.error(
-            f"Gmail API error listing emails: {e.content.decode() if e.content else e}",
+            "Gmail API error listing emails: {}",
+            error_msg,
             exc_info=True,
         )
         raise HTTPException(
@@ -200,10 +208,10 @@ async def list_emails(
                 if hasattr(e, "resp")
                 else status.HTTP_500_INTERNAL_SERVER_ERROR
             ),
-            detail=f"Failed to list emails: {e.content.decode() if e.content else e}",
+            detail=f"Failed to list emails: {error_msg}",
         )
     except Exception as e:
-        logger.error(f"Unexpected error listing emails: {e}", exc_info=True)
+        logger.error("Unexpected error listing emails: {}", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while listing emails.",
@@ -239,8 +247,10 @@ async def summarize_email(
             original_content=email_content,
         )
     except HttpError as e:
+        error_msg = e.content.decode() if e.content else e
         logger.error(
-            f"Gmail API error during summarization: {e.content.decode() if e.content else e}",
+            "Gmail API error during summarization: {}",
+            error_msg,
             exc_info=True,
         )
         status_code = (
@@ -255,10 +265,10 @@ async def summarize_email(
             )
         raise HTTPException(
             status_code=status_code,
-            detail=f"Failed to retrieve email for summarization: {e.content.decode() if e.content else e}",
+            detail=f"Failed to retrieve email for summarization: {error_msg}",
         )
     except Exception as e:
-        logger.error(f"Unexpected error during email summarization: {e}", exc_info=True)
+        logger.error("Unexpected error during email summarization: {}", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred during email summarization.",

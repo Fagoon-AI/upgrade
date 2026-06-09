@@ -51,7 +51,7 @@ async def get_ingestion_status(
                 ).model_dump(),
             )
     except Exception as e:
-        logger.error(f"Error occurred while fetching ingestion status: {e}", exc_info=True)
+        logger.error("Error occurred while fetching ingestion status: {}", e, exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=FailureResponse(
@@ -81,7 +81,7 @@ async def background_ingestion_task(
         logger.info(f"Background ingestion task completed for agent {agent_id}.")
 
     except Exception as e:
-        logger.error(f"Error in isolated background task for agent {agent_id}: {e}", exc_info=True)
+        logger.error("Error in isolated background task for agent {}: {}", agent_id, e, exc_info=True)
 
 @agents_router.post(path="", operation_id="create_agent_with_knowledge_base")
 async def create_requested_agent(
@@ -147,7 +147,7 @@ async def get_all_agents(
             status_code=status.HTTP_200_OK, content=response.model_dump()
         )
     except Exception as e:
-        logger.error(f"Error occurred while fetching agents: {e}", exc_info=True)
+        logger.error("Error occurred while fetching agents: {}", e, exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=FailureResponse(
@@ -188,7 +188,7 @@ async def get_requested_agent_details(
             status_code=status.HTTP_200_OK, content=response.model_dump(mode="json")
         )
     except Exception as e:
-        logger.error(f"Error occurred while fetching agent detail: {e}", exc_info=True)
+        logger.error("Error occurred while fetching agent detail: {}", e, exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=FailureResponse(
@@ -225,7 +225,7 @@ async def update_requested_agent_details(
             status_code=status.HTTP_200_OK, content=response.model_dump()
         )
     except Exception as e:
-        logger.error(f"Error occurred while updating agent detail: {e}", exc_info=True)
+        logger.error("Error occurred while updating agent detail: {}", e, exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=FailureResponse(
@@ -260,7 +260,7 @@ async def delete_requested_agent(
             status_code=status.HTTP_200_OK, content=response.model_dump()
         )
     except Exception as e:
-        logger.error(f"Error occurred while deleting agent: {e}", exc_info=True)
+        logger.error("Error occurred while deleting agent: {}", e, exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=FailureResponse(

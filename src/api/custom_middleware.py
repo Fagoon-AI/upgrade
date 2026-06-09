@@ -48,6 +48,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 logger.info("Access token missing, attempting refresh.")
                 return await self._handle_refresh_and_proceed(request, call_next, refresh_token_cookie)
             else:
+                logger.warning(f"401 Unauthorized: Access token is missing. Path: {request.url.path} | Headers: {dict(request.headers)} | Cookies: {dict(request.cookies)}")
                 return JSONResponse(
                     status_code=HTTP_401_UNAUTHORIZED,
                     content={"detail": "Authentication failed: Access token is missing."}
@@ -91,7 +92,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                                     social_media=sql_user.social_media
                                 )
                     except Exception as pg_err:
-                        logger.warning(f"Postgres auth lookup failed: {pg_err}")
+                        logger.warning("Postgres auth lookup failed: {}", pg_err)
 
             if not current_user:
                 raise AppError("Unauthorized: user not found or inactive", status_code=HTTP_401_UNAUTHORIZED)
@@ -122,7 +123,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 return response
 
         except (jwt.InvalidTokenError, AppError) as e:
-            detail = e.detail if isinstance(e, AppError) else "Invalid token. Please log in again."
+            detail = e.message if isinstance(e, AppError) else "Invalid token. Please log in again."
             status_code = e.status_code if isinstance(e, AppError) else HTTP_401_UNAUTHORIZED
             logger.warning(f"Authentication failed: {detail}")
             response = JSONResponse(status_code=status_code, content={"detail": detail})
@@ -149,6 +150,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             (new_access_token, new_refresh_token_raw, access_expires, refresh_expires, refreshed_user) = refresh_result
 
             request.state.user = refreshed_user
+            request.state.user_id = refreshed_user.id
             request.state.access = [{"role": refreshed_user.role}] if refreshed_user.role else []
 
             new_headers = MutableHeaders(request.headers)
@@ -160,7 +162,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return response
 
         except AppError as e:
-            response = JSONResponse(status_code=e.status_code, content={"detail": e.detail})
+            response = JSONResponse(status_code=e.status_code, content={"detail": e.message})
             await clear_auth_cookies(response)
             return response
         except Exception as e:
@@ -242,13 +244,21 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if any(path.startswith(dp) for dp in dynamic_prefixes):
             return True
 
-        # 4. Handle potential swagger path prefix (or other known prefixes)
-        swagger_prefix = system_setting.API_SWAGGER_PATH.rstrip("/")
-        if swagger_prefix and path.startswith(swagger_prefix) and path != swagger_prefix:
-            sub_path = path[len(swagger_prefix):]
-            if not sub_path.startswith("/"):
-                sub_path = "/" + sub_path
-            return self._is_public_path(sub_path)
+        # 4. Handle potential prefixes (swagger path, /agent-api, /api)
+        possible_prefixes = [
+            system_setting.API_SWAGGER_PATH.rstrip("/"),
+            "/agent-api",
+            "/api"
+        ]
+        
+        for prefix in possible_prefixes:
+            if prefix and path.startswith(prefix) and path != prefix:
+                sub_path = path[len(prefix):]
+                if not sub_path.startswith("/"):
+                    sub_path = "/" + sub_path
+                # Recursively check the sub-path
+                if self._is_public_path(sub_path):
+                    return True
 
         return False
 

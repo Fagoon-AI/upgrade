@@ -25,10 +25,10 @@ def parse_pdf_with_coordinates(file_bytes: bytes) -> List[Dict]:
                     ],
                 }
                 pages_with_words.append(page_data)
-        logger.success(f"Successfully parsed {len(pages_with_words)} pages from PDF.")
+        logger.success("Successfully parsed {} pages from PDF.", len(pages_with_words))
         return pages_with_words
     except Exception as e:
-        logger.error(f"Failed to parse PDF for word-level data: {e}", exc_info=True)
+        logger.error("Failed to parse PDF for word-level data: {}", e, exc_info=True)
         return []
 
 def parse_text(content: str) -> str:
@@ -36,5 +36,5 @@ def parse_text(content: str) -> str:
     Cleans plain text content from sources like web pages.
     """
     cleaned_text = " ".join(content.split())
-    logger.info(f"Parsed and cleaned text content, final length: {len(cleaned_text)} chars.")
+    logger.info("Parsed and cleaned text content, final length: {} chars.", len(cleaned_text))
     return cleaned_text

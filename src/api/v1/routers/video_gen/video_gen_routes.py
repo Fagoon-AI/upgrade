@@ -58,7 +58,7 @@ async def submit_video_prompt(
                 },
             )
         except Exception as e:
-            logger.error(f"Enhancement failed: {e}")
+            logger.error("Enhancement failed: {}", e)
             final_prompt_for_video = original_prompt
             await update_job_in_db(
                 pg_services=pg_services,
