@@ -43,6 +43,8 @@ async def generate_general_response(
     )
 
     async for chunk in response_stream:
+        if not chunk.choices:
+            continue
         content = chunk.choices[0].delta.content
         if content is not None:
             yield content
@@ -72,6 +74,8 @@ async def generate_general_chat_response(
     )
 
     async for chunk in response_stream:
+        if not chunk.choices:
+            continue
         content = chunk.choices[0].delta.content
         if content is not None:
             yield content

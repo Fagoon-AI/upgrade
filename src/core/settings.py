@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     ELEVENLABS_API_KEY: str = None
     GOOGLE_API_KEY: str = None
     ANTHROPIC_API_KEY: str = None
+    ENV: str = "development"
 
     # PostgreSQL Connection
     DATABASE_URL: str
@@ -103,8 +104,8 @@ class Settings(BaseSettings):
     SERPER_API_KEY: str
     SERPAPI_API_KEY: str
     FAL_KEY: str = None
-    FAST_MODEL_PROVIDER: str = "groq"
-    FAST_MODEL_ID: str = "llama3-8b-8192"
+    FAST_MODEL_PROVIDER: str = "gemini"
+    FAST_MODEL_ID: str = "gemini-2.5-flash"
 
     SMART_MODEL_PROVIDER: str = "openai"
     SMART_MODEL_ID: str = "gpt-4o"

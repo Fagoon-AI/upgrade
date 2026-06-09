@@ -171,7 +171,8 @@ async def refresh_token(
         raise AppError("No refresh token provided.", status_code=status.HTTP_401_UNAUTHORIZED)
 
     user_to_reauthenticate = await auth_service.refresh_access_token(request, response, refresh_token)
-    return await create_and_send_token(user_to_reauthenticate, response, request)
+    await create_and_send_token(user_to_reauthenticate, response, request)
+    return UserResponse.model_validate(user_to_reauthenticate.model_dump(by_alias=True))
 
 
 @router.get("/protect", response_model=Dict[str, Any])

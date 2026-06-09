@@ -101,10 +101,11 @@ async def analyze_and_select_tools(
 
     # Fallback: Use LLM for more complex queries that don't match simple rules.
     logger.info("No simple rules matched. Using LLM for tool analysis.")
+    from src.core.settings import system_setting
     llm_service = LLMService(
         BaseLLMConfig(
-            model="llama-3.3-70b-versatile",
-            provider="groq",
+            model=system_setting.FAST_MODEL_ID,
+            provider=system_setting.FAST_MODEL_PROVIDER,
         )
     )
     try:

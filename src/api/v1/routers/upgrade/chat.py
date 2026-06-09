@@ -39,11 +39,15 @@ async def create_chat(
     request:Request,
     pg_services: PostgresServices = Depends(get_postgres_services),
 ):
-    user_id = request.state.user_id
+    user = request.state.user
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    user_id = str(user.id) if user.id else request.state.user_id
+
     try:
         document_processor = DocumentProcessor()
         chat_service = UpgradeChatService(request.app.state.postgres_manager, document_processor)
-        conversation_id = await chat_service.create_upgrade_conversation(user_id)
+        conversation_id = await chat_service.create_upgrade_conversation(str(user_id))
 
         response = SuccessResponse(
             status="success",
@@ -187,14 +191,18 @@ async def stream_chat_completion_request(
     """
     input_request = None
     try:
+        user = request.state.user
+        if not user:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+        
         input_request = await validate_request_body(request, ChatCompletionInputRequest)
-        user_id = request.state.user_id
+        user_id = str(user.id) if user.id else request.state.user_id
         
         user_preferences = Preference() 
 
         chat_context = ChatContext(
             request=input_request,
-            user=request.state.user,
+            user=user,
             user_preferences=user_preferences,
             db_services=pg_services,
             postgres_manager=request.app.state.postgres_manager,
