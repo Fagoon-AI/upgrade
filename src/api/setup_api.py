@@ -9,7 +9,7 @@ from src.api.v1.routers.workflow import (
     web_loader,
     speech_to_text,
 )
-
+from src.api.v1.routers import webhook_router
 from src.api.v1.routers.agents import (
     agents_router,
     modelcard_router,
@@ -74,6 +74,12 @@ def setup_and_combine_all_routers() -> APIRouter:
         files_router.router,
         prefix="/file",
         tags=["File Upload", "Agents"],
+    )
+
+    router.include_router(
+        webhook_router.router,
+        prefix="/webhook",
+        tags=["Channel Webhooks"],
     )
 
     router.include_router(

@@ -120,3 +120,20 @@ def generate_video_task(
         async def close_pg(): await pg_manager.close()
         try: asyncio.run(close_pg())
         except: pass
+
+
+@celery_app.task(bind=True, name="app.tasks.process_webhook_message", acks_late=True, ignore_result=True)
+def process_webhook_message_task(self, event: dict):
+    logger.info("Celery webhook message task {} started for event: {}", self.request.id, event.get("message_id"))
+
+    if not system_setting.DATABASE_URL:
+        logger.critical("DATABASE_URL not set in Celery worker! Cannot process webhook message.")
+        return
+
+    try:
+        from src.services.channel_adapter.processor import process_webhook_event
+
+        asyncio.run(process_webhook_event(event))
+        logger.info("Celery webhook message task {} finished for event: {}", self.request.id, event.get("message_id"))
+    except Exception as e:
+        logger.error("Error running webhook message task {}: {}", self.request.id, e, exc_info=True)

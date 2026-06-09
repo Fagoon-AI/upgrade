@@ -109,6 +109,16 @@ class Settings(BaseSettings):
     SMART_MODEL_PROVIDER: str = "openai"
     SMART_MODEL_ID: str = "gpt-4o"
 
+    # Channel webhook / integration configuration
+    REDIS_URL: str = "redis://localhost:6379/0"
+    WEBHOOK_VERIFY_TOKEN: Optional[str] = None
+    WHATSAPP_APP_SECRET: Optional[str] = None
+    WHATSAPP_PHONE_NUMBER_ID: Optional[str] = None
+    WHATSAPP_ACCESS_TOKEN: Optional[str] = None
+    FACEBOOK_APP_SECRET: Optional[str] = None
+    FACEBOOK_PAGE_ACCESS_TOKEN: Optional[str] = None
+    TELEGRAM_BOT_TOKEN: Optional[str] = None
+    TELEGRAM_BOT_SECRET_TOKEN: Optional[str] = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_ignore_empty=True, env_file_encoding='utf-8', case_sensitive=False, override=True)
 

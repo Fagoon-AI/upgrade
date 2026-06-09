@@ -240,6 +240,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             f"{v1}/auth/reset-password/",
             f"{v1}/users/verify-email/",
             f"{v1}/users/reset-password/",
+            f"{v1}/webhook/",
         ]
         if any(path.startswith(dp) for dp in dynamic_prefixes):
             return True

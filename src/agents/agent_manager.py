@@ -25,12 +25,15 @@ class AgentManager:
         async with self.postgres_manager.get_session() as session:
             pg_services = PostgresServices(session)
             
+            agent_name = agent_data.name or "Unnamed Agent"
+            agent_instructions = agent_data.instructions or "You are a helpful assistant."
+
             agent_dict = {
                 "id": uuid.uuid4(),
                 "user_id": user_uuid,
-                "name": agent_data.name,
-                "instructions": agent_data.instructions,
-                "config": agent_data.model_dump(exclude={"name", "instructions"}),
+                "name": agent_name,
+                "instructions": agent_instructions,
+                "config": agent_data.model_dump(exclude={"name", "instructions", "created_at", "updated_at"}),
                 "created_at": datetime.now(timezone.utc),
                 "updated_at": datetime.now(timezone.utc)
             }
@@ -56,6 +59,7 @@ class AgentManager:
             if sql_agent and not sql_agent.is_deleted:
                 return {
                     "id": str(sql_agent.id),
+                    "user_id": str(sql_agent.user_id),
                     "name": sql_agent.name,
                     "instructions": sql_agent.instructions,
                     **sql_agent.config
@@ -81,7 +85,7 @@ class AgentManager:
                 } for agent in sql_agents
             ]
 
-    async def update_agent(self, agent_id: str, update_data: AgentUpdateModel) -> bool:
+    async def update_agent(self, agent_id: str, update_data: AgentUpdateModel | dict) -> bool:
         try:
             agent_uuid = uuid.UUID(agent_id)
         except (ValueError, TypeError):
@@ -90,7 +94,11 @@ class AgentManager:
 
         async with self.postgres_manager.get_session() as session:
             pg_services = PostgresServices(session)
-            data = update_data.model_dump(exclude_unset=True)
+            if hasattr(update_data, "model_dump"):
+                data = update_data.model_dump(exclude_unset=True)
+            else:
+                data = dict(update_data or {})
+
             if not data:
                 return False
             
@@ -100,7 +108,6 @@ class AgentManager:
             config_updates = {k: v for k, v in data.items() if k not in std_fields}
             
             if config_updates:
-                # In a real app, you'd merge JSONB. For simplicity here:
                 sql_agent = await pg_services.get_agent_by_id(agent_uuid)
                 if sql_agent:
                     new_config = {**sql_agent.config, **config_updates}

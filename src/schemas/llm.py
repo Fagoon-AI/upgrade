@@ -8,3 +8,4 @@ class BaseLLMConfig(BaseModel):
     provider: Literal["openai", "hugging_face", "groq", "anthropic"]
     temperature: Optional[float] = 0.1
     top_p: Optional[float] = 0.1
+    api_key: Optional[str] = None

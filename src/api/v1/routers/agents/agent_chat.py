@@ -156,11 +156,8 @@ async def agent_chat_streaming(
     orchestrator = request.app.state.chat_orchestrator
     user_id = request.state.user_id
     
-    # Optional LLM Config override
-    llm_config = BaseLLMConfig(
-        model=system_setting.SMART_MODEL_ID,
-        provider=system_setting.SMART_MODEL_PROVIDER
-    )
+    # Optional LLM Config override will be resolved from the agent's saved model settings.
+    llm_config = None
 
     async def event_generator():
         async for token in orchestrator.stream_chat(

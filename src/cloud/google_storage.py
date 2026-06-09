@@ -74,10 +74,13 @@ class GCSFileStorageManager:
 
         target_bucket = self.client.bucket(bucket_name) if bucket_name else self.bucket
         blob = target_bucket.blob(prefixed_path)
-        blob.upload_from_string(file_bytes, content_type=content_type)
-
-        logger.info("File uploaded to {} in bucket {}", prefixed_path, target_bucket.name)
-        return prefixed_path
+        try:
+            blob.upload_from_string(file_bytes, content_type=content_type)
+            logger.info("File uploaded to {} in bucket {}", prefixed_path, target_bucket.name)
+            return prefixed_path
+        except Exception as e:
+            logger.error("Failed to upload binary file to GCS at {}: {}", prefixed_path, e, exc_info=True)
+            raise RuntimeError(f"Failed to upload file to cloud storage: {e}") from e
 
     def read_binary_file(
         self, file_path: str, bucket_name: Optional[str] = None
