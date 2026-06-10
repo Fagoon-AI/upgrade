@@ -90,3 +90,75 @@ class UpgradeChatService:
                     "created_at": msg.created_at.isoformat()
                 } for msg in messages
             ]
+
+    async def prepare_messages_with_system_prompt(
+        self, conversation_history: List[Dict[str, Any]], preferences: Any
+    ) -> List[Dict[str, Any]]:
+        """
+        Formats the raw conversation history for the LLM and prepends a system prompt.
+        """
+        messages = []
+        
+        # Determine the system prompt from preferences or use a default
+        system_prompt = getattr(preferences, "system_prompt", None)
+        if not system_prompt:
+            system_prompt = "You are a helpful, harmless, and honest AI assistant."
+
+        # Add the system prompt first
+        messages.append({"role": "system", "content": system_prompt})
+
+        # Append the rest of the conversation history
+        for msg in conversation_history:
+            # Filter out UI-only metadata if necessary, keeping just role and content
+            formatted_msg = {
+                "role": msg.get("role", "user"),
+                "content": msg.get("content", "")
+            }
+            messages.append(formatted_msg)
+
+        return messages
+
+    async def write_upgrade_message(
+        self,
+        insert_message: Union[List[Dict[str, Any]], str],
+        conversation_id: str,
+        role: str,
+    ) -> bool:
+        async with self.postgres_manager.get_session() as session:
+            try:
+                hist_id = uuid.UUID(conversation_id)
+            except Exception as e:
+                logger.error(f"Invalid conversation_id: {e}")
+                return False
+
+            content = ""
+            metadata = []
+            if isinstance(insert_message, list):
+                for item in insert_message:
+                    if item.get("type") == "chat":
+                        content += item.get("data", "")
+                    else:
+                        metadata.append(item)
+            else:
+                content = str(insert_message)
+
+            # Ensure role is stored as a plain string (handle Enums passed in)
+            role_value = getattr(role, "value", None) if role is not None else None
+            if role_value is None:
+                role_value = str(role)
+
+            message = UpgradeChat(
+                id=uuid.uuid4(),
+                history_id=hist_id,
+                role=role_value,
+                content=content,
+                extra_metadata={"data": metadata} if metadata else {},
+                created_at=datetime.now(timezone.utc)
+            )
+            session.add(message)
+            
+            stmt = update(UpgradeChatHistory).where(UpgradeChatHistory.id == hist_id).values(updated_at=datetime.now(timezone.utc))
+            await session.execute(stmt)
+            
+            await session.commit()
+            return True

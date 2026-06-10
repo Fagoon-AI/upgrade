@@ -112,7 +112,7 @@ async def send_event_data(
     payload = json.dumps(
         {"type": event_type.value, "data": data}, ensure_ascii=False
     )
-    yield payload + "\n\n"
+    yield f"data: {payload}\n\n"
 
 
 def save_image(

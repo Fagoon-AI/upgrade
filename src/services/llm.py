@@ -5,6 +5,7 @@ from src.llms.base import BaseLLM
 from src.llms.groq_llm import GroqLLM
 from src.llms.huggingface_llm import HuggingFaceLLM
 from src.llms.openai_llm import OpenAILLM
+from src.llms.gemini_llm import GeminiLLM
 from src.schemas.llm import BaseLLMConfig
 from src.utils.common import async_time_execution
 
@@ -17,6 +18,7 @@ class LLMService:
         "hugging_face": HuggingFaceLLM,
         "groq": GroqLLM,
         "anthropic": AnthropicLLM,
+        "gemini": GeminiLLM,
     }
 
     def __init__(self, config: BaseLLMConfig) -> None:

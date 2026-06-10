@@ -2,6 +2,7 @@ import asyncio
 from typing import AsyncGenerator, List, Dict, Any
 from loguru import logger
 from fastapi import HTTPException, status, BackgroundTasks
+import openai
 
 from src.schemas.chat_context import ChatContext
 from src.services.response_manager import ResponseManager
@@ -39,20 +40,24 @@ class ChatStreamOrchestrator:
         """
         conversation_history = []
         try:
-            # Phase 1: User Message Handling
-            # Note: _save_user_message needs refactoring in UpgradeChatService or handled here
-            # For now, we delegate as much as possible
-            # await self._save_user_message() # Needs SQL implementation
-            
-            # Temporary: just add user message to history
-            conversation_history = [{"role": "user", "content": self.context.request.message}]
-
-            if not conversation_history or is_query_empty(self.context.request.message):
+            if is_query_empty(self.context.request.message):
                 async for chunk in self.response_manager.send_event(
                         EventType.LLM_RESPONSE, "**Please ask your query to get started**"
                 ):
                     yield chunk
                 return
+
+            # Phase 1: User Message Handling
+            # Save the new user message to the database
+            await self.chat_service.store_user_research_request(
+                conversation_id=self.context.request.conversation_id,
+                task=self.context.request.message
+            )
+            
+            # Fetch the complete history
+            conversation_history = await self.chat_service.get_upgrade_history(
+                self.context.request.conversation_id
+            )
 
         except Exception as e:
             logger.error("Failed during initial message processing: {}", e, exc_info=True)
@@ -82,11 +87,27 @@ class ChatStreamOrchestrator:
                 async for chunk in self._generate_audio_response():
                     yield chunk
 
-            # self.background_tasks.add_task(self.response_manager.save_final_response)
+            self.background_tasks.add_task(self.response_manager.save_final_response)
 
+        # NEW: Catch the specific Rate Limit Error from the OpenAI client
+        except openai.RateLimitError as e:
+            logger.warning(f"Rate limit exceeded during stream: {e}")
+            error_message = "The AI is currently overloaded with requests. Please wait a moment and try again."
+            async for chunk in self.response_manager.send_event(EventType.ERROR, error_message):
+                yield chunk
+
+        # UPDATED: Catch-all for other errors, with a fallback check for 429 status codes
         except Exception as e:
-            logger.error("Core processing error: {}", e, exc_info=True)
-            error_message = "An error occurred while generating a response."
+            error_str = str(e).lower()
+            
+            # Fallback check in case the HTTP client throws a generic exception containing '429'
+            if "429" in error_str or "too many requests" in error_str:
+                logger.warning(f"Rate limit exceeded (caught via string match): {e}")
+                error_message = "The AI is currently overloaded with requests. Please wait a moment and try again."
+            else:
+                logger.error("Core processing error: {error}", error=str(e), exc_info=True)
+                error_message = "An error occurred while generating a response."
+            
             async for chunk in self.response_manager.send_event(EventType.ERROR, error_message):
                 yield chunk
 

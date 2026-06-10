@@ -63,4 +63,5 @@ dependencies = [
     "asyncpg>=0.30.0",
     "alembic>=1.14.1",
     "pgvector>=0.3.6",
+    "bson>=0.5.10",
 ]

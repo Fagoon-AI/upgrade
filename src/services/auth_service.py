@@ -58,10 +58,11 @@ class AuthService:
                         social_media=sql_user.social_media,
                         password_changed_at=sql_user.password_changed_at,
                     ), sql_user
+                return None, None
             except Exception as e:
-                logger.error("Error getting user by email: {}", e)
-        
-        return None, None
+                import traceback
+                logger.error(f"Database error while getting user by email: {e}\n{traceback.format_exc()}")
+                raise AppError("Service unavailable. Database connection failed.", status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     async def signup_user(
             self, user_data: UserCreate, response: Response, request: Request
@@ -111,8 +112,9 @@ class AuthService:
                 await self._send_verification_email(user_data.email, verification_token_raw)
                 return user_in_db
             except Exception as e:
-                logger.error("Postgres signup failed: {}", e)
-                raise AppError("Failed to register user.", status.HTTP_500_INTERNAL_SERVER_ERROR)
+                import traceback
+                logger.error(f"Postgres signup failed: {e}\n{traceback.format_exc()}")
+                raise AppError("Failed to register user. Database connection failed.", status.HTTP_503_SERVICE_UNAVAILABLE)
 
     async def _send_verification_email(self, email: str, token: str):
         verification_url = f"{system_setting.FAGOON_URL}/verify-email/{token}"
@@ -164,50 +166,53 @@ class AuthService:
     async def logout_user(self, user_id: str):
         """Invalidates all refresh tokens for the logged-out user."""
         await invalidate_all_refresh_tokens_for_user(user_id, self.postgres_manager)
-        logger.info("All refresh tokens for user {} invalidated upon logout.", user_id)
+        logger.info(f"All refresh tokens for user {user_id} invalidated upon logout.")
 
-    async def refresh_access_token(
-            self, request: Request, response: Response, refresh_token_raw: str
-    ) -> UserInDB:
-        """
-        Validates a raw refresh token and returns the corresponding UserInDB.
-        The old token is consumed/deleted upon successful validation.
-        """
-        hashed_token = hashlib.sha256(refresh_token_raw.encode("utf-8")).hexdigest()
+    async def refresh_access_token(self, request: Request, response: Response, refresh_token: str) -> UserInDB:
+        """Validates a refresh token and returns the associated user if valid."""
+        hashed_token = hashlib.sha256(refresh_token.encode("utf-8")).hexdigest()
 
         async with self.postgres_manager.get_session() as session:
             from src.models.sql.models import RefreshToken as SQLRefreshToken, User as SQLUser
             from sqlalchemy import select
-
-            # Find valid, non-expired token
-            stmt = select(SQLRefreshToken).where(
-                SQLRefreshToken.token == hashed_token,
-                SQLRefreshToken.expires_at > datetime.now(timezone.utc)
-            )
+            
+            # Find the refresh token in the database
+            stmt = select(SQLRefreshToken).where(SQLRefreshToken.token == hashed_token)
             res = await session.execute(stmt)
-            token_doc = res.scalar_one_or_none()
+            db_token = res.scalar_one_or_none()
 
-            if not token_doc:
-                raise AppError("Your session has expired. Please log in again.", status_code=status.HTTP_401_UNAUTHORIZED)
+            if not db_token:
+                logger.warning("Attempted to refresh with an invalid or non-existent token.")
+                raise AppError("Invalid refresh token.", status_code=status.HTTP_401_UNAUTHORIZED)
+            
+            if db_token.expires_at < datetime.now(timezone.utc):
+                logger.warning(f"Refresh token for user {db_token.user_id} expired.")
+                # Automatically clean up expired token
+                await session.delete(db_token)
+                await session.commit()
+                raise AppError("Refresh token has expired. Please log in again.", status_code=status.HTTP_401_UNAUTHORIZED)
 
-            # Get user and verify they are still active
-            user = await session.get(SQLUser, token_doc.user_id)
-            if not user or not user.active:
-                raise AppError("Unauthorized: user not found or inactive", status_code=status.HTTP_401_UNAUTHORIZED)
+            # Get the associated user
+            user_stmt = select(SQLUser).where(SQLUser.id == db_token.user_id)
+            user_res = await session.execute(user_stmt)
+            sql_user = user_res.scalar_one_or_none()
 
-            # Consume the old refresh token
-            await session.delete(token_doc)
+            if not sql_user or not sql_user.active:
+                raise AppError("User not found or is inactive.", status_code=status.HTTP_401_UNAUTHORIZED)
+
+            # Invalidate the used refresh token so it cannot be reused (Rotation)
+            await session.delete(db_token)
             await session.commit()
 
             return UserInDB(
-                _id=str(user.id),
-                name=user.name,
-                email=user.email,
-                password=user.password_hash,
-                photo=user.photo,
-                role=user.role,
-                active=user.active,
-                verified=user.verified,
-                password_changed_at=user.password_changed_at,
-                social_media=user.social_media
+                _id=str(sql_user.id),
+                name=sql_user.name,
+                email=sql_user.email,
+                password=sql_user.password_hash,
+                photo=sql_user.photo,
+                role=sql_user.role,
+                active=sql_user.active,
+                verified=sql_user.verified,
+                social_media=sql_user.social_media,
+                password_changed_at=sql_user.password_changed_at
             )
