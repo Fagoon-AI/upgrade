@@ -267,7 +267,17 @@ class AuthMiddleware(BaseHTTPMiddleware):
         authorization: str = request.headers.get("Authorization", "")
         if authorization.startswith("Bearer "):
             return authorization.split(" ")[1]
-        return request.cookies.get("jwt")
+        # Support alternative token transports for development/debugging:
+        # 1. Cookie named 'jwt' (primary)
+        # 2. Header 'X-Access-Token' (alternative)
+        # 3. Query param 'access_token' (convenience)
+        token = request.cookies.get("jwt")
+        if token:
+            return token
+        token = request.headers.get("X-Access-Token") or request.headers.get("x-access-token")
+        if token:
+            return token
+        return request.query_params.get("access_token")
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):

@@ -16,6 +16,8 @@ MAX_FILE_SIZE = 5 * 1024 * 1024
 
 ALLOWED_URL_PATH_WITHOUT_AUTHORIZATION = [
     "/openapi.json",
+    "/docs",
+    "/favicon.ico",
     "/upgrade/0329032",
     "/api/v1/auth/login",
     "/api/v1/auth/register",
