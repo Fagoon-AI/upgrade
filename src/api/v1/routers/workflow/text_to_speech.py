@@ -74,7 +74,7 @@ async def text_to_speech(request: Request):
         logger.warning(f"Bad request in TTS endpoint for user '{user_id}': {ve}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
     except Exception as err:
-        logger.error(f"Failed TTS conversion for user '{user_id}': {err}", exc_info=True)
+        logger.error("Failed TTS conversion for user '{}': {}", user_id, err, exc_info=True)
         response = FailureResponse(
             status="fail",
             message="An error occurred while converting text into speech.",

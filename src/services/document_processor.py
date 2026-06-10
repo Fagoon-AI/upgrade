@@ -30,7 +30,7 @@ class DocumentProcessor:
 
     async def process_single_file(self, filename: str, file_bytes: bytes) -> "ProcessedDocument":
         """Process a single document and return extracted data or error."""
-        logger.debug(f"Processing file: {filename}")
+        logger.debug("Processing file: {}", filename)
 
         try:
             extension = SupportedFileExtension.from_filename(filename)
@@ -45,14 +45,14 @@ class DocumentProcessor:
             handler = handler_class(file_bytes)
             extracted_content: List[PageData] = await handler.extract_pages()
 
-            logger.info(f"File '{filename}' processed successfully.")
+            logger.info("File '{}' processed successfully.", filename)
 
             return ProcessedDocument(
                 filename=filename, status="success", data=extracted_content
             )
 
         except Exception as e:
-            logger.exception(f"Failed to process file '{filename}'. Error: {e}")
+            logger.exception("Failed to process file '{}'. Error: {}", filename, e)
             return ProcessedDocument(filename=filename, status="error", error=str(e))
 
     async def process_multiple_files(

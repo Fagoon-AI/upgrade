@@ -29,7 +29,7 @@ class GoogleDriveService:
                 logger.info("Google Drive API service built successfully.")
             except Exception as e:
                 logger.error(
-                    f"Error building Google Drive API service: {e}", exc_info=True
+                    "Error building Google Drive API service: {}", e, exc_info=True
                 )
                 raise HttpError(f"Could not build Drive service: {e}")
         return self._service
@@ -65,10 +65,10 @@ class GoogleDriveService:
                 .execute()
             )
             items = results.get("files", [])
-            logger.info(f"Listed {len(items)} Drive items with query '{query}'.")
+            logger.info("Listed {} Drive items with query '{}'.", len(items), query)
             return items
         except HttpError as error:
-            logger.error(f"Failed to list Drive files: {error}", exc_info=True)
+            logger.error("Failed to list Drive files: {}", error, exc_info=True)
             raise
 
     async def create_folder(self, folder_name: str, parent_id: Optional[str] = None) -> Dict:
@@ -95,10 +95,10 @@ class GoogleDriveService:
                 body=file_metadata,
                 fields="id, name, parents, mimeType"
             ).execute()
-            logger.info(f"Created folder '{folder_name}' with ID: {folder.get('id')}")
+            logger.info("Created folder '{}' with ID: {}", folder_name, folder.get('id'))
             return folder
         except HttpError as error:
-            logger.error(f"Failed to create folder '{folder_name}': {error}", exc_info=True)
+            logger.error("Failed to create folder '{}': {}", folder_name, error, exc_info=True)
             raise
 
     async def upload_file(
@@ -133,7 +133,7 @@ class GoogleDriveService:
                 file_metadata["mimeType"] = "application/vnd.google-apps.document"
             elif mime_type in ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/csv"]:
                 file_metadata["mimeType"] = "application/vnd.google-apps.spreadsheet"
-            logger.info(f"Attempting to convert '{file_name}' from {mime_type} to Google format.")
+            logger.info("Attempting to convert '{}' from {} to Google format.", file_name, mime_type)
         else:
             file_metadata["mimeType"] = mime_type
 
@@ -150,10 +150,10 @@ class GoogleDriveService:
                 media_body=media_body,
                 fields="id, name, mimeType, parents, webViewLink, webContentLink"
             ).execute()
-            logger.info(f"Uploaded file '{file_name}' with ID: {uploaded_file.get('id')}")
+            logger.info("Uploaded file '{}' with ID: {}", file_name, uploaded_file.get('id'))
             return uploaded_file
         except HttpError as error:
-            logger.error(f"Failed to upload file '{file_name}': {error}", exc_info=True)
+            logger.error("Failed to upload file '{}': {}", file_name, error, exc_info=True)
             raise
 
     async def delete_file(self, file_id: str) -> Dict:
@@ -168,13 +168,13 @@ class GoogleDriveService:
         """
         try:
             self.service.files().delete(fileId=file_id).execute()
-            logger.info(f"Deleted file/folder with ID: {file_id}")
+            logger.info("Deleted file/folder with ID: {}", file_id)
             return {
                 "message": f"File/folder {file_id} successfully deleted (moved to trash)."
             }
         except HttpError as error:
             logger.error(
-                f"Failed to delete file/folder {file_id}: {error}", exc_info=True
+                "Failed to delete file/folder {}: {}", file_id, error, exc_info=True
             )
             raise
 
@@ -208,17 +208,17 @@ class GoogleDriveService:
             if mime_type in google_docs_editor_mime_types:
                 export_mime_type = google_docs_editor_mime_types[mime_type]
                 request = self.service.files().export_media(fileId=file_id, mimeType=export_mime_type)
-                logger.info(f"Exporting Google Docs Editor file '{file_name}' ({mime_type}) to {export_mime_type}.")
+                logger.info("Exporting Google Docs Editor file '{}' ({}) to {}.", file_name, mime_type, export_mime_type)
             elif mime_type == "application/vnd.google-apps.folder":
                 # Folders cannot be downloaded
-                logger.warning(f"Attempted to download a folder: '{file_name}' ({file_id}). Folders cannot be downloaded directly.")
+                logger.warning("Attempted to download a folder: '{}' ({}). Folders cannot be downloaded directly.", file_name, file_id)
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Cannot download folder '{file_name}'. Provide a file ID."
                 )
             elif mime_type.startswith("application/vnd.google-apps"):
                 # Handle other obscure Google Apps types that might not have a direct export
-                logger.warning(f"Attempted to download unsupported Google Apps type: '{file_name}' ({mime_type}). Not supported for direct export/download.")
+                logger.warning("Attempted to download unsupported Google Apps type: '{}' ({}). Not supported for direct export/download.", file_name, mime_type)
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Cannot download Google Apps file of type '{mime_type}'. It may not be exportable to a standard format."
@@ -226,7 +226,7 @@ class GoogleDriveService:
             else:
                 # Regular files (PDF, image, etc.)
                 request = self.service.files().get_media(fileId=file_id)
-                logger.info(f"Downloading regular file '{file_name}' ({mime_type}).")
+                logger.info("Downloading regular file '{}' ({}).", file_name, mime_type)
 
             if not request:
                 raise HTTPException(
@@ -239,17 +239,17 @@ class GoogleDriveService:
             done = False
             while done is False:
                 status, done = downloader.next_chunk()
-                logger.info(f"Download progress for file {file_id}: {int(status.progress() * 100)}%")
+                logger.info("Download progress for file {}: {}%", file_id, int(status.progress() * 100))
             fh.seek(0)
-            logger.info(f"Downloaded file content for ID: {file_id}")
+            logger.info("Downloaded file content for ID: {}", file_id)
             return fh.getvalue()
         except HttpError as error:
-            logger.error(f"Failed to download file {file_id}: {error}", exc_info=True)
+            logger.error("Failed to download file {}: {}", file_id, error, exc_info=True)
             raise
         except HTTPException as e:
             raise
         except Exception as e:
-            logger.error(f"Unexpected error during download of file {file_id}: {e}", exc_info=True)
+            logger.error("Unexpected error during download of file {}: {}", file_id, e, exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"An unexpected error occurred during download: {e}"

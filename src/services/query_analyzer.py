@@ -86,7 +86,7 @@ async def analyze_and_select_tools(
         "what is the time", "current time", "what's the time", "what time it is"
     ]
     if any(query.startswith(g) for g in general_triggers):
-        logger.info(f"Rule-based tool selection: User message '{query}' is a general query. Selecting 'general' tool.")
+        logger.info("Rule-based tool selection: User message '{}' is a general query. Selecting 'general' tool.", query)
         return [ToolType.GENERAL.value]
 
     # Rule 2: Check for queries that explicitly require a web search.
@@ -96,7 +96,7 @@ async def analyze_and_select_tools(
         "search for", "find information on", "tell me about", "what are the recent developments in"
     ]
     if any(query.startswith(trigger) for trigger in web_search_triggers):
-        logger.info(f"Rule-based tool selection: User message '{query}' implies a web search. Selecting 'web_search' tool.")
+        logger.info("Rule-based tool selection: User message '{}' implies a web search. Selecting 'web_search' tool.", query)
         return [ToolType.WEB_SEARCH.value]
 
     # Fallback: Use LLM for more complex queries that don't match simple rules.
@@ -119,7 +119,7 @@ async def analyze_and_select_tools(
             user_query=user_query, system_prompt=system_prompt
         )
 
-        logger.debug(f"Tool selection LLM response: {response}")
+        logger.debug("Tool selection LLM response: {}", response)
         cleaned_response = response.strip().replace("`", "")
         if cleaned_response.startswith("json"):
             cleaned_response = cleaned_response[4:].strip()
@@ -134,14 +134,14 @@ async def analyze_and_select_tools(
             logger.warning("No valid tools selected by LLM, defaulting to general chat.")
             return [ToolType.GENERAL.value]
 
-        logger.info(f"LLM selected tools: {valid_tools}")
+        logger.info("LLM selected tools: {}", valid_tools)
         return valid_tools
 
     except (json.JSONDecodeError, ValueError) as e:
-        logger.error(f"Failed to parse or validate tool selection response: {e}")
+        logger.error("Failed to parse or validate tool selection response: {}", e)
         return [ToolType.GENERAL.value]
     except Exception as e:
         logger.error(
-            f"An unexpected error occurred during tool selection: {e}", exc_info=True
+            "An unexpected error occurred during tool selection: {}", e, exc_info=True
         )
         return [ToolType.GENERAL.value]

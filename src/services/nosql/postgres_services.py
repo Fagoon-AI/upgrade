@@ -6,9 +6,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
 
 from src.models.sql.models import (
-    User, Agent, AgentChatHistory, AgentChat,
-    UpgradeChatHistory, UpgradeChat, VideoJob,
-    FileReference, DocumentChunk, GoogleToken, RefreshToken
+    User,
+    Agent,
+    AgentChatHistory,
+    AgentChat,
+    UpgradeChatHistory,
+    UpgradeChat,
+    VideoJob,
+    FileReference,
+    DocumentChunk,
+    GoogleToken,
+    RefreshToken,
+    LLMModelConfig,
 )
 
 class PostgresServices:
@@ -37,6 +46,65 @@ class PostgresServices:
         stmt = select(Agent).where(Agent.user_id == user_id, Agent.is_deleted == False)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def create_llm_model_config(self, model_config_data: Dict[str, Any]) -> LLMModelConfig:
+        model_config = LLMModelConfig(**model_config_data)
+        self.session.add(model_config)
+        await self.session.commit()
+        await self.session.refresh(model_config)
+        return model_config
+
+    async def get_llm_model_config_by_id(
+        self,
+        config_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> Optional[LLMModelConfig]:
+        stmt = select(LLMModelConfig).where(
+            LLMModelConfig.id == config_id,
+            LLMModelConfig.user_id == user_id,
+            LLMModelConfig.is_deleted == False,
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_llm_model_configs_by_user_id(self, user_id: uuid.UUID) -> List[LLMModelConfig]:
+        stmt = select(LLMModelConfig).where(
+            LLMModelConfig.user_id == user_id,
+            LLMModelConfig.is_deleted == False,
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def update_llm_model_config(
+        self,
+        config_id: uuid.UUID,
+        user_id: uuid.UUID,
+        update_data: Dict[str, Any],
+    ) -> Optional[LLMModelConfig]:
+        stmt = update(LLMModelConfig).where(
+            LLMModelConfig.id == config_id,
+            LLMModelConfig.user_id == user_id,
+            LLMModelConfig.is_deleted == False,
+        ).values(**update_data)
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        if result.rowcount == 0:
+            return None
+        return await self.get_llm_model_config_by_id(config_id, user_id)
+
+    async def soft_delete_llm_model_config(
+        self,
+        config_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> bool:
+        stmt = update(LLMModelConfig).where(
+            LLMModelConfig.id == config_id,
+            LLMModelConfig.user_id == user_id,
+            LLMModelConfig.is_deleted == False,
+        ).values(is_deleted=True, updated_at=datetime.now(timezone.utc))
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.rowcount > 0
 
     async def create_agent(self, agent_data: Dict[str, Any]) -> Agent:
         agent = Agent(**agent_data)

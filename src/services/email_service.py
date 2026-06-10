@@ -28,13 +28,13 @@ class EmailService:
 
         try:
             await self._smtp_handler.send_message(msg)
-            logger.success(f"Email sent successfully to {to_email}")
+            logger.success("Email sent successfully to {}", to_email)
             return True
         except AppError:
             # Re-raise AppError directly, as it's already handled
             raise
         except Exception as e:
-            logger.exception(f"General Error sending email to {to_email}: {e}")
+            logger.exception("General Error sending email to {}: {}", to_email, e)
             raise AppError(
                 f"An unexpected error occurred while sending email: {e}", 500
             )
@@ -51,7 +51,7 @@ class EmailService:
         <p><a href="{url}">Verify Your Email</a></p>
         <p>If you did not sign up for this service, please ignore this email.</p>
         """
-        logger.info(f"Preparing signup email for {to_email}")
+        logger.info("Preparing signup email for {}", to_email)
         return await self._send_email(to_email, subject, html_content)
 
     async def send_forgot_password_email(self, to_email: str, url: str) -> bool:
@@ -67,5 +67,5 @@ class EmailService:
         <p>This link is valid for 10 minutes.</p>
         <p>If you did not request a password reset, please ignore this email.</p>
         """
-        logger.info(f"Preparing forgot password email for {to_email}")
+        logger.info("Preparing forgot password email for {}", to_email)
         return await self._send_email(to_email, subject, html_content)

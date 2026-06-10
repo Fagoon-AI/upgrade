@@ -9,7 +9,7 @@ class MermaidService:
 
     async def generate_mermaid_code(self, prompt: str, model_name: str) -> str:
         """Uses an LLM to generate Mermaid markdown from a user prompt."""
-        logger.info(f"Generating Mermaid markdown for prompt using model: {model_name}.")
+        logger.info("Generating Mermaid markdown for prompt using model: {}.", model_name)
 
         system_prompt = (
             "You are a world-class expert in Mermaid.js syntax. Your sole task is to generate clean, "
@@ -33,5 +33,5 @@ class MermaidService:
                 logger.error("LLM did not return a valid Mermaid code block. Response: {response}", response=full_response)
                 raise ValueError("Failed to generate a valid Mermaid diagram from the prompt.")
         except Exception as e:
-            logger.error(f"An error occurred during Mermaid code generation: {e}", exc_info=True)
+            logger.error("An error occurred during Mermaid code generation: {}", e, exc_info=True)
             raise RuntimeError("Could not generate diagram code. The model may have had trouble with the request.") from e

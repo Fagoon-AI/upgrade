@@ -101,11 +101,11 @@ class ImageGenerationService:
                     summary = await self._description_service.describe_image(image_url=signed_url)
                     final_asset_data["summary"] = summary
                 except Exception as desc_exc:
-                    logger.error(f"Failed to generate image summary: {desc_exc}")
+                    logger.error("Failed to generate image summary: {}", desc_exc)
                     final_asset_data["summary"] = "A description for this image could not be generated."
 
             yield {"type": "final_asset", "data": final_asset_data}
 
         except Exception as e:
-            logger.exception(f"An error occurred during image generation pipeline: {e}")
+            logger.exception("An error occurred during image generation pipeline: {}", e)
             yield {"type": "error", "data": "I'm sorry, I couldn't create the image. There was an issue with the generation service."}

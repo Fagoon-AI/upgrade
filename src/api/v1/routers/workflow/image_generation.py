@@ -50,7 +50,7 @@ async def generate_image_for_workflow(input_request: ImageGenerationInputRequest
             message="Failed to generate an image",
             data=None,
         )
-        logger.error(f"failed to generate response: {response.model_dump()}: {str(err)}")
+        logger.error("failed to generate response: {}: {}", response.model_dump(), err)
         return JSONResponse(
             content=response.model_dump(),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

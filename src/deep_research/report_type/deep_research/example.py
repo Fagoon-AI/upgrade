@@ -226,7 +226,7 @@ class DeepResearch:
                     }
 
                 except Exception as e:
-                    logger.error(f"Error processing query '{serp_query['query']}': {str(e)}")
+                    logger.error("Error processing query '{}': {}", serp_query['query'], e)
                     return None
 
         # Process queries concurrently with limit
