@@ -120,7 +120,7 @@ class GoogleDocsService:
 
             return document
         except HttpError as error:
-            logger.error(f"Failed to create Google Doc '{title}': {error}", exc_info=True)
+            logger.error("Failed to create Google Doc '{}': {}", title, error, exc_info=True)
             raise
 
     async def write_to_document(

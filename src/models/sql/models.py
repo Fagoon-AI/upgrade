@@ -31,6 +31,25 @@ class User(Base):
 
     agents = relationship("Agent", back_populates="owner")
     video_jobs = relationship("VideoJob", back_populates="user")
+    llm_model_configs = relationship("LLMModelConfig", back_populates="user")
+
+class LLMModelConfig(Base):
+    __tablename__ = "llm_model_configs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(255))
+    provider: Mapped[str] = mapped_column(String(100))
+    model_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    api_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    features: Mapped[List[str]] = mapped_column(JSONB, default=list)
+    agent_ids: Mapped[List[str]] = mapped_column(JSONB, default=list)
+    workflow_ids: Mapped[List[str]] = mapped_column(JSONB, default=list)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User", back_populates="llm_model_configs")
 
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"

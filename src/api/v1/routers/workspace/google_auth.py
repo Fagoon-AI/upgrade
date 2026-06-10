@@ -35,7 +35,7 @@ async def google_login(google_auth_service: GoogleAuthService = Depends(get_goog
         auth_url = await google_auth_service.get_authorization_url()
         return {"auth_url": auth_url}
     except Exception as e:
-        logger.error(f"Error generating Google auth URL: {e}")
+        logger.error("Error generating Google auth URL: {}", e)
         raise HTTPException(status_code=500, detail="Could not initiate Google authentication.")
 
 @router.get("/google/callback", response_class=RedirectResponse)
@@ -130,5 +130,5 @@ async def save_user_details(
             await session.commit()
             return SuccessResponse(status="success", message="Linked successfully", data={})
         except Exception as e:
-            logger.error(f"Failed to link Google user: {e}")
+            logger.error("Failed to link Google user: {}", e)
             return JSONResponse(status_code=400, content={"detail": "Link failed"})

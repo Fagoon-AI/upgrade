@@ -48,6 +48,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 logger.info("Access token missing, attempting refresh.")
                 return await self._handle_refresh_and_proceed(request, call_next, refresh_token_cookie)
             else:
+                logger.warning(f"401 Unauthorized: Access token is missing. Path: {request.url.path} | Headers: {dict(request.headers)} | Cookies: {dict(request.cookies)}")
                 return JSONResponse(
                     status_code=HTTP_401_UNAUTHORIZED,
                     content={"detail": "Authentication failed: Access token is missing."}
@@ -91,7 +92,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                                     social_media=sql_user.social_media
                                 )
                     except Exception as pg_err:
-                        logger.warning(f"Postgres auth lookup failed: {pg_err}")
+                        logger.warning("Postgres auth lookup failed: {}", pg_err)
 
             if not current_user:
                 raise AppError("Unauthorized: user not found or inactive", status_code=HTTP_401_UNAUTHORIZED)
@@ -122,7 +123,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 return response
 
         except (jwt.InvalidTokenError, AppError) as e:
-            detail = e.detail if isinstance(e, AppError) else "Invalid token. Please log in again."
+            detail = e.message if isinstance(e, AppError) else "Invalid token. Please log in again."
             status_code = e.status_code if isinstance(e, AppError) else HTTP_401_UNAUTHORIZED
             logger.warning(f"Authentication failed: {detail}")
             response = JSONResponse(status_code=status_code, content={"detail": detail})
@@ -149,6 +150,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             (new_access_token, new_refresh_token_raw, access_expires, refresh_expires, refreshed_user) = refresh_result
 
             request.state.user = refreshed_user
+            request.state.user_id = refreshed_user.id
             request.state.access = [{"role": refreshed_user.role}] if refreshed_user.role else []
 
             new_headers = MutableHeaders(request.headers)
@@ -160,7 +162,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return response
 
         except AppError as e:
-            response = JSONResponse(status_code=e.status_code, content={"detail": e.detail})
+            response = JSONResponse(status_code=e.status_code, content={"detail": e.message})
             await clear_auth_cookies(response)
             return response
         except Exception as e:
@@ -209,17 +211,73 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return None
 
     def _is_public_path(self, path: str) -> bool:
-        dynamic_public_paths = [
-            f"{system_setting.API_V1_STR}/auth/verify-email/",
-            f"{system_setting.API_V1_STR}/auth/reset-password/",
+        # Normalize path: remove trailing slash for comparison
+        path_to_check = path.rstrip("/") if path != "/" else path
+        
+        # 1. Check against static ALLOWED_URL_PATH_WITHOUT_AUTHORIZATION
+        normalized_allowed = [p.rstrip("/") for p in ALLOWED_URL_PATH_WITHOUT_AUTHORIZATION]
+        if path_to_check in normalized_allowed:
+            return True
+
+        # 2. Check against dynamic paths based on current API_V1_STR
+        v1 = system_setting.API_V1_STR.rstrip("/")
+        dynamic_allowed = [
+            f"{v1}/auth/login",
+            f"{v1}/auth/register",
+            f"{v1}/auth/forgot-password",
+            f"{v1}/auth/refresh-token",
+            f"{v1}/users/login",
+            f"{v1}/users/signup",
+            f"{v1}/users/forgot-password",
+            f"{v1}/users/refresh-token",
         ]
-        return path in ALLOWED_URL_PATH_WITHOUT_AUTHORIZATION or any(path.startswith(dp) for dp in dynamic_public_paths)
+        if path_to_check in dynamic_allowed:
+            return True
+
+        # 3. Dynamic prefix-based paths
+        dynamic_prefixes = [
+            f"{v1}/auth/verify-email/",
+            f"{v1}/auth/reset-password/",
+            f"{v1}/users/verify-email/",
+            f"{v1}/users/reset-password/",
+            f"{v1}/webhook/",
+        ]
+        if any(path.startswith(dp) for dp in dynamic_prefixes):
+            return True
+
+        # 4. Handle potential prefixes (swagger path, /agent-api, /api)
+        possible_prefixes = [
+            system_setting.API_SWAGGER_PATH.rstrip("/"),
+            "/agent-api",
+            "/api"
+        ]
+        
+        for prefix in possible_prefixes:
+            if prefix and path.startswith(prefix) and path != prefix:
+                sub_path = path[len(prefix):]
+                if not sub_path.startswith("/"):
+                    sub_path = "/" + sub_path
+                # Recursively check the sub-path
+                if self._is_public_path(sub_path):
+                    return True
+
+        return False
 
     def _get_access_token(self, request: Request) -> Optional[str]:
         authorization: str = request.headers.get("Authorization", "")
         if authorization.startswith("Bearer "):
             return authorization.split(" ")[1]
-        return request.cookies.get("jwt")
+        # Support alternative token transports for development/debugging:
+        # 1. Cookie named 'jwt' (primary)
+        # 2. Header 'X-Access-Token' (alternative)
+        # 3. Query param 'access_token' (convenience)
+        token = request.cookies.get("jwt")
+        if token:
+            return token
+        token = request.headers.get("X-Access-Token") or request.headers.get("x-access-token")
+        if token:
+            return token
+        return request.query_params.get("access_token")
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):

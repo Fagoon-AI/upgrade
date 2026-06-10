@@ -24,9 +24,10 @@ class SMTPHandler:
 
         try:
             logger.info(
-                f"Attempting to connect to {system_setting.EMAIL_HOST}:"
-                f"{system_setting.EMAIL_PORT} with user "
-                f"{system_setting.EMAIL_USERNAME}"
+                "Attempting to connect to {}:{} with user {}",
+                system_setting.EMAIL_HOST,
+                system_setting.EMAIL_PORT,
+                system_setting.EMAIL_USERNAME,
             )
             self._client = aiosmtplib.SMTP(
                 hostname=system_setting.EMAIL_HOST,
@@ -40,16 +41,16 @@ class SMTPHandler:
             logger.info("Successfully connected and logged into SMTP server.")
             return self._client
         except aiosmtplib.SMTPAuthenticationError as e:
-            logger.error(f"SMTP Authentication Error: {e}")
+            logger.error("SMTP Authentication Error: {}", e)
             raise AppError(
                 f"Authentication failed for email server: {e}", 500
             )
         except aiosmtplib.SMTPConnectError as e:
-            logger.error(f"SMTP Connection Error: {e}")
+            logger.error("SMTP Connection Error: {}", e)
             raise AppError(f"Failed to connect to email server: {e}", 500)
         except Exception as e:
             logger.exception(
-                f"An unexpected error occurred during SMTP connection: {e}"
+                "An unexpected error occurred during SMTP connection: {}", e
             )
             raise AppError(
                 f"An unexpected error occurred while connecting to email "
@@ -67,7 +68,7 @@ class SMTPHandler:
                 logger.info("Disconnected from SMTP server.")
             except Exception as e:
                 logger.warning(
-                    f"Error disconnecting from SMTP server: {e}"
+                    "Error disconnecting from SMTP server: {}", e
                 )
             finally:
                 self._client = None
@@ -80,7 +81,7 @@ class SMTPHandler:
         try:
             await client.send_message(message)
         except Exception as e:
-            logger.error(f"Error sending email message: {e}")
+            logger.error("Error sending email message: {}", e)
             raise AppError(
                 f"Failed to send email message: {e}", 500
             )

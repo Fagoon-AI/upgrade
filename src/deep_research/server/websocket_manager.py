@@ -143,7 +143,7 @@ class WebSocketManager:
                 return_researcher=True
             )
 
-            logger.debug(f"Report information from run_agent: Type={type(report_information)}, Content={report_information}")
+            logger.debug("Report information from run_agent: Type={}, Content={}", type(report_information), report_information)
 
             if report_type != "multi_agents" and isinstance(report_information, tuple) and len(report_information) == 2:
                 report, researcher = report_information
@@ -153,11 +153,11 @@ class WebSocketManager:
 
             self.chat_agent = ChatAgentWithMemory(report, config_path, headers)
 
-            logger.debug(f"Returning from start_streaming: Report={report}, Researcher={researcher}")
+            logger.debug("Returning from start_streaming: Report={}, Researcher={}", report, researcher)
             return report, researcher
 
         except Exception as e:
-            logger.error(f"Error in start_streaming: {e}", exc_info=True)
+            logger.error("Error in start_streaming: {}", e, exc_info=True)
             return "An error occurred during research generation.", None
 
     async def chat(self, message, websocket):

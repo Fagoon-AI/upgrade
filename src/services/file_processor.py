@@ -40,7 +40,7 @@ class FileProcessor:
             file_references = await pg_services.get_file_references_by_ids(file_ids)
 
         if len(file_references) != len(file_ids):
-            logger.warning(f"Mismatch between requested file_ids ({len(file_ids)}) and found DB references.")
+            logger.warning("Mismatch between requested file_ids ({}) and found DB references.", len(file_ids))
 
         for ref in file_references:
             # ref is FileReference model instance
@@ -65,10 +65,10 @@ class FileProcessor:
                         "text": f"--- Start of content from {filename} ---\n\n{doc_text}\n\n--- End of content from {filename} ---",
                     })
                 else:
-                    logger.warning(f"Unhandled MIME type for LLM context: {mime_type}. Skipping file {filename}.")
+                    logger.warning("Unhandled MIME type for LLM context: {}. Skipping file {}.", mime_type, filename)
 
             except Exception as e:
-                logger.error(f"Failed to process file ID {ref.file_id} ({filename}): {e}", exc_info=True)
+                logger.error("Failed to process file ID {} ({}): {}", ref.file_id, filename, e, exc_info=True)
                 processing_errors.append(f"Failed to process file: {filename}")
 
         return FileProcessingResult(content=llm_content_blocks, errors=processing_errors)

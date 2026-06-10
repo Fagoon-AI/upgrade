@@ -13,9 +13,9 @@ def catch_async(func):
         try:
             return await func(*args, **kwargs)
         except AppError as e:
-            logger.warning(f"AppError in {func.__name__}: {e.message}")
+            logger.warning("AppError in {}: {}", func.__name__, e.message)
             raise e
         except Exception as e:
-            logger.error(f"Unexpected error in {func.__name__}: {e}", exc_info=True)
+            logger.error("Unexpected error in {}: {}", func.__name__, e, exc_info=True)
             raise AppError("An unexpected error occurred.", status_code=500)
     return wrapper
