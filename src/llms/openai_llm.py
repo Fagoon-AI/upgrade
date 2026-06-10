@@ -10,8 +10,6 @@ from src.providers.openai_client import aget_client, OpenAIChatCompletion, Async
 class OpenAILLM(BaseLLM):
     def __init__(self, config: BaseLLMConfig):
         super().__init__(config)
-
-        assert config.provider == "openai", "requires provider as 'openai'"
         self._client = None
 
     @property

@@ -1,7 +1,12 @@
 from typing import Optional
 
 MODEL_REGISTRY: dict[str, str] = {
+    "gemini-1.5-flash": "gemini",
+    "gemini-1.5-pro": "gemini",
+    "gemini-2.0-flash": "gemini",
+    "gemini-2.5-flash": "gemini",
     "llama-3.3-70b-versatile": "groq",
+    "llama3-8b-8192": "groq",
     "deepseek-r1-distill-llama-70b": "groq",
     # "04-mini": "openai",
     "gpt-3.5-turbo": "openai",

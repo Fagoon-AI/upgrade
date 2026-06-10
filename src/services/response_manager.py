@@ -77,4 +77,6 @@ class ResponseManager:
             else:
                 logger.error("BACKGROUND SAVE: Failed to prepare assistant message for saving in convo {}.", self._conversation_id)
         except Exception as e:
+            # Use structured logging placeholders to avoid accidental
+            # .format() interpolation on strings that contain braces.
             logger.error("BACKGROUND SAVE: Error occurred while saving final response for convo {}: {}", self._conversation_id, e, exc_info=True)

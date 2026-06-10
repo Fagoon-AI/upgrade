@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Request
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.responses import RedirectResponse, JSONResponse, Response
 from loguru import logger
 import uuid
 from src.core.settings import system_setting
 from src.core.exceptions import UnauthorizedGoogleAccess
-from src.services.nosql.postgres_services import PostgresServices
 from src.workspace_crud.crud.google_token import GoogleTokenCRUD
 from src.workspace_crud.crud.user import UserCRUD
 from src.schemas.workspace.auth import GoogleUserDetails
@@ -14,6 +13,13 @@ from src.services.google_workspace.google_auth import GoogleAuthService
 from src.core.globals import get_postgres_services
 from src.models.sql.models import GoogleUser as SQLGoogleUser
 from sqlalchemy import insert
+
+from src.services.nosql.postgres_services import PostgresServices
+from src.utils.upgrade_auth.auth_utils import create_and_send_token
+from src.models.auth_models.user_model import UserInDB
+import bcrypt
+import secrets
+import asyncio
 
 router = APIRouter()
 
@@ -34,15 +40,69 @@ async def google_login(google_auth_service: GoogleAuthService = Depends(get_goog
 
 @router.get("/google/callback", response_class=RedirectResponse)
 async def google_callback(
+    request: Request,
     code: str = Query(...),
     google_auth_service: GoogleAuthService = Depends(get_google_auth_service),
 ):
     try:
         token_info = await google_auth_service.exchange_code_for_token(code)
-        redirect_url = f"{system_setting.FRONTEND_REDIRECT_URI}/{token_info['google_id']}"
-        return RedirectResponse(url=redirect_url, status_code=302)
+
+        # Attempt to find or create a corresponding system user, then issue JWT cookies
+        pg_manager = request.app.state.postgres_manager
+        system_user = None
+        async with pg_manager.get_session() as session:
+            pg_services = PostgresServices(session)
+
+            # Try to locate by returned user_id
+            user_id = token_info.get("user_id")
+            if user_id:
+                try:
+                    uid = uuid.UUID(user_id) if isinstance(user_id, str) and len(user_id) == 36 else uuid.UUID(str(user_id))
+                    system_user = await pg_services.get_user_by_id(uid)
+                except Exception:
+                    system_user = None
+
+            # Fallback: try locate by email
+            if not system_user and token_info.get("email"):
+                system_user = await pg_services.get_user_by_email(token_info.get("email"))
+
+            # If still not found, create a new system user with a random password
+            if not system_user:
+                raw_pw = secrets.token_urlsafe(16)
+                hashed = await asyncio.to_thread(bcrypt.hashpw, raw_pw.encode("utf-8"), bcrypt.gensalt())
+                user_dict = {
+                    "id": uuid.uuid4(),
+                    "name": token_info.get("email", "google_user").split("@")[0],
+                    "email": token_info.get("email"),
+                    "password_hash": hashed.decode("utf-8"),
+                    "photo": token_info.get("profile_pic_url") or "",
+                    "role": "user",
+                    "verified": True,
+                    "active": True,
+                    "social_media": {},
+                }
+                system_user = await pg_services.create_user(user_dict)
+
+            # Build UserInDB for token creation
+            user_in_db = UserInDB(
+                _id=str(system_user.id),
+                name=system_user.name,
+                email=system_user.email,
+                password=system_user.password_hash,
+                photo=getattr(system_user, "photo", ""),
+                role=getattr(system_user, "role", "user"),
+                active=getattr(system_user, "active", True),
+                verified=getattr(system_user, "verified", True),
+                social_media=getattr(system_user, "social_media", {}),
+            )
+
+        # Issue access + refresh tokens as cookies on a redirect response
+        redirect_url = f"{system_setting.FRONTEND_REDIRECT_URI}/{token_info.get('google_id')}"
+        redirect_resp = RedirectResponse(url=redirect_url, status_code=302)
+        await create_and_send_token(user_in_db, redirect_resp, request)
+        return redirect_resp
     except Exception as e:
-        logger.error("Google OAuth callback failed: {}", e)
+        logger.error(f"Google OAuth callback failed: {e}", exc_info=True)
         return RedirectResponse(url=f"{system_setting.FRONTEND_REDIRECT_URI}?error=auth_failed", status_code=302)
 
 @router.post("/save")
