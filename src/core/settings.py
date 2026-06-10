@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Fagoon Agents Workflow"
-    API_SWAGGER_PATH: str = "/upgrade/0329032"
+    API_SWAGGER_PATH: str = "docs"
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyUrl] | str, BeforeValidator(parse_cors)
     ] = []
@@ -32,7 +32,8 @@ class Settings(BaseSettings):
         "https://develop-upgrade.fagoon.ai",
         "https://upgrade.fagoon.ai",
         "http://0.0.0.0:2321",
-        "http://localhost:8000", # new added
+        "http://localhost:8000",
+        "https://upgrade.devfagoon.online",# new added
     ]
 
     # LLM Related Configuration

@@ -19,7 +19,7 @@ from src.api.v1.routers.upgrade import chat, support_bot
 from src.api.v1.routers.external import rfm_support_bot
 from src.api.v1.routers.upgrade import upgrade_agents
 from src.deep_research.server import server
-from src.api.v1.routers.workspace import ai, google_auth, docs, drive, gmail
+from src.api.v1.routers.workspace import ai, google_auth, docs, drive, gmail, llm_models
 from src.api.v1.routers.video_gen.video_gen_routes import router as video_gen_router
 from src.api.v1.routers.authentication import auth_router, user_router
 
@@ -127,6 +127,12 @@ def setup_and_combine_all_routers() -> APIRouter:
     router.include_router(drive.router, prefix="/drive", tags=["Drive"])
     router.include_router(docs.router, prefix="/docs", tags=["Docs"])
     router.include_router(ai.router, prefix="/ai", tags=["AI Services"])
+
+    router.include_router(
+        llm_models.router,
+        prefix="/llm-models",
+        tags=["LLM Models", "Workspace"],
+    )
 
     # Video Gen Routes
     router.include_router(
