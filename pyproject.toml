@@ -64,4 +64,5 @@ dependencies = [
     "alembic>=1.14.1",
     "pgvector>=0.3.6",
     "bson>=0.5.10",
+    "ddgs>=9.14.4",
 ]

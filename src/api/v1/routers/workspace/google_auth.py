@@ -30,10 +30,29 @@ async def get_google_auth_service(request: Request) -> GoogleAuthService:
     return GoogleAuthService(user_crud, google_token_crud)
 
 @router.get("/google/login", response_model=GoogleAuthURL)
-async def google_login(google_auth_service: GoogleAuthService = Depends(get_google_auth_service)):
+async def google_login(request: Request, google_auth_service: GoogleAuthService = Depends(get_google_auth_service)):
     try:
-        auth_url = await google_auth_service.get_authorization_url()
-        return {"auth_url": auth_url}
+        # Create a Flow and generate the authorization URL so we can persist the PKCE verifier
+        flow = google_auth_service.get_auth_flow()
+        authorization_url, state = flow.authorization_url(access_type="offline", include_granted_scopes="true")
+
+        code_verifier = getattr(flow, "code_verifier", None)
+        
+        redirect_response = RedirectResponse(url=authorization_url)
+        if code_verifier:
+            # FIX: Store the state and code_verifier in an HttpOnly cookie instead of app.state
+            secure_flag = False if getattr(system_setting, "ENV", "development") == "development" else True
+            redirect_response.set_cookie(
+                key=f"oauth_state_{state}", 
+                value=code_verifier, 
+                httponly=True, 
+                max_age=600, # Expires in 10 minutes
+                secure=secure_flag,
+                samesite="lax"
+            )
+
+        logger.info(f"Redirecting user to Google auth URL (state={state})")
+        return redirect_response
     except Exception as e:
         logger.error(f"Error generating Google auth URL: {e}")
         raise HTTPException(status_code=500, detail="Could not initiate Google authentication.")
@@ -42,10 +61,15 @@ async def google_login(google_auth_service: GoogleAuthService = Depends(get_goog
 async def google_callback(
     request: Request,
     code: str = Query(...),
+    state: str = Query(None),
     google_auth_service: GoogleAuthService = Depends(get_google_auth_service),
 ):
     try:
-        token_info = await google_auth_service.exchange_code_for_token(code)
+        # FIX: Retrieve the PKCE code_verifier from the cookie, not app.state
+        cookie_name = f"oauth_state_{state}" if state else None
+        code_verifier = request.cookies.get(cookie_name) if cookie_name else None
+
+        token_info = await google_auth_service.exchange_code_for_token(code, code_verifier=code_verifier)
 
         # Attempt to find or create a corresponding system user, then issue JWT cookies
         pg_manager = request.app.state.postgres_manager
@@ -97,10 +121,30 @@ async def google_callback(
             )
 
         # Issue access + refresh tokens as cookies on a redirect response
-        redirect_url = f"{system_setting.FRONTEND_REDIRECT_URI}/{token_info.get('google_id')}"
+        # Redirect the user to the frontend dashboard or to an authorize page on error
+        try:
+            redirect_url = f"{system_setting.FRONTEND_REDIRECT_URI.rstrip('/')}/dashboard/{user_in_db.role}"
+        except Exception:
+            redirect_url = system_setting.FRONTEND_REDIRECT_URI
+
         redirect_resp = RedirectResponse(url=redirect_url, status_code=302)
+
+        # Delete the temporary state cookie
+        if cookie_name:
+            redirect_resp.delete_cookie(key=cookie_name)
+
         await create_and_send_token(user_in_db, redirect_resp, request)
+        try:
+            # Log Set-Cookie header(s) on the redirect response for debugging
+            sc = redirect_resp.headers.get("set-cookie")
+            logger.debug(f"Redirect response Set-Cookie: {sc}")
+        except Exception:
+            logger.debug("Could not read Set-Cookie header from redirect response.")
         return redirect_resp
+    except UnauthorizedGoogleAccess:
+        # Specific unauthorized Google access (e.g., org restriction)
+        logger.warning("Unauthorized Google access during OAuth callback")
+        return RedirectResponse(url=f"{system_setting.FRONTEND_REDIRECT_URI.rstrip('/')}/authorize", status_code=302)
     except Exception as e:
         logger.error(f"Google OAuth callback failed: {e}", exc_info=True)
         return RedirectResponse(url=f"{system_setting.FRONTEND_REDIRECT_URI}?error=auth_failed", status_code=302)

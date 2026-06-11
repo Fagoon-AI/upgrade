@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 from loguru import logger
@@ -13,7 +14,6 @@ from src.workspace_crud.crud.google_token import GoogleTokenCRUD
 from src.workspace_crud.crud.user import UserCRUD
 from src.models.google_token import GoogleToken
 from src.models.google_user import User
-
 
 
 class GoogleAuthService:
@@ -48,20 +48,42 @@ class GoogleAuthService:
         logger.debug(f"Google auth flow state: {state}")
         return authorization_url
 
-    async def exchange_code_for_token(self, auth_code: str) -> dict:
+    async def exchange_code_for_token(self, auth_code: str, code_verifier: Optional[str] = None) -> dict:
         """Exchanges the authorization code for tokens and user info."""
         flow = self.get_auth_flow()
         try:
             logger.info("Step 1: Attempting to fetch token from Google with auth code.")
-            flow.fetch_token(code=auth_code)
+            
+            # Relax scope matching for unverified apps
+            os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
+            if system_setting.ENV.lower() in ["development", "dev", "local"]:
+                os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
+            if code_verifier:
+                try:
+                    setattr(flow, "code_verifier", code_verifier)
+                    logger.debug("Set PKCE code_verifier on flow for token exchange.")
+                except Exception:
+                    logger.warning("Unable to set code_verifier on Flow instance.")
+
+            try:
+                flow.fetch_token(code=auth_code)
+            except Exception as e:
+                msg = str(e)
+                if "Scope has changed" in msg or "scope has changed" in msg:
+                    logger.warning(f"Google returned a different scope set than requested: {msg}")
+                    if not getattr(flow, "credentials", None):
+                        logger.error("No credentials available after scope change error.")
+                        raise
+                else:
+                    raise
+
             credentials = flow.credentials
             logger.info("Step 2: Successfully fetched token from Google.")
 
             token_expiry = credentials.expiry
             if not token_expiry:
-                logger.warning(
-                    "credentials.expiry was not provided, defaulting to 1 hour."
-                )
+                logger.warning("credentials.expiry was not provided, defaulting to 1 hour.")
                 token_expiry = datetime.utcnow() + timedelta(hours=1)
 
             logger.info("Step 3: Attempting to get user info from Google.")
@@ -77,80 +99,63 @@ class GoogleAuthService:
                     detail="Could not retrieve essential user info from Google."
                 )
 
+            # FIX: Safely check if this social account is already linked
             logger.info(f"Step 5: Checking if user with google_id '{google_id}' exists in DB.")
-            user = await self.user_crud.get_by_google_id(google_id)
-            if not user:
-                logger.warning(f"Step 6a: User not found. Creating a new user object in memory.")
-                user = User(
-                    google_id=google_id,
-                    email=email,
-                    name=name,
-                    profile_pic_url=profile_pic_url,
-                )
-                logger.info("Step 6b: Attempting to save the new user to the database.")
-                created_user = await self.user_crud.create_user(user)
-                if not created_user or not created_user.id:
-                    logger.error("CRITICAL: create_user method did not return a valid user with an ID!")
-                    raise Exception("Failed to create user in the database.")
-                user = created_user
-                logger.success(f"Step 6c: Successfully saved new user with DB ID: {user.id}")
-                logger.info(f"New user created: {user.email}")
-            else:
-                logger.info(f"Step 7a: User found with ID {user.id}. Attempting to update.")
-                await self.user_crud.update_user(
-                    user.id,
-                    {
-                        "email": email,
-                        "name": name,
-                        "profile_pic_url": profile_pic_url,
-                        "updated_at": datetime.utcnow(),
-                    },
-                )
-                logger.info(f"Step 7b: Existing user {user.email} updated.")
+            google_link_user = await self.user_crud.get_by_google_id(google_id)
+            
+            system_user_id_to_return = None
+            google_user_pk = None
 
-            logger.info(f"Step 8: Preparing to upsert Google Token for user_id: {user.id}")
-            google_token_obj = GoogleToken(
-                user_id=user.id,
-                access_token=credentials.token,
-                refresh_token=credentials.refresh_token,
-                token_uri=credentials.token_uri,
-                client_id=credentials.client_id,
-                client_secret=credentials.client_secret,
-                scopes=list(credentials.scopes),
-                token_expiry=token_expiry,
-            )
-            await self.google_token_crud.upsert_token(google_token_obj)
-            logger.success(f"Step 9: Successfully upserted Google tokens for user {user.id}.")
+            if not google_link_user:
+                # FIX: Do not attempt to write a dictionary or object here. 
+                # We don't have a system_user_id yet. The callback router handles this cleanly.
+                logger.warning("Step 6: Google user entry not found. Proceeding as a new link registration flow.")
+            else:
+                logger.info(f"Step 7: Existing Google link found for System User: {google_link_user.system_user_id}")
+                system_user_id_to_return = str(google_link_user.system_user_id)
+                google_user_pk = google_link_user.id
+
+            # Only save/upsert the Google integration token if the account binding table row exists
+            if google_user_pk:
+                logger.info(f"Step 8: Preparing to upsert Google Token for user_id: {google_user_pk}")
+                google_token_obj = GoogleToken(
+                    user_id=google_user_pk,
+                    access_token=credentials.token,
+                    refresh_token=credentials.refresh_token,
+                    token_uri=credentials.token_uri,
+                    client_id=credentials.client_id,
+                    client_secret=credentials.client_secret,
+                    scopes=list(credentials.scopes),
+                    token_expiry=token_expiry,
+                )
+                await self.google_token_crud.upsert_token(google_token_obj)
+                logger.success(f"Step 9: Successfully upserted Google tokens.")
+            else:
+                logger.warning("Step 8/9: Skipping database token save because social account linkage isn't complete yet.")
 
             expires_in_seconds = None
-            if (
-                hasattr(credentials, "expires_in")
-                and credentials.expires_in is not None
-            ):
+            if hasattr(credentials, "expires_in") and credentials.expires_in is not None:
                 expires_in_seconds = int(credentials.expires_in)
             elif token_expiry:
                 time_diff = token_expiry - datetime.utcnow()
-                if time_diff.total_seconds() > 0:
-                    expires_in_seconds = int(time_diff.total_seconds())
-                else:
-                    expires_in_seconds = 0
+                expires_in_seconds = max(int(time_diff.total_seconds()), 0)
+
             logger.success("Step 10: exchange_code_for_token completed successfully.")
+            
+            # Return system_user_id_to_return back so callback router can resolve the main user
             return {
-                "user_id": user.id,
-                "google_id": user.google_id,
-                "email": user.email,
+                "user_id": system_user_id_to_return,
+                "google_id": google_id,
+                "email": email,
                 "access_token": credentials.token,
                 "expires_in": expires_in_seconds,
                 "refresh_token_available": credentials.refresh_token is not None,
+                "profile_pic_url": profile_pic_url
             }
         except Exception as e:
-            logger.error(
-                f"Error exchanging authorization code for token: {e}", exc_info=True
-            )
-            raise UnauthorizedGoogleAccess(
-                detail=f"Failed to authenticate with Google: {e}"
-            )
-
+            logger.error(f"Error exchanging authorization code for token: {e}", exc_info=True)
+            raise UnauthorizedGoogleAccess(detail=f"Failed to authenticate with Google: {e}")
+        
     async def _get_user_info_from_google(self, access_token: str) -> dict:
         """Fetches basic user info using the access token."""
         userinfo_url = "https://www.googleapis.com/oauth2/v2/userinfo"
@@ -212,10 +217,6 @@ class GoogleAuthService:
                 logger.info(f"Updated Google token in DB for user {user_id}.")
             except Exception as e:
                 logger.error(f"Error refreshing Google token for user {user_id}: {e}")
-                # If refresh fails, delete the invalid token and force re-auth
-                # In prod, you might want to mark the token as invalid
-                # and prompt the user to re-authenticate gracefully.
-                # await self.google_token_crud.delete_token(user_id) # Consider this action
                 raise UnauthorizedGoogleAccess(
                     detail="Failed to refresh Google access token. Please re-authenticate."
                 )
