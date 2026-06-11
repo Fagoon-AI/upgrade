@@ -86,7 +86,7 @@ class Settings(BaseSettings):
     JWT_EXPIRES_IN: str = "90d"
     JWT_ALGORITHM: str
     JWT_COOKIE_EXPIRES_IN_DAYS: int = 90
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 1
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Cookie Domain Settings
@@ -105,8 +105,8 @@ class Settings(BaseSettings):
     SERPER_API_KEY: str
     SERPAPI_API_KEY: str
     FAL_KEY: str = None
-    FAST_MODEL_PROVIDER: str = "gemini"
-    FAST_MODEL_ID: str = "gemini-2.5-flash"
+    FAST_MODEL_PROVIDER: str = "groq"
+    FAST_MODEL_ID: str = "llama-3.3-70b-versatile"
 
     SMART_MODEL_PROVIDER: str = "openai"
     SMART_MODEL_ID: str = "gpt-4o"

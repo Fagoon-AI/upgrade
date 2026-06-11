@@ -101,8 +101,8 @@ class ChatStreamOrchestrator:
             error_str = str(e).lower()
             
             # Fallback check in case the HTTP client throws a generic exception containing '429'
-            if "429" in error_str or "too many requests" in error_str:
-                logger.warning(f"Rate limit exceeded (caught via string match): {e}")
+            if "429" in error_str or "too many requests" in error_str or "error" in error_str:
+                logger.warning(f"Rate limit exceeded during stream: {e}")
                 error_message = "The AI is currently overloaded with requests. Please wait a moment and try again."
             else:
                 logger.error("Core processing error: {error}", error=str(e), exc_info=True)

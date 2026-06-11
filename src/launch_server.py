@@ -1,4 +1,15 @@
 import sys
+import asyncio
+
+# --- CRITICAL WINDOWS PLAYWRIGHT PATCH ---
+# This MUST run at line 1 before ANY other modules or services are imported!
+if sys.platform == "win32":
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    except Exception:
+        pass
+# ----------------------------------------
+
 import types
 
 # --- Monkey Patch for older gpt-researcher compatibility ---
@@ -19,7 +30,6 @@ except ImportError:
 # -----------------------------------------------------------
 
 import os
-import asyncio
 import httpx
 from loguru import logger
 from contextlib import asynccontextmanager
@@ -127,6 +137,7 @@ async def lifespan(app: FastAPI):
     if postgres_manager_instance_local:
         await postgres_manager_instance_local.close()
         logger.info("PostgresManager connection closed during shutdown.")
+
 
 app = FastAPI(
     title=system_setting.PROJECT_NAME,
