@@ -44,8 +44,10 @@ async def list_drive_files(
         files = await drive_service.list_files(query=query, page_size=page_size)
         return [DriveFile(**f) for f in files]
     except HttpError as e:
+        error_msg = e.content.decode() if e.content else e
         logger.error(
-            f"Drive API error listing files: {e.content.decode() if e.content else e}",
+            "Drive API error listing files: {}",
+            error_msg,
             exc_info=True,
         )
         raise HTTPException(
@@ -54,10 +56,10 @@ async def list_drive_files(
                 if hasattr(e, "resp")
                 else status.HTTP_500_INTERNAL_SERVER_ERROR
             ),
-            detail=f"Failed to list Drive files: {e.content.decode() if e.content else e}",
+            detail=f"Failed to list Drive files: {error_msg}",
         )
     except Exception as e:
-        logger.error(f"Unexpected error listing Drive files: {e}", exc_info=True)
+        logger.error("Unexpected error listing Drive files: {}", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while listing Drive files.",
@@ -83,8 +85,10 @@ async def create_drive_folder(
         )
         return DriveFile(**folder)
     except HttpError as e:
+        error_msg = e.content.decode() if e.content else e
         logger.error(
-            f"Drive API error creating folder: {e.content.decode() if e.content else e}",
+            "Drive API error creating folder: {}",
+            error_msg,
             exc_info=True,
         )
         raise HTTPException(
@@ -93,10 +97,10 @@ async def create_drive_folder(
                 if hasattr(e, "resp")
                 else status.HTTP_500_INTERNAL_SERVER_ERROR
             ),
-            detail=f"Failed to create folder: {e.content.decode() if e.content else e}",
+            detail=f"Failed to create folder: {error_msg}",
         )
     except Exception as e:
-        logger.error(f"Unexpected error creating folder: {e}", exc_info=True)
+        logger.error("Unexpected error creating folder: {}", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while creating folder.",
@@ -139,8 +143,10 @@ async def upload_drive_file(
         )
         return DriveFile(**uploaded_file)
     except HttpError as e:
+        error_msg = e.content.decode() if e.content else e
         logger.error(
-            f"Drive API error uploading file: {e.content.decode() if e.content else e}",
+            "Drive API error uploading file: {}",
+            error_msg,
             exc_info=True,
         )
         raise HTTPException(
@@ -149,10 +155,10 @@ async def upload_drive_file(
                 if hasattr(e, "resp")
                 else status.HTTP_500_INTERNAL_SERVER_ERROR
             ),
-            detail=f"Failed to upload file: {e.content.decode() if e.content else e}",
+            detail=f"Failed to upload file: {error_msg}",
         )
     except Exception as e:
-        logger.error(f"Unexpected error uploading file: {e}", exc_info=True)
+        logger.error("Unexpected error uploading file: {}", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while uploading file.",
@@ -188,8 +194,10 @@ async def download_drive_file(
             content_base64=base64.b64encode(file_content_bytes).decode("utf-8"),
         )
     except HttpError as e:
+        error_msg = e.content.decode() if e.content else e
         logger.error(
-            f"Drive API error downloading file: {e.content.decode() if e.content else e}",
+            "Drive API error downloading file: {}",
+            error_msg,
             exc_info=True,
         )
         status_code = (
@@ -204,10 +212,10 @@ async def download_drive_file(
             )
         raise HTTPException(
             status_code=status_code,
-            detail=f"Failed to download file: {e.content.decode() if e.content else e}",
+            detail=f"Failed to download file: {error_msg}",
         )
     except Exception as e:
-        logger.error(f"Unexpected error downloading file: {e}", exc_info=True)
+        logger.error("Unexpected error downloading file: {}", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while downloading file.",

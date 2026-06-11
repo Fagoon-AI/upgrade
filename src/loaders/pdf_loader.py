@@ -92,12 +92,12 @@ class PDFReader(BasePDFReader):
         except Exception:
             doc_name = "pdf"
 
-        logger.debug(f"Reading: {doc_name}")
+        logger.debug("Reading: {}", doc_name)
 
         try:
             doc_reader = DocumentReader(pdf)
         except PdfStreamError as e:
-            logger.error(f"Error reading PDF: {e}")
+            logger.error("Error reading PDF: {}", e)
             return []
 
         documents = []
@@ -123,12 +123,12 @@ class PDFReader(BasePDFReader):
         except Exception:
             doc_name = "pdf"
 
-        logger.debug(f"Reading: {doc_name}")
+        logger.debug("Reading: {}", doc_name)
 
         try:
             doc_reader = DocumentReader(pdf)
         except PdfStreamError as e:
-            logger.error(f"Error reading PDF: {e}")
+            logger.error("Error reading PDF: {}", e)
             return []
 
         async def _process_document(

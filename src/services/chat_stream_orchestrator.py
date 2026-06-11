@@ -60,7 +60,7 @@ class ChatStreamOrchestrator:
             )
 
         except Exception as e:
-            logger.error(f"Failed during initial message processing: {e}", exc_info=True)
+            logger.error("Failed during initial message processing: {}", e, exc_info=True)
             async for chunk in self.response_manager.send_event(EventType.ERROR, "Failed to process your message."):
                 yield chunk
             return
@@ -161,6 +161,6 @@ class ChatStreamOrchestrator:
             async for chunk in self.response_manager.send_event(EventType.AUDIO_OUTPUT, audio_data):
                 yield chunk
         except Exception as e:
-            logger.error(f"Failed to generate audio response: {e}")
+            logger.error("Failed to generate audio response: {}", e)
             async for chunk in self.response_manager.send_event(EventType.ERROR, "Failed to generate audio."):
                 yield chunk

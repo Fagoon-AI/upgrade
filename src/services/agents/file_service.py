@@ -136,14 +136,17 @@ class FileService:
 
                 uploaded_files_metadata.append({
                     "file_name": file.filename,
-                    "gcs_path": gcs_path
+                    "gcs_path": gcs_path,
                 })
                 logger.success(f"Successfully uploaded and recorded path for '{file.filename}'.")
 
             except Exception as e:
-                logger.error(f"Failed to process and upload file '{file.filename}': {e}", exc_info=True)
-                # Decide if one failure should stop the whole batch or just be skipped
-                raise RuntimeError(f"Could not upload {file.filename}.") from e
+                logger.error("Failed to process and upload file '{}': {}", file.filename, e, exc_info=True)
+                uploaded_files_metadata.append({
+                    "file_name": file.filename,
+                    "gcs_path": None,
+                    "error": f"Failed to upload file: {e}"
+                })
             finally:
                 # Ensure file stream is closed
                 await file.close()

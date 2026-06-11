@@ -29,7 +29,7 @@ class GoogleGmailService:
                 self._service = build("gmail", "v1", credentials=self.credentials)
                 logger.info("Gmail API service built successfully.")
             except Exception as e:
-                logger.error(f"Error building Gmail API service: {e}", exc_info=True)
+                logger.error("Error building Gmail API service: {}", e, exc_info=True)
                 raise HttpError(f"Could not build Gmail service: {e}")
         return self._service
 
@@ -89,11 +89,11 @@ class GoogleGmailService:
                 .execute()
             )
             logger.info(
-                f"Email sent successfully to {to}, Message ID: {sent_message.get('id')}"
+                "Email sent successfully to {}, Message ID: {}", to, sent_message.get('id')
             )
             return sent_message
         except HttpError as error:
-            logger.error(f"Failed to send email: {error}", exc_info=True)
+            logger.error("Failed to send email: {}", error, exc_info=True)
             raise
 
     async def get_message(self, message_id: str, format: str = "full") -> Dict:
@@ -107,7 +107,7 @@ class GoogleGmailService:
         Raises:
             HttpError: If the Gmail API call fails.
         """
-        logger.info(f"Retrieved message with ID: {message_id}")
+        logger.info("Retrieved message with ID: {}", message_id)
         try:
             message = (
                 self.service.users()
@@ -115,11 +115,11 @@ class GoogleGmailService:
                 .get(userId="me", id=message_id, format=format)
                 .execute()
             )
-            logger.info(f"Retrieved message with ID: {message_id}")
+            logger.info("Retrieved message with ID: {}", message_id)
             return message
         except HttpError as error:
             logger.error(
-                f"Failed to retrieve message {message_id}: {error}", exc_info=True
+                "Failed to retrieve message {}: {}", message_id, error, exc_info=True
             )
             raise
 
@@ -146,7 +146,7 @@ class GoogleGmailService:
             )
             
             # Improved logging
-            logger.debug(f"Gmail API response: {json.dumps(messages_list, indent=2)}")
+            logger.debug("Gmail API response: {}", json.dumps(messages_list, indent=2))
             
             # More robust handling of response
             if not isinstance(messages_list, dict):
@@ -157,19 +157,20 @@ class GoogleGmailService:
             if not isinstance(messages, list):
                 raise ValueError(f"'messages' field is not a list: {type(messages)}")
                 
-            logger.info(f"Listed {len(messages)} messages with query '{query}'.")
+            logger.info("Listed {} messages with query '{}'.", len(messages), query)
             return messages
             
         except HttpError as error:
             logger.error(
-                f"Failed to list messages with query '{query}': {error}", 
+                "Failed to list messages with query '{}': {}", query, error, 
                 exc_info=True
             )
             raise
         except (ValueError, KeyError) as error:
             logger.error(
-                f"Unexpected error processing API response: {error}\n"
-                f"Full response: {messages_list}",
+                "Unexpected error processing API response: {}\nFull response: {}",
+                error,
+                messages_list,
                 exc_info=True
             )
             raise ValueError("Failed to process Gmail API response") from error

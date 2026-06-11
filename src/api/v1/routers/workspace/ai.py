@@ -27,7 +27,7 @@ async def generate_text(
         generated_text = await ai_service.generate_text_from_prompt(request.prompt)
         return GenerateTextResponse(generated_text=generated_text)
     except Exception as e:
-        logger.error(f"Error generating text from prompt: {e}", exc_info=True)
+        logger.error("Error generating text from prompt: {}", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred during AI text generation.",

@@ -26,7 +26,7 @@ class FalAIDiffusion(BaseDiffusion):
         Generates an image using the fal_client.subscribe method.
         """
         try:
-            logger.info(f"Subscribing to Fal.ai model: {model}")
+            logger.info("Subscribing to Fal.ai model: {}", model)
 
             handler_args = {
                 "prompt": prompt,
@@ -40,7 +40,7 @@ class FalAIDiffusion(BaseDiffusion):
 
             image_data = result["images"][0]
             if image_data.get("content_type") != "image/png":
-                logger.warning(f"Unexpected image format from Fal.ai: {image_data.get('content_type')}")
+                logger.warning("Unexpected image format from Fal.ai: {}", image_data.get('content_type'))
 
             image_bytes = base64.b64decode(image_data["content"])
             image = Image.open(BytesIO(image_bytes))
@@ -49,5 +49,5 @@ class FalAIDiffusion(BaseDiffusion):
             return image
 
         except Exception as e:
-            logger.error(f"Fal.ai image generation failed: {e}", exc_info=True)
+            logger.error("Fal.ai image generation failed: {}", e, exc_info=True)
             raise RuntimeError("Failed to generate image from the Fal.ai service.") from e

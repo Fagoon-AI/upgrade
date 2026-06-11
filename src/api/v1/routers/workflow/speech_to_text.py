@@ -52,7 +52,7 @@ async def speech_to_text(
         logger.warning(f"Bad request in speech-to-text: {ve}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
     except Exception as err:
-        logger.error(f"Failed speech-to-text conversion: {err}", exc_info=True)
+        logger.error("Failed speech-to-text conversion: {}", err, exc_info=True)
         response = FailureResponse(
             status="fail",
             message="An error occurred while converting speech into text.",

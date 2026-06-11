@@ -92,7 +92,7 @@ class GoogleAuthService:
             email = user_info.get("email")
             name = user_info.get("name")
             profile_pic_url = user_info.get("picture")
-            logger.info(f"Step 4: Successfully got user info. Google ID: {google_id}, Email: {email}")
+            logger.info("Step 4: Successfully got user info. Google ID: {}, Email: {}", google_id, email)
 
             if not google_id or not email:
                 raise UnauthorizedGoogleAccess(
@@ -170,13 +170,13 @@ class GoogleAuthService:
             user_info = await asyncio.to_thread(_sync_fetch_user_info)
             return user_info
         except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error fetching user info from Google: {e.response.status_code} - {e.response.text}", exc_info=True)
+            logger.error("HTTP error fetching user info from Google: {} - {}", e.response.status_code, e.response.text, exc_info=True)
             raise UnauthorizedGoogleAccess(detail=f"Failed to get user info from Google: {e.response.text}")
         except httpx.RequestError as e:
-            logger.error(f"Network error fetching user info from Google: {e}", exc_info=True)
+            logger.error("Network error fetching user info from Google: {}", e, exc_info=True)
             raise UnauthorizedGoogleAccess(detail=f"Network error getting user info from Google: {e}")
         except Exception as e:
-            logger.error(f"Unexpected error fetching user info from Google: {e}", exc_info=True)
+            logger.error("Unexpected error fetching user info from Google: {}", e, exc_info=True)
             raise UnauthorizedGoogleAccess(detail=f"An unexpected error occurred getting user info: {e}")
 
     async def get_credentials_for_user(self, user_id: str) -> Credentials:
@@ -201,10 +201,10 @@ class GoogleAuthService:
         creds.expiry = google_token_data.token_expiry
 
         if not creds.valid or creds.expired and creds.refresh_token:
-            logger.info(f"Refreshing Google token for user {user_id}...")
+            logger.info("Refreshing Google token for user {}...", user_id)
             try:
                 creds.refresh(Request())
-                logger.info(f"Google token refreshed successfully for user {user_id}.")
+                logger.info("Google token refreshed successfully for user {}.", user_id)
 
                 await self.google_token_crud.update_token(
                     user_id,
@@ -214,7 +214,7 @@ class GoogleAuthService:
                         "updated_at": datetime.utcnow(),
                     },
                 )
-                logger.info(f"Updated Google token in DB for user {user_id}.")
+                logger.info("Updated Google token in DB for user {}.", user_id)
             except Exception as e:
                 logger.error(f"Error refreshing Google token for user {user_id}: {e}")
                 raise UnauthorizedGoogleAccess(
@@ -222,7 +222,7 @@ class GoogleAuthService:
                 )
         elif creds.expired and not creds.refresh_token:
             logger.warning(
-                f"Google token expired for user {user_id} and no refresh token available. User needs to re-authenticate."
+                "Google token expired for user {} and no refresh token available. User needs to re-authenticate.", user_id
             )
             raise UnauthorizedGoogleAccess(
                 detail="Google access token expired. Please re-authenticate to get a refresh token."

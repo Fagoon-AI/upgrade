@@ -23,16 +23,16 @@ class BackgroundRemover:
         Removes the background of the image at input_path and saves it to output_path.
         """
         try:
-            logger.info(f"Reading image: {input_path}")
+            logger.info("Reading image: {}", input_path)
             img = read_image(input_path)
 
             logger.info("Removing background...")
             output_img = remove(img)
 
-            logger.info(f"Saving image to: {output_path}")
+            logger.info("Saving image to: {}", output_path)
             final_path = save_image(output_img, output_path, self.output_format)
 
-            logger.info(f"Successfully saved to {final_path}")
+            logger.info("Successfully saved to {}", final_path)
             return final_path
 
         except Exception as e:
@@ -46,6 +46,6 @@ if __name__ == "__main__":
         input_file = ""
         output_file = "output/bg_remover/cleaned_image"
         result_path = remover.remove_background(input_file, output_file)
-        logger.error(f"Image saved at: {result_path}")
+        logger.error("Image saved at: {}", result_path)
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error("Error: {}", e)

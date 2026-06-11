@@ -77,5 +77,5 @@ class SupportBotService:
 
             return response
         except Exception as e:
-            logger.error(f"Error in support bot: {e}")
+            logger.error("Error in support bot: {}", e)
             return fallback_handle_response

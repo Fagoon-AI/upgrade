@@ -39,14 +39,14 @@ async def fagoonai_prompt_recommender(request_body: PromptRecommenderRequest):
             message="User given prompt enhanced successfully",
         )
 
-        logger.success(f"successfully generated prompt. Enhanced prompt:\t{response}")
+        logger.success("successfully generated prompt. Enhanced prompt:\t{}", response)
         return JSONResponse(
             content=response.model_dump(),
             status_code=status.HTTP_201_CREATED,
         )
 
     except Exception as e:
-        logger.error(f"Prompt generation failed: {e}")
+        logger.error("Prompt generation failed: {}", e)
         return JSONResponse(
             content=FailureResponse(
                 status="fail",

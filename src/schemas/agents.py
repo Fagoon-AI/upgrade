@@ -20,9 +20,16 @@ class AIModelSetting(BaseModel):
     temperature: Optional[float] = Field(
         default=0.1, description="Sampling temperature for response randomness"
     )
+    top_p: Optional[float] = Field(
+        default=0.1, description="Top-p sampling probability for the model"
+    )
     max_tokens: Optional[int] = Field(
         default=None,
         description="Numbers of token to generate during the inference time",
+    )
+    api_key: Optional[str] = Field(
+        default=None,
+        description="API key for the selected LLM provider",
     )
 
 
@@ -77,6 +84,22 @@ class AgentDefaultModel(BaseModel):
             datetime: lambda v: v.isoformat(),
         }
 
+    @property
+    def name(self) -> Optional[str]:
+        if self.profile and self.profile.agent_name:
+            return self.profile.agent_name
+        return None
+
+    @property
+    def description(self) -> Optional[str]:
+        if self.profile:
+            return self.profile.description
+        return None
+
+    @property
+    def instructions(self) -> Optional[str]:
+        return self.system_prompt
+
 
 class ListAgentModel(BaseModel):
     agent_id: Optional[str] = Field(
@@ -98,3 +121,4 @@ class AgentUpdateModel(BaseModel):
     llm_model: Optional[str] = None
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
+    model_settings: Optional[AIModelSetting] = None

@@ -120,9 +120,9 @@ class AuthService:
         verification_url = f"{system_setting.FAGOON_URL}/verify-email/{token}"
         try:
             await self.email_service.send_signup_email(email, verification_url)
-            logger.info(f"Verification email sent to {email}")
+            logger.info("Verification email sent to {}", email)
         except Exception as e:
-            logger.error(f"Failed to send signup email for {email}: {e}")
+            logger.error("Failed to send signup email for {}: {}", email, e)
             # We don't raise an error here to avoid failing the whole registration
             # if the user was already created in the DB.
 
@@ -160,7 +160,7 @@ class AuthService:
         if not is_correct_password:
             raise AppError("Incorrect email or password.", status_code=status.HTTP_401_UNAUTHORIZED)
 
-        logger.info(f"User {user_in_db.email} logged in successfully.")
+        logger.info("User {} logged in successfully.", user_in_db.email)
         return user_in_db
 
     async def logout_user(self, user_id: str):

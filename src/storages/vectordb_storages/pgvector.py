@@ -63,10 +63,10 @@ class PgVectorStorage:
                     session.add(chunk)
                 
                 await session.commit()
-                logger.success(f"Successfully added {len(records)} vectors to Postgres (PgVector).")
+                logger.success("Successfully added {} vectors to Postgres (PgVector).", len(records))
             except Exception as e:
                 await session.rollback()
-                logger.error(f"Failed to add vectors to PgVector: {e}", exc_info=True)
+                logger.error("Failed to add vectors to PgVector: {}", e, exc_info=True)
                 raise RuntimeError(f"Failed to add vectors to PgVector: {e}")
 
     async def query(
@@ -113,7 +113,7 @@ class PgVectorStorage:
                     )
                 return query_results
             except Exception as e:
-                logger.error(f"Failed to query PgVector: {e}", exc_info=True)
+                logger.error("Failed to query PgVector: {}", e, exc_info=True)
                 raise RuntimeError(f"Failed to query PgVector: {e}")
 
     async def status(self) -> VectorDBStatus:
