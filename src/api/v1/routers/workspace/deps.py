@@ -79,7 +79,7 @@ async def get_google_credentials(
             headers={"WWW-Authenticate": "Bearer"},
         )
     except Exception as e:
-        logger.error(f"Error getting Google credentials: {e}", exc_info=True)
+        logger.error("Error getting Google credentials: {}", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve Google credentials."

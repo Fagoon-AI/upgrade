@@ -140,7 +140,7 @@ async def analyze_and_select_tools(
             user_query=user_query, system_prompt=system_prompt
         )
 
-        logger.debug(f"Tool selection LLM response: {response}")
+        logger.debug("Tool selection LLM response: {}", response)
         cleaned_response = response.strip().replace("`", "")
         if cleaned_response.startswith("json"):
             cleaned_response = cleaned_response[4:].strip()
@@ -155,14 +155,14 @@ async def analyze_and_select_tools(
             logger.warning("No valid tools selected, defaulting to general chat.")
             return [ToolType.GENERAL.value]
 
-        logger.info(f"LLM selected tools: {valid_tools}")
+        logger.info("LLM selected tools: {}", valid_tools)
         return valid_tools
 
     except (json.JSONDecodeError, ValueError) as e:
-        logger.error(f"Failed to parse or validate tool selection response: {e}")
+        logger.error("Failed to parse or validate tool selection response: {}", e)
         return [ToolType.GENERAL.value]
     except Exception as e:
         logger.error(
-            f"An unexpected error occurred during tool selection: {e}", exc_info=True
+            "An unexpected error occurred during tool selection: {}", e, exc_info=True
         )
         return [ToolType.GENERAL.value]

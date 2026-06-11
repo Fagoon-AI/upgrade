@@ -37,8 +37,10 @@ async def create_google_doc(
         )
         return DocDetails(**doc)
     except HttpError as e:
+        error_msg = e.content.decode() if e.content else e
         logger.error(
-            f"Docs API error creating document: {e.content.decode() if e.content else e}",
+            "Docs API error creating document: {}",
+            error_msg,
             exc_info=True,
         )
         raise HTTPException(
@@ -47,10 +49,10 @@ async def create_google_doc(
                 if hasattr(e, "resp")
                 else status.HTTP_500_INTERNAL_SERVER_ERROR
             ),
-            detail=f"Failed to create Google Doc: {e.content.decode() if e.content else e}",
+            detail=f"Failed to create Google Doc: {error_msg}",
         )
     except Exception as e:
-        logger.error(f"Unexpected error creating document: {e}", exc_info=True)
+        logger.error("Unexpected error creating document: {}", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while creating document.",
@@ -78,8 +80,10 @@ async def get_google_doc_content(
             content=content_text,
         )
     except HttpError as e:
+        error_msg = e.content.decode() if e.content else e
         logger.error(
-            f"Docs API error getting content: {e.content.decode() if e.content else e}",
+            "Docs API error getting content: {}",
+            error_msg,
             exc_info=True,
         )
         status_code = (
@@ -94,10 +98,10 @@ async def get_google_doc_content(
             )
         raise HTTPException(
             status_code=status_code,
-            detail=f"Failed to retrieve document content: {e.content.decode() if e.content else e}",
+            detail=f"Failed to retrieve document content: {error_msg}",
         )
     except Exception as e:
-        logger.error(f"Unexpected error getting document content: {e}", exc_info=True)
+        logger.error("Unexpected error getting document content: {}", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while retrieving document content.",
@@ -136,8 +140,10 @@ async def write_to_google_doc(
             "message": f"Content successfully written to Google Docs document '{document_id}'."
         }
     except HttpError as e:
+        error_msg = e.content.decode() if e.content else e
         logger.error(
-            f"Docs API error writing content: {e.content.decode() if e.content else e}",
+            "Docs API error writing content: {}",
+            error_msg,
             exc_info=True,
         )
         status_code = (
@@ -152,10 +158,10 @@ async def write_to_google_doc(
             )
         raise HTTPException(
             status_code=status_code,
-            detail=f"Failed to write content to document: {e.content.decode() if e.content else e}",
+            detail=f"Failed to write content to document: {error_msg}",
         )
     except Exception as e:
-        logger.error(f"Unexpected error writing content: {e}", exc_info=True)
+        logger.error("Unexpected error writing content: {}", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while writing content to document.",

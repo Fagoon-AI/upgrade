@@ -57,10 +57,10 @@ async def create_refresh_token(
         new_token = SQLRefreshToken(**token_data)
         db_services.session.add(new_token)
         await db_services.session.commit()
-        logger.debug(f"Refresh token for user {user_id} inserted into Postgres.")
+        logger.debug("Refresh token for user {} inserted into Postgres.", user_id)
     except Exception as e:
         await db_services.session.rollback()
-        logger.error(f"Failed to save refresh token to Postgres: {e}", exc_info=True)
+        logger.error("Failed to save refresh token to Postgres: {}", e, exc_info=True)
         raise AppError("Failed to issue refresh token.", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return refresh_token_raw, expires
@@ -197,7 +197,7 @@ async def invalidate_all_refresh_tokens_for_user(
             stmt = delete(SQLRefreshToken).where(SQLRefreshToken.user_id == uuid.UUID(user_id))
             result = await session.execute(stmt)
             await session.commit()
-            logger.info(f"Invalidated {result.rowcount} refresh tokens for user {user_id}.")
+            logger.info("Invalidated {} refresh tokens for user {}.", result.rowcount, user_id)
         except Exception as e:
             await session.rollback()
-            logger.error(f"Failed to invalidate refresh tokens: {e}")
+            logger.error("Failed to invalidate refresh tokens: {}", e)

@@ -56,7 +56,7 @@ async def create_chat(
         )
 
     except Exception as e:
-        logger.error(f"Unable to create chat entrypoint: {str(e)}")
+        logger.error("Unable to create chat entrypoint: {}", e)
         response = FailureResponse(
             status="fail", data=None, message="Unable to create chat entrypoint"
         )
@@ -86,7 +86,7 @@ async def get_all_conversations_list(
             content=response.model_dump(), status_code=status.HTTP_200_OK
         )
     except Exception as e:
-        logger.error(f"Unable to get conversation history: {e}", exc_info=True)
+        logger.error("Unable to get conversation history: {}", e, exc_info=True)
         return JSONResponse(
             content=FailureResponse(status="fail", message="An error occurred").model_dump(),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -112,7 +112,7 @@ async def get_chat(
         )
 
     except Exception as e:
-        logger.error(f"Failed to get conversation history: {str(e)}")
+        logger.error("Failed to get conversation history: {}", e)
         return JSONResponse(
             content=FailureResponse(status="fail", message="An error occurred").model_dump(),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -138,7 +138,7 @@ async def delete_conversation(
         )
 
     except Exception as e:
-        logger.error(f"Unable to delete conversation: {str(e)}")
+        logger.error("Unable to delete conversation: {}", e)
         return JSONResponse(
             content=FailureResponse(status="fail", message="An error occurred").model_dump(),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -156,11 +156,8 @@ async def agent_chat_streaming(
     orchestrator = request.app.state.chat_orchestrator
     user_id = request.state.user_id
     
-    # Optional LLM Config override
-    llm_config = BaseLLMConfig(
-        model=system_setting.SMART_MODEL_ID,
-        provider=system_setting.SMART_MODEL_PROVIDER
-    )
+    # Optional LLM Config override will be resolved from the agent's saved model settings.
+    llm_config = None
 
     async def event_generator():
         async for token in orchestrator.stream_chat(

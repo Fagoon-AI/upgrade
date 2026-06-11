@@ -42,25 +42,25 @@ class TextToSpeechServices:
     @async_time_execution
     async def convert_text_to_speech_and_get_url(self, user_id: str, prompt: str, voice_id: str, model: Optional[str] = None) -> Dict[str, str]:
         try:
-            logger.info(f"Generating audio for user '{user_id}' with provider '{self._config.provider}'.")
+            logger.info("Generating audio for user '{}' with provider '{}'.", user_id, self._config.provider)
             audio_bytes = await self.tts_client.synthesize(text=prompt, voice_id=voice_id, model=model)
 
             short_id = generate_unique_id(10)
             destination_path = f"audio/{user_id}/{short_id}.mp3"
 
-            logger.info(f"Uploading generated audio to GCS bucket at path: {destination_path}")
+            logger.info("Uploading generated audio to GCS bucket at path: {}", destination_path)
             gcs_path = self.storage_service.upload_file_to_workflow_folder(
                 file_bytes=audio_bytes,
                 destination_path=destination_path,
                 content_type=AUDIO_FILE,
             )
 
-            logger.info(f"Generating signed URL for blob: {gcs_path}")
+            logger.info("Generating signed URL for blob: {}", gcs_path)
             signed_url = self.storage_service.generate_signed_url(blob_name=gcs_path, expiration_in_hours=1)
 
-            logger.success(f"Successfully created TTS audio and signed URL for user '{user_id}'.")
+            logger.success("Successfully created TTS audio and signed URL for user '{}'.", user_id)
             return {"gcs_path": gcs_path, "signed_url": signed_url}
 
         except Exception as e:
-            logger.error(f"An error occurred while converting text to speech: {e}", exc_info=True)
+            logger.error("An error occurred while converting text to speech: {}", e, exc_info=True)
             raise e from e

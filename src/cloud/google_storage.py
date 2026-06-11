@@ -74,10 +74,13 @@ class GCSFileStorageManager:
 
         target_bucket = self.client.bucket(bucket_name) if bucket_name else self.bucket
         blob = target_bucket.blob(prefixed_path)
-        blob.upload_from_string(file_bytes, content_type=content_type)
-
-        logger.info(f"File uploaded to {prefixed_path} in bucket {target_bucket.name}")
-        return prefixed_path
+        try:
+            blob.upload_from_string(file_bytes, content_type=content_type)
+            logger.info("File uploaded to {} in bucket {}", prefixed_path, target_bucket.name)
+            return prefixed_path
+        except Exception as e:
+            logger.error("Failed to upload binary file to GCS at {}: {}", prefixed_path, e, exc_info=True)
+            raise RuntimeError(f"Failed to upload file to cloud storage: {e}") from e
 
     def read_binary_file(
         self, file_path: str, bucket_name: Optional[str] = None
@@ -92,7 +95,7 @@ class GCSFileStorageManager:
 
         # Download the file content as bytes
         bytes_content = blob.download_as_bytes()
-        logger.info(f"File {file_path} read from GCS bucket: {target_bucket}")
+        logger.info("File {} read from GCS bucket: {}", file_path, target_bucket)
         return bytes_content
 
 
@@ -114,7 +117,7 @@ class GCSFileStorageManager:
 
         try:
             blob.upload_from_string(file_bytes, content_type=content_type)
-            logger.info(f"Video uploaded to gs://{target_bucket.name}/{destination_blob_name}")
+            logger.info("Video uploaded to gs://{}/{}", target_bucket.name, destination_blob_name)
 
             # Always return the full GCS URI
             return f"gs://{target_bucket.name}/{destination_blob_name}"
@@ -124,7 +127,7 @@ class GCSFileStorageManager:
             # return blob.public_url if blob.public_url else f"gs://{target_bucket.name}/{destination_blob_name}"
 
         except GoogleCloudError as e:
-            logger.error(f"Error uploading video {destination_blob_name} to GCS: {e}", exc_info=True)
+            logger.error("Error uploading video {} to GCS: {}", destination_blob_name, e, exc_info=True)
             raise
 
     def upload_json_data(
@@ -149,7 +152,7 @@ class GCSFileStorageManager:
         blob.upload_from_string(json_str, content_type="application/json")
 
         logger.info(
-            f"JSON file uploaded to {prefixed_path} in bucket {target_bucket.name}"
+            "JSON file uploaded to {} in bucket {}", prefixed_path, target_bucket.name
         )
         return prefixed_path
 
@@ -168,12 +171,12 @@ class GCSFileStorageManager:
                 expiration=expiration_time,
                 method="GET",
             )
-            logger.success(f"Successfully generated signed URL for blob: {blob_name}")
+            logger.success("Successfully generated signed URL for blob: {}", blob_name)
             return signed_url
 
         except GoogleCloudError as e:
-            logger.error(f"Failed to generate signed URL for {blob_name}: {e}", exc_info=True)
+            logger.error("Failed to generate signed URL for {}: {}", blob_name, e, exc_info=True)
             return None
         except Exception as e:
-            logger.error(f"An unexpected error occurred during signed URL generation: {e}", exc_info=True)
+            logger.error("An unexpected error occurred during signed URL generation: {}", e, exc_info=True)
             return None

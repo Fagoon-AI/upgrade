@@ -55,7 +55,7 @@ async def chat_completion(
             message="An error occurred while getting response from llm",
         )
 
-        logger.error(f"failed to generate response: {result.model_dump()}: {str(err)}")
+        logger.error("failed to generate response: {}: {}", result.model_dump(), err)
 
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -55,7 +55,7 @@ class ResponseManager:
         """
         has_message = self.message and not self.message.isspace()
         if not has_message and not self.metadata and not self.tool_selection:
-            logger.warning(f"No message, metadata, or tool selection to save for conversation {self._conversation_id}. Aborting save.")
+            logger.warning("No message, metadata, or tool selection to save for conversation {}. Aborting save.", self._conversation_id)
             return
 
         message_to_save = []
@@ -73,9 +73,9 @@ class ResponseManager:
                 role=ConversationRoleEnum.ASSISTANT,
             )
             if success:
-                logger.success(f"BACKGROUND SAVE: Assistant turn saved to conversation {self._conversation_id}.")
+                logger.success("BACKGROUND SAVE: Assistant turn saved to conversation {}.", self._conversation_id)
             else:
-                logger.error(f"BACKGROUND SAVE: Failed to prepare assistant message for saving in convo {self._conversation_id}.")
+                logger.error("BACKGROUND SAVE: Failed to prepare assistant message for saving in convo {}.", self._conversation_id)
         except Exception as e:
             # Use structured logging placeholders to avoid accidental
             # .format() interpolation on strings that contain braces.

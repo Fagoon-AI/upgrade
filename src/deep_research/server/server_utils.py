@@ -7,7 +7,7 @@ import traceback
 from typing import Awaitable, Dict, Any, List, TYPE_CHECKING
 from src.deep_research.utils import write_md_to_pdf, write_md_to_word, write_text_to_md
 from datetime import datetime
-import logging
+from loguru import logger
 import uuid
 
 if TYPE_CHECKING:
@@ -17,9 +17,6 @@ from src.services.upgrade.chat import UpgradeChatService
 from gpt_researcher.utils.enum import Tone
 from src.services.document_processor import DocumentProcessor
 from src.services.nosql.postgres_services import PostgresServices
-
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 class CustomLogsHandler:
     def __init__(self, websocket: Any):
@@ -55,7 +52,7 @@ def sanitize_filename(filename: str) -> str:
     return re.sub(r"[^\w\s-]", "", sanitized).strip()
 
 async def handle_start_command(websocket, data: str, manager: 'WebSocketManager'):
-    logger.info(f"Received start command via websocket: {data}")
+    logger.info("Received start command via websocket: {}", data)
     try:
         json_data = json.loads(data[len("start") :].strip())
         (
@@ -67,7 +64,7 @@ async def handle_start_command(websocket, data: str, manager: 'WebSocketManager'
             await websocket.send_json({"type": "logs", "output": "Error: Missing conversation_id, task, or report_type."})
             return
 
-        logger.info(f"Starting research for conversation_id: {conversation_id}")
+        logger.info("Starting research for conversation_id: {}", conversation_id)
 
         postgres_manager = websocket.app.state.postgres_manager
         chat_service_instance = UpgradeChatService(postgres_manager, DocumentProcessor())
@@ -104,7 +101,7 @@ async def handle_start_command(websocket, data: str, manager: 'WebSocketManager'
     except json.JSONDecodeError:
         await websocket.send_json({"type": "logs", "output": "Error: Invalid JSON format."})
     except Exception as e:
-        logger.error(f"Error handling start command: {e}", exc_info=True)
+        logger.error("Error handling start command: {}", e, exc_info=True)
         await websocket.send_json({"type": "logs", "output": f"An unexpected error occurred: {e}"})
 
 async def handle_human_feedback(data: str):
@@ -138,7 +135,7 @@ async def handle_websocket_communication(websocket, manager):
                 logger.info("Task cancelled.")
                 raise
             except Exception as e:
-                logger.error(f"Error running task: {e}\n{traceback.format_exc()}")
+                logger.error("Error running task: {}\n{}", e, traceback.format_exc())
                 await websocket.send_json(
                     {
                         "type": "logs",
@@ -158,7 +155,7 @@ async def handle_websocket_communication(websocket, manager):
 
                 elif running_task and not running_task.done():
                     logger.warning(
-                        f"Received request while task is already running. Request data preview: {data[: min(20, len(data))]}..."
+                        "Received request while task is already running. Request data preview: {}...", data[: min(20, len(data))]
                     )
                     await websocket.send_json(
                         {

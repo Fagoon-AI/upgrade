@@ -99,7 +99,7 @@ class WebSearchService:
 
             queries = json.loads(cleaned_response)
             if isinstance(queries, list) and len(queries) > 0:
-                logger.info(f"Generated alternate queries: {queries}")
+                logger.info("Generated alternate queries: {}", queries)
                 return [self.query] + queries[:3]
             return [self.query]
         except Exception as e:

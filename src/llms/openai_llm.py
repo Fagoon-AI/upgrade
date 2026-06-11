@@ -16,7 +16,7 @@ class OpenAILLM(BaseLLM):
     def client(self) -> AsyncClient:
         """Async client property."""
         if self._client is None:
-            self._client = aget_client()
+            self._client = aget_client(self.config.api_key)
         return self._client
 
     async def generate(
