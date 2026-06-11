@@ -54,9 +54,23 @@ async def generate_general_response(
 async def generate_general_chat_response(
     messages: List[Dict[str, Any]], model_name: str, max_tokens: int = 1000):
 
+    # 1. Try to get the provider from your YAML config
+    provider = get_model_provider(model_id=model_name)
+    
+    # --- CRITICAL FIX: Safe Fallback Routing ---
+    # If the config file misses the model, prevent the Hugging Face crash
+    if not provider or provider == "hugging_face":
+        if "gemini" in model_name.lower():
+            provider = "openai"  # Google's API uses the OpenAI client structure
+        elif "llama" in model_name.lower():
+            provider = "groq"
+        else:
+            provider = "openai"  # Ultimate safe default
+    # -------------------------------------------
+
     config_params = {
         "model": model_name,
-        "provider": get_model_provider(model_id=model_name),
+        "provider": provider,
     }
 
     if model_name == "o4-mini":
@@ -79,7 +93,6 @@ async def generate_general_chat_response(
         content = chunk.choices[0].delta.content
         if content is not None:
             yield content
-
 
 async def acreate_title_from_history(conversations: List[Dict[str, Any]]):
     """

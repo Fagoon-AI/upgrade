@@ -19,14 +19,18 @@ class WebSearchHandler(BaseToolHandler):
 
         async_client = self.context.http_client
         crawler_service = self.context.crawl_service
-        selected_model = self.context.request.selected_model
+        
+        # --- FIX: Default to a safe model if selected_model is missing ---
+        from src.core.settings import system_setting
+        selected_model = self.context.request.selected_model or system_setting.FAST_MODEL_ID
 
         # 2. Instantiate the service with all its required dependencies, including the selected_model
         web_search_service = WebSearchService(
             query=get_user_latest_query(conversation_history),
             async_client=async_client,
             crawler_service=crawler_service,
-            selected_model=selected_model
+            selected_model=selected_model,
+            history=conversation_history
         )
 
         # 3. Execute the service and stream events

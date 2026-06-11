@@ -82,31 +82,43 @@ async def set_auth_cookies(
         (refresh_token_expires_dt - datetime.now(timezone.utc)).total_seconds()
     )
 
+    # Mimicking your working project's environment toggles
+    is_prod = system_setting.ENV.lower() not in ["development", "dev", "local"]
+    
+    # Always use 'none' to ensure cross-origin fetch requests work between frontend and backend.
+    # Secure must be True if SameSite='none'. Chrome allows Secure cookies on http://localhost.
+    samesite_val = "none"
+    secure_flag = True 
+
+    # Grab the domain from settings, defaulting to None if local
+    # Make sure COOKIE_DOMAIN_1 in your .env is set to e.g., ".fagoon.ai" for production
+    cookie_domain = system_setting.COOKIE_DOMAIN_1 if is_prod else None
+
+    cookie_params = {
+        "httponly": True,
+        "samesite": samesite_val,
+        "secure": secure_flag,
+        "domain": cookie_domain,
+        "path": "/",
+    }
+
     response.set_cookie(
         key="jwt",
         value=access_token,
-        httponly=True,
-        samesite="none",
-        secure=True,
         expires=access_token_expires_dt,
         max_age=access_max_age,
-        path="/",
+        **cookie_params
     )
 
     response.set_cookie(
         key="refresh_token",
         value=refresh_token_raw,
-        httponly=True,
-        samesite="none",
-        secure=True,
         expires=refresh_token_expires_dt,
         max_age=refresh_max_age,
-        path="/",
+        **cookie_params
     )
-    logger.info(
-        "Auth cookies set. Access expires in {}s, Refresh expires in {}s.", access_max_age, refresh_max_age
-    )
-
+    
+    logger.info(f"Auth cookies set. Domain: {cookie_domain}, Secure: {secure_flag}, SameSite: {samesite_val}")
 
 async def clear_auth_cookies(response: Response):
     """Clears all authentication cookies from the root path."""
@@ -163,7 +175,14 @@ async def create_and_send_token(
             refresh_token_expires,
         )
 
-    return access_token
+            # Log Set-Cookie headers for debugging (helps confirm cookies were added)
+        try:
+                set_cookie_header = response.headers.get("set-cookie")
+                logger.debug(f"Set-Cookie header after token creation: {set_cookie_header}")
+        except Exception:
+                logger.debug("Unable to read Set-Cookie header from response for debugging.")
+
+        return access_token
 
 
 async def invalidate_all_refresh_tokens_for_user(

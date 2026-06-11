@@ -52,10 +52,21 @@ def build_prompt(
     )
 
     system_prompt_template = SYSTEM_PROMPTS[template]
+    
+    # --- ADD STRICT ROUTING GUARDRAILS TO BASE PROMPT ---
+    routing_guardrails = (
+        "\n\nCRITICAL ROUTING RULES FOR GENERAL CHAT AND SYSTEM TASKS:\n"
+        "1. If the user is just saying hello, making casual conversation (e.g., 'how are you?', 'tell me a joke', 'what's up'), "
+        "or asking general standalone logic/questions, you MUST return Only [\"general\"].\n"
+        "2. If the user asks for the current time, date, or your name/identity, you MUST return Only [\"general\"]. Do NOT perform a web search.\n"
+        "3. You must ONLY select [\"web_search\"] if the user query explicitly demands live data, fresh news, real-time lookups, or current events information."
+    )
+    system_prompt_template += routing_guardrails
+
     if web_search_hint:
         hint_text = (
-            "\nHint: The user has enabled web search. Prioritize the 'web_search' tool for informational "
-            "queries that require current data. However, if the query is an explicit command to generate content "
+            "\nHint: The user has explicitly enabled web search. Prioritize the 'web_search' tool for informational "
+            "queries that require live, real-time data or lookups. However, if the query is an explicit command to generate content "
             "(e.g., 'draw a picture of...', 'create a flowchart for...'), select the corresponding generation "
             "tool ('image_generation', 'mermaid_diagram')."
         )
@@ -77,27 +88,37 @@ async def analyze_and_select_tools(
     - Rule-based checks are used for simple, general queries to bypass the LLM.
     - An LLM is used for all other complex queries.
     """
-    query = get_user_latest_query(history).lower().strip()
+    query = get_user_latest_query(history).lower().strip().rstrip('?')
 
-    # Rule 1: Check for simple greetings and general chat.
-    general_triggers = [
-        "hello", "hi", "hey", "how are you", "what's up",
-        "good morning", "good afternoon", "good evening",
-        "what is the time", "current time", "what's the time", "what time it is"
+    # Rule 1: Comprehensive check for casual chat, greetings, and system properties
+    general_exact_matches = {
+        "hello", "hi", "hey", "how are you", "what's up", "sup", "yo",
+        "good morning", "good afternoon", "good evening", "how's it going",
+        "who are you", "what is your name", "what's your name", "tell me a joke"
+    }
+    
+    general_prefixes = [
+        "what time", "current time", "what's the time", "what time it is", 
+        "how are you", "tell me about yourself"
     ]
-    if any(query.startswith(g) for g in general_triggers):
-        logger.info("Rule-based tool selection: User message '{}' is a general query. Selecting 'general' tool.", query)
+
+    if query in general_exact_matches or any(query.startswith(p) for p in general_prefixes):
+        logger.info(f"Rule-based tool selection: User message '{query}' is a general query. Selecting 'general' tool.")
         return [ToolType.GENERAL.value]
 
-    # Rule 2: Check for queries that explicitly require a web search.
-    web_search_triggers = [
-        "who is", "what is", "when is", "where is", "how to", "why is", "research on", "recent stock prices"
-        "latest news on", "current price of", "weather in", "what's the score", "stock price",
-        "search for", "find information on", "tell me about", "what are the recent developments in"
-    ]
-    if any(query.startswith(trigger) for trigger in web_search_triggers):
-        logger.info("Rule-based tool selection: User message '{}' implies a web search. Selecting 'web_search' tool.", query)
-        return [ToolType.WEB_SEARCH.value]
+    # --- FIX 1: Protect Rule 2 with the web_search_enabled toggle ---
+    # Only allow rule-based web search matching if the feature is explicitly enabled by the user
+    if web_search_enabled:
+        web_search_triggers = [
+            "who is the", "what is the current", "latest news on", "current price of", 
+            "weather in", "what's the score of", "stock price of", "search for", 
+            "find information on", "what are the recent developments in", "research on"
+        ]
+        if any(query.startswith(trigger) for trigger in web_search_triggers):
+            logger.info(f"Rule-based tool selection: User message '{query}' implies a web search. Selecting 'web_search' tool.")
+            return [ToolType.WEB_SEARCH.value]
+    else:
+        logger.debug("Skipping Rule 2 checks because web search toggle is turned OFF.")
 
     # Fallback: Use LLM for more complex queries that don't match simple rules.
     logger.info("No simple rules matched. Using LLM for tool analysis.")
@@ -131,7 +152,7 @@ async def analyze_and_select_tools(
         valid_tools = [tool for tool in parsed if tool in ToolType._value2member_map_]
 
         if not valid_tools:
-            logger.warning("No valid tools selected by LLM, defaulting to general chat.")
+            logger.warning("No valid tools selected, defaulting to general chat.")
             return [ToolType.GENERAL.value]
 
         logger.info("LLM selected tools: {}", valid_tools)
