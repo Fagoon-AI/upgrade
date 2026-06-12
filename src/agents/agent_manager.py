@@ -57,13 +57,17 @@ class AgentManager:
             pg_services = PostgresServices(session)
             sql_agent = await pg_services.get_agent_by_id(agent_uuid)
             if sql_agent and not sql_agent.is_deleted:
-                return {
+                # Unpack config first, then explicitly set fields to override any stale data in config
+                agent_dict = {
+                    **sql_agent.config,
                     "id": str(sql_agent.id),
                     "user_id": str(sql_agent.user_id),
                     "name": sql_agent.name,
                     "instructions": sql_agent.instructions,
-                    **sql_agent.config
                 }
+                # Remove redundant fields from the config that are now top-level
+                agent_dict.pop("agent_id", None)
+                return agent_dict
         return None
 
     async def list_agents(self, user_id: str) -> List[Dict[str, Any]]:
@@ -76,12 +80,17 @@ class AgentManager:
         async with self.postgres_manager.get_session() as session:
             pg_services = PostgresServices(session)
             sql_agents = await pg_services.get_all_agents_by_user_id(user_uuid)
+            
+            # List of fields to filter out from agent.config
+            fields_to_exclude = {"user_id", "agent_id", "id"}
+            
             return [
                 {
                     "id": str(agent.id),
+                    "user_id": str(agent.user_id),
                     "name": agent.name,
                     "instructions": agent.instructions,
-                    **agent.config
+                    **{k: v for k, v in agent.config.items() if k not in fields_to_exclude}
                 } for agent in sql_agents
             ]
 

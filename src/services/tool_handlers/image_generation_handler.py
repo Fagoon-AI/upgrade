@@ -12,7 +12,7 @@ class ImageGenerationHandler(BaseToolHandler):
     """Wraps the ImageGenerationService to integrate with the streaming orchestrator."""
     async def execute(self, conversation_history: List[Dict[str, Any]]) -> AsyncGenerator[str, None]:
         # This configuration can be made more dynamic if needed
-        diffusion_config = BaseDiffusionConfig(provider="openai")
+        diffusion_config = BaseDiffusionConfig(provider="gemini")
         storage_service = FileStorageService()
         image_service = ImageGenerationService(config=diffusion_config, storage_service=storage_service)
         user_prompt = get_user_latest_query(conversation_history)

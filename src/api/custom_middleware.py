@@ -286,6 +286,11 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         query_params = dict(request.query_params)
         if query_params: log_parts.append(f"Params: {query_params}")
 
+        # Skip body reading for webhook routes to avoid consuming the stream for signature verification
+        if "/webhook/" in request.url.path:
+            logger.info(" | ".join(log_parts) + " | Body: [SKIPPED FOR WEBHOOK]")
+            return await call_next(request)
+
         body_bytes = await request.body()
         content_type = request.headers.get("content-type", "")
         

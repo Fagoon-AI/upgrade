@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import BackgroundTasks, HTTPException
 from loguru import logger
+import uuid
 
 from src.agents.agent_manager import AgentManager
 from src.core.cache import CacheClient
@@ -55,7 +56,10 @@ class WebhookGatewayService:
 
     async def _verify_signature(self, channel: str, agent_id: str, headers: Dict[str, str], body: bytes) -> None:
         if channel in {"whatsapp", "messenger"}:
-            signature_header = headers.get("X-Hub-Signature-256", "")
+            # Normalize headers to lowercase to handle case-insensitive lookup
+            normalized_headers = {k.lower(): v for k, v in headers.items()}
+            signature_header = normalized_headers.get("x-hub-signature-256", "")
+            
             if not signature_header:
                 raise HTTPException(status_code=403, detail="Missing signature header.")
 
@@ -65,6 +69,12 @@ class WebhookGatewayService:
                 raise HTTPException(status_code=403, detail="Webhook secret is not configured.")
 
             expected = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+            
+            # --- FORCE LOGGING TO INFO ---
+            logger.info(f"Header Signature: {signature_header}")
+            logger.info(f"Calculated Signature: {expected}")
+            # -----------------------------
+
             if not hmac.compare_digest(signature_header, expected):
                 raise HTTPException(status_code=403, detail="Invalid webhook signature.")
 
@@ -156,11 +166,18 @@ class WebhookGatewayService:
             raise HTTPException(status_code=404, detail="Agent not found.")
 
         owner_user_id = agent.get("user_id")
-        if not owner_user_id:
-            raise HTTPException(status_code=500, detail="Agent owner user ID is missing.")
+        logger.info(f"Retrieved owner_user_id for agent {agent_id}: {owner_user_id} (type: {type(owner_user_id)})")
+        
+        # --- FIX: Robust UUID validation ---
+        try:
+            user_uuid = uuid.UUID(str(owner_user_id))
+        except (ValueError, TypeError):
+            logger.error(f"Invalid owner_user_id: {owner_user_id}. Cannot convert to UUID.")
+            raise HTTPException(status_code=500, detail="Agent owner user ID is not a valid UUID.")
+        # -----------------------------------
 
         history_id = await self.chat_service.create_conversation(
-            owner_user_id,
+            str(user_uuid),
             agent_id,
             title=f"{channel.title()} Conversation",
         )
@@ -184,7 +201,13 @@ class WebhookGatewayService:
         body: bytes,
         background_tasks: BackgroundTasks,
     ) -> Dict[str, Any]:
-        await self._verify_signature(channel, agent_id, headers, body)
+        logger.info(f"handle_webhook started for channel={channel}, agent_id={agent_id}")
+        try:
+            await self._verify_signature(channel, agent_id, headers, body)
+            logger.info("Signature verification passed.")
+        except HTTPException as e:
+            logger.error(f"Signature verification failed: {e.detail}")
+            raise
 
         normalized = self._normalize_payload(channel, agent_id, payload)
         if not normalized.get("text"):
