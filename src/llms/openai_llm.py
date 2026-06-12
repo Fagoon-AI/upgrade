@@ -19,6 +19,14 @@ class OpenAILLM(BaseLLM):
             self._client = aget_client(self.config.api_key)
         return self._client
 
+    async def get_embeddings(self, text: str) -> List[float]:
+        """Generate text embeddings using OpenAI."""
+        response = await self.client.embeddings.create(
+            input=text,
+            model="text-embedding-3-small"  # You might want to make this configurable
+        )
+        return response.data[0].embedding
+
     async def generate(
         self,
         messages: List[Dict[str, Any]],

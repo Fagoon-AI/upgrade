@@ -5,7 +5,7 @@ from typing import Optional, Literal, List
 class BaseLLMConfig(BaseModel):
     model: str
     max_tokens: Optional[int] = None
-    provider: Literal["openai", "hugging_face", "groq", "anthropic", "localhost"]
+    provider: Literal["openai", "hugging_face", "groq", "anthropic", "localhost", "gemini"]
     temperature: Optional[float] = 0.1
     top_p: Optional[float] = 0.1
     api_key: Optional[str] = None
@@ -13,7 +13,7 @@ class BaseLLMConfig(BaseModel):
 
 class LLMModelConfigCreate(BaseModel):
     name: str
-    provider: Literal["openai", "hugging_face", "groq", "anthropic", "localhost"]
+    provider: Literal["openai", "hugging_face", "groq", "anthropic", "localhost", "gemini"]
     model_id: Optional[str] = None
     api_key: Optional[str] = None
     features: Optional[List[Literal["chat", "agents", "workflow"]]] = Field(default_factory=list)
@@ -23,7 +23,7 @@ class LLMModelConfigCreate(BaseModel):
 
 class LLMModelConfigUpdate(BaseModel):
     name: Optional[str] = None
-    provider: Optional[Literal["openai", "hugging_face", "groq", "anthropic", "localhost"]]
+    provider: Optional[Literal["openai", "hugging_face", "groq", "anthropic", "localhost", "gemini"]]
     model_id: Optional[str] = None
     api_key: Optional[str] = None
     features: Optional[List[Literal["chat", "agents", "workflow"]]] = None

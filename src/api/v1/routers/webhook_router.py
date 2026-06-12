@@ -62,6 +62,11 @@ async def receive_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
 ):
+    # --- ADD THIS LOGGING ---
+    logger.info(f"Received webhook POST for channel={channel}, agent_id={agent_id}")
+    logger.info(f"Headers: {dict(request.headers)}")
+    # ------------------------
+
     body = await request.body()
     if not body:
         raise HTTPException(status_code=400, detail="Request body is required.")

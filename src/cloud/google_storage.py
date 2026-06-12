@@ -7,8 +7,8 @@ from datetime import datetime, timedelta, timezone
 
 from typing import Optional, List, Literal
 import os
+from src.core.settings import system_setting
 
-load_dotenv()
 
 
 class GCSFileStorageManager:
@@ -19,12 +19,10 @@ class GCSFileStorageManager:
         :param bucket_name: Name of the GCS bucket (optional, defaults to .env value).
         :param credentials_path: Optional path to the service account JSON key.
         """
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.getenv(
-            "GOOGLE_APPLICATION_CREDENTIALS"
-        )
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = system_setting.GOOGLE_APPLICATION_CREDENTIALS
 
         self.client = storage.Client()
-        self.bucket_name = os.getenv("GCS_BUCKET_NAME")
+        self.bucket_name = system_setting.GCS_BUCKET_NAME
 
         if not self.bucket_name:
             raise ValueError(
