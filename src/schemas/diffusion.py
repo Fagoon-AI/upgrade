@@ -4,4 +4,4 @@ from typing import Literal
 
 
 class BaseDiffusionConfig(BaseModel):
-    provider: Literal["openai", "hugging_face", "fal_ai"]
+    provider: Literal["openai", "hugging_face", "fal_ai", "gemini"]

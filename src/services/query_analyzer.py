@@ -63,14 +63,19 @@ def build_prompt(
     )
     system_prompt_template += routing_guardrails
 
+    generation_hint = (
+        "\nHint: If the query is an explicit command to generate content "
+        "(e.g., 'draw a picture of...', 'create a flowchart for...'), select the corresponding generation "
+        "tool ('image_generation', 'mermaid_diagram')."
+    )
+    system_prompt_template += generation_hint
+
     if web_search_hint:
-        hint_text = (
+        web_search_hint_text = (
             "\nHint: The user has explicitly enabled web search. Prioritize the 'web_search' tool for informational "
-            "queries that require live, real-time data or lookups. However, if the query is an explicit command to generate content "
-            "(e.g., 'draw a picture of...', 'create a flowchart for...'), select the corresponding generation "
-            "tool ('image_generation', 'mermaid_diagram')."
+            "queries that require live, real-time data or lookups."
         )
-        system_prompt_template += hint_text
+        system_prompt_template += web_search_hint_text
 
     system_prompt = system_prompt_template.format(
         tool_info=tool_info, conversation_text=conversation_text

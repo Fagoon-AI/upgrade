@@ -60,4 +60,4 @@ def setup_logging():
     if ENVIRONMENT_MODE == "production":
         logger.add("logs/app.json", level="INFO", serialize=True, **common_config)
 
-    logger.add(sys.stderr, format=log_format)
+    logger.add(sys.stderr, format=log_format, level="DEBUG")

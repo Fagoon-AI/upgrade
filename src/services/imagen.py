@@ -6,6 +6,7 @@ from src.diffusion.base import BaseDiffusion
 from src.diffusion.openai import OpenAIDiffusion
 from src.diffusion.huggingface import HuggingFaceDiffusion
 from src.diffusion.fal_ai import FalAIDiffusion
+from src.diffusion.gemini_imagen import GeminiImagenDiffusion
 
 from src.schemas.diffusion import BaseDiffusionConfig
 from src.storages.file_storage import FileStorageService
@@ -18,6 +19,7 @@ class ImageGenerationService:
         "openai": OpenAIDiffusion,
         "hugging_face": HuggingFaceDiffusion,
         "fal_ai": FalAIDiffusion,
+        "gemini": GeminiImagenDiffusion,
     }
 
     def __init__(
