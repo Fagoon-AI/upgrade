@@ -82,3 +82,25 @@ class AgentChatService:
                 await session.commit()
                 return True
         return False
+
+    # --- ADDED: TITLE UPDATE METHOD ---
+    async def update_chat_title(self, history_id: str, title: str) -> bool:
+        """
+        Updates the title of a specific conversation in the database.
+        """
+        try:
+            async with self.postgres_manager.get_session() as session:
+                stmt = select(AgentChatHistory).where(AgentChatHistory.id == uuid.UUID(history_id))
+                res = await session.execute(stmt)
+                history = res.scalar_one_or_none()
+                
+                if history:
+                    history.title = title
+                    history.updated_at = datetime.now(timezone.utc)
+                    await session.commit()
+                    return True
+                return False
+        except Exception as e:
+            logger.error(f"Failed to update chat title in database for history {history_id}: {e}")
+            return False
+        

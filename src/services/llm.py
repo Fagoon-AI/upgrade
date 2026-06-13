@@ -45,6 +45,13 @@ class LLMService:
 
         return self._llm
 
+    async def get_embeddings(self, text: str) -> List[float]:
+        """Delegates embedding generation to the underlying LLM instance."""
+        if hasattr(self.llm, "get_embeddings"):
+            return await self.llm.get_embeddings(text)
+        else:
+            raise AttributeError(f"{type(self.llm).__name__} does not implement get_embeddings")
+
     @async_time_execution
     async def chat_completion(
         self,
