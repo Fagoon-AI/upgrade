@@ -34,6 +34,7 @@ class Settings(BaseSettings):
         "http://0.0.0.0:2321",
         "http://localhost:8000",
         "https://upgrade.devfagoon.online",# new added
+        "http://localhost:9999", # Added for testing QR.html
     ]
 
     # LLM Related Configuration
@@ -121,6 +122,10 @@ class Settings(BaseSettings):
     FACEBOOK_PAGE_ACCESS_TOKEN: Optional[str] = None
     TELEGRAM_BOT_TOKEN: Optional[str] = None
     TELEGRAM_BOT_SECRET_TOKEN: Optional[str] = None
+    
+    EVOLUTION_API_KEY: Optional[str] = None
+    EVOLUTION_API_URL: Optional[str] = None
+    WEBHOOK_URL: Optional[str] = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_ignore_empty=True, env_file_encoding='utf-8', case_sensitive=False, override=True)
 

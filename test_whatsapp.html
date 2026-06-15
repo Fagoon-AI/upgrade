@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp QR WebSocket Tester</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 10px; }
+        input, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        #qr-container { margin-top: 20px; text-align: center; }
+        #log { background: #f4f4f4; padding: 10px; height: 150px; overflow-y: auto; font-family: monospace; font-size: 12px; border: 1px solid #ddd; }
+        img { max-width: 100%; border: 1px solid #ddd; padding: 10px; background: white; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Test WhatsApp QR Code</h2>
+    
+    <label>Agent ID (e.g. b5e2b1d4-4867-43c5-ba13-4c69b017faf9)</label>
+    <input type="text" id="agentId" placeholder="Enter Agent ID...">
+
+    <button onclick="startSession()">1. Start Session (POST /start)</button>
+    <button onclick="connectWebSocket()">2. Connect WebSocket</button>
+    
+    <div id="qr-container">
+        <p>QR Code will appear below:</p>
+        <img id="qr-image" style="display: none;" />
+    </div>
+
+    <h3>Logs</h3>
+    <div id="log"></div>
+</div>
+
+<script>
+    let ws = null;
+
+    function logMessage(msg) {
+        const logDiv = document.getElementById('log');
+        logDiv.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    async function startSession() {
+        const agentId = document.getElementById('agentId').value;
+        if (!agentId) { alert("Please enter an Agent ID"); return; }
+        
+        logMessage("Calling POST /api/v1/whatsapp-session/start...");
+        try {
+            const res = await fetch('http://localhost:8000/api/v1/whatsapp-session/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agent_id: agentId })
+            });
+            const data = await res.json();
+            logMessage(`Response: ${JSON.stringify(data)}`);
+            if (data.session_id) {
+                document.getElementById('agentId').value = data.session_id;
+                logMessage("Ready to connect WebSocket!");
+            }
+        } catch (err) {
+            logMessage(`Error starting session: ${err.message}`);
+        }
+    }
+
+    function connectWebSocket() {
+        const agentId = document.getElementById('agentId').value;
+        if (!agentId) { alert("Please enter an Agent ID"); return; }
+        
+        if (ws) { ws.close(); }
+
+        const wsUrl = `ws://localhost:8000/api/v1/whatsapp-session/ws/${agentId}`;
+        logMessage(`Connecting to ${wsUrl}...`);
+        
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            logMessage("WebSocket Connected!");
+        };
+
+        ws.onmessage = (event) => {
+            logMessage(`Received payload (truncated)...`);
+            try {
+                const payload = JSON.parse(event.data);
+                if (payload.event === "qr") {
+                    logMessage("✅ 'qr' event received! Rendering image...");
+                    const qrImg = document.getElementById('qr-image');
+                    qrImg.src = payload.data.qr_base64;
+                    qrImg.style.display = 'inline';
+                } else if (payload.event === "status") {
+                    logMessage(`ℹ️ Status update: ${payload.data.state}`);
+                } else {
+                    logMessage(`Unknown event: ${payload.event}`);
+                }
+            } catch (e) {
+                logMessage(`Failed to parse WebSocket message: ${e.message}`);
+            }
+        };
+
+        ws.onclose = () => {
+            logMessage("WebSocket Disconnected.");
+        };
+
+        ws.onerror = (err) => {
+            logMessage(`WebSocket Error.`);
+            console.error(err);
+        };
+    }
+</script>
+
+</body>
+</html>

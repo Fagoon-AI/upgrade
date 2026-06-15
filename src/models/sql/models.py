@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, JSON, Text
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer, JSON, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from pgvector.sqlalchemy import Vector
@@ -32,6 +32,7 @@ class User(Base):
     agents = relationship("Agent", back_populates="owner")
     video_jobs = relationship("VideoJob", back_populates="user")
     llm_model_configs = relationship("LLMModelConfig", back_populates="user")
+    whatsapp_sessions = relationship("WhatsAppSession", back_populates="user", cascade="all, delete-orphan")
 
 class LLMModelConfig(Base):
     __tablename__ = "llm_model_configs"
@@ -191,3 +192,20 @@ class GoogleUser(Base):
     family_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     locale: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)) 
+    
+class WhatsAppSession(Base):
+    __tablename__ = "whatsapp_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    agent_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agents.id", ondelete="CASCADE"), unique=True, nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    session_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    # Tracks the UI state: 'idle', 'initializing', 'qr_ready', 'connecting', 'connected', 'disconnected'
+    state = Column(String(50), default="idle", nullable=False)
+    # Will be null until the user actually scans the QR code, then it saves their +977... number
+    phone_number = Column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    user = relationship("User", back_populates="whatsapp_sessions")
