@@ -36,4 +36,5 @@ ALLOWED_URL_PATH_WITHOUT_AUTHORIZATION = [
     "/api/v1/generate-image",
     "/ws",
     "/api/v1/ws",
+    "/api/v1/whatsapp-session/webhook",
 ]

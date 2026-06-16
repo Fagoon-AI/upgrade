@@ -30,14 +30,16 @@ echo "Starting server on http://$HOST:$PORT"
 
 if [[ "$APP_ENV" == "PROD" ]]; then
     echo "Running with Gunicorn (production mode)..."
-    .venv/bin/gunicorn "$APP_MODULE" \
+    # Replaced .venv/bin/gunicorn with uv run gunicorn
+    uv run gunicorn "$APP_MODULE" \
         --bind "$HOST:$PORT" \
         --workers "$WORKERS" \
         --worker-class uvicorn.workers.UvicornWorker \
         --timeout 120
 else
     echo "Running with Uvicorn (development mode with reload)..."
-    .venv/bin/uvicorn "$APP_MODULE" \
+    # Replaced .venv/bin/uvicorn with uv run uvicorn
+    uv run uvicorn "$APP_MODULE" \
         --host "$HOST" \
         --port "$PORT" \
         --reload
