@@ -83,10 +83,9 @@ def test_fastapi_app_imports_and_loads_routers(tmp_path, monkeypatch):
     assert app.routes
     paths = {r.path for r in app.routes if hasattr(r, "path")}
     
-    # Verify that crucial routers and endpoints are fully loaded
-    assert any("/webhook" in p for p in paths)
-    assert any("/video-generation" in p for p in paths)
-    assert any("/database/switch" in p for p in paths)
+    assert any("/webhook" in p for p in paths), f"Webhook path missing. Paths registered: {sorted(paths)}"
+    assert any("/video-generation" in p for p in paths), f"Video generation path missing. Paths registered: {sorted(paths)}"
+    assert any("/database/switch" in p for p in paths), f"Database switch path missing. Paths registered: {sorted(paths)}"
 
 
 @pytest.mark.asyncio
