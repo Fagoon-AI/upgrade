@@ -85,6 +85,7 @@ class Settings(BaseSettings):
         "http://localhost:8000",
         "https://upgrade.devfagoon.online",# new added
         "http://localhost:9999", # Added for testing QR.html
+        "http://127.0.0.1:9999",
     ]
 
     # LLM Related Configuration
@@ -155,11 +156,11 @@ class Settings(BaseSettings):
     SERPER_API_KEY: str = ""
     SERPAPI_API_KEY: str = ""
     FAL_KEY: Optional[str] = None
-    FAST_MODEL_PROVIDER: str = "groq"
-    FAST_MODEL_ID: str = "llama-3.3-70b-versatile"
+    FAST_MODEL_PROVIDER: str = "gemini"
+    FAST_MODEL_ID: str = "gemini-2.5-flash"
 
-    SMART_MODEL_PROVIDER: str = "openai"
-    SMART_MODEL_ID: str = "gpt-4o"
+    SMART_MODEL_PROVIDER: str = "gemini"
+    SMART_MODEL_ID: str = "gemini-2.5-pro"
 
     # Channel webhook / integration configuration
     REDIS_URL: str = ""

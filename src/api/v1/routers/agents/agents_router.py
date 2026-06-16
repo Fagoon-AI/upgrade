@@ -272,7 +272,13 @@ async def create_requested_agent(
     """
     try:
         agent_manager = request.app.state.agent_manager
-        user_id = request.state.user_id
+        user_id = getattr(request.state, "user_id", None)
+        if not user_id:
+            user = getattr(request.state, "user", None)
+            if user:
+                user_id = str(user.id)
+            else:
+                raise HTTPException(status_code=401, detail="Authentication required.")
         
         agent_data = await agent_manager.create_agent(user_id, request_body)
         agent_id = agent_data["id"]
@@ -313,7 +319,13 @@ async def get_all_agents(
     """
     try:
         agent_manager = request.app.state.agent_manager
-        user_id = request.state.user_id
+        user_id = getattr(request.state, "user_id", None)
+        if not user_id:
+            user = getattr(request.state, "user", None)
+            if user:
+                user_id = str(user.id)
+            else:
+                raise HTTPException(status_code=401, detail="Authentication required.")
         all_agents = await agent_manager.list_agents(user_id)
 
         response = SuccessResponse(

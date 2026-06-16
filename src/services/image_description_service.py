@@ -1,9 +1,15 @@
 from src.services.llm import LLMService
 from src.schemas.llm import BaseLLMConfig
+from src.core.settings import system_setting
 
 class ImageDescriptionService:
     def __init__(self):
-        self.llm_service = LLMService(BaseLLMConfig(model="llama-3.3-70b-versatile", provider="groq"))
+        self.llm_service = LLMService(
+            BaseLLMConfig(
+                model=system_setting.SMART_MODEL_ID, 
+                provider=system_setting.SMART_MODEL_PROVIDER
+            )
+        )
 
     async def describe_image(self, image_url: str) -> str:
         system_prompt = (

@@ -215,8 +215,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return None
 
     def _is_public_path(self, path: str) -> bool:
-        
-        if "/webhook/" in path:
+
+        if "/webhook/" in path or "/file/image/" in path:
             return True
         # Normalize path: remove trailing slash for comparison
         path_to_check = path.rstrip("/") if path != "/" else path
