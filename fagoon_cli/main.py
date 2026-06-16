@@ -24,6 +24,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import httpx
 import typer
 
 app = typer.Typer(add_completion=False, help="Fagoon self-hosted control CLI.")
@@ -135,12 +136,36 @@ app.add_typer(db_app, name="db")
 
 
 @db_app.command("set-url")
-def db_set_url(url: str = typer.Argument(..., help="postgresql+asyncpg://...")):
-    """Repoint the database URL and trigger migrations on next restart."""
-    cfg = _load_config()
-    cfg["database_url"] = url
-    _save_config(cfg)
-    typer.secho("Database URL saved. Restart to migrate: fagoon down && fagoon up", fg="yellow")
+def db_set_url(
+    url: str = typer.Argument(..., help="postgresql+asyncpg://..."),
+    copy_data: bool = typer.Option(False, "--copy-data", help="Also copy existing data."),
+):
+    """Switch the database via the running app (validates + migrates + restarts)."""
+    try:
+        r = httpx.post("http://localhost:8000/api/v1/database/switch",
+                       json={"url": url, "copy_data": copy_data}, timeout=30)
+        if r.status_code == 400:
+            typer.secho(f"Rejected: {r.json().get('detail')}", fg="red")
+            raise typer.Exit(1)
+        r.raise_for_status()
+        typer.secho("Switch started. Poll: fagoon db status", fg="green")
+    except httpx.ConnectError:
+        # Fallback offline path: directly save config if app is not running
+        cfg = _load_config()
+        cfg["database_url"] = url
+        _save_config(cfg)
+        typer.secho("App not running. Saved directly to config.json. Start/restart app to apply: fagoon up", fg="yellow")
+
+@db_app.command("status")
+def db_status():
+    """Show switch progress."""
+    try:
+        r = httpx.get("http://localhost:8000/api/v1/database/switch/status", timeout=10)
+        r.raise_for_status()
+        typer.echo(r.text)
+    except httpx.ConnectError:
+        typer.secho("App not running. Start it first: fagoon up", fg="red")
+        raise typer.Exit(1)
 
 
 @app.command()
