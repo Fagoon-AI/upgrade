@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     data_dir: str = "/data"
     web_concurrency: int = 1
     database_url_default: str = ""  # bundled DSN injected by compose in lite mode
+    allow_self_restart: bool = False  # if true, app SIGTERMs itself after a switch
     features: str = "chat,agents,workflow,vibecoder"
     encryption_key: str = ""
 
