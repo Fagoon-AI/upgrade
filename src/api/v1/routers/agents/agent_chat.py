@@ -261,7 +261,9 @@ async def generate_chat_title(
         title = ""
         async for token in generate_general_chat_response(
             messages=messages, 
-            model_name=system_setting.FAST_MODEL_ID 
+            model_name=system_setting.FAST_MODEL_ID,
+            user_id=request.state.user_id,
+            feature="chat"
         ):
             title += token
 

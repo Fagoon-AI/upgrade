@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from src.api.v1.routers.misc import files_router
+from src.api.v1.routers.misc import files_router, setup_router
 from src.api.v1.routers.workflow import (
     image_generation,
     llm,
@@ -74,6 +74,12 @@ def setup_and_combine_all_routers() -> APIRouter:
         files_router.router,
         prefix="/file",
         tags=["File Upload", "Agents"],
+    )
+
+    router.include_router(
+        setup_router.router,
+        prefix="/setup",
+        tags=["System Setup"],
     )
 
     router.include_router(

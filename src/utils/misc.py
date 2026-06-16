@@ -112,14 +112,19 @@ def get_model_id_and_service(path, model_name) -> Tuple[Optional[str], Optional[
     if data is None:
         return None, None
 
+    if not model_name:
+        return None, None
+
+    model_name_lower = model_name.lower().strip()
+
     for service_key in data:
         service = data[service_key]
         models = service.get("models", [])
         for model_entry in models:
-            # Changed from model_entry.get("name") to model_entry.get("id")
-            if model_entry.get("id") == model_name:
-                model_id = model_entry.get("id")
-                return model_id, service_key
+            m_id = model_entry.get("id")
+            m_name = model_entry.get("name")
+            if (m_id and m_id.lower() == model_name_lower) or (m_name and m_name.lower() == model_name_lower):
+                return m_id, service_key
 
     return None, None
 

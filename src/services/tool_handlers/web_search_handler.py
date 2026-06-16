@@ -24,13 +24,30 @@ class WebSearchHandler(BaseToolHandler):
         from src.core.settings import system_setting
         selected_model = self.context.request.selected_model or system_setting.FAST_MODEL_ID
 
-        # 2. Instantiate the service with all its required dependencies, including the selected_model
+        # Resolve custom Groq API key if user has one configured
+        groq_api_key = None
+        from src.services.api_key_resolver import resolve_api_key
+        import uuid
+        try:
+            resolved_api_key = await resolve_api_key(
+                user_id=uuid.UUID(str(self.context.user_id)),
+                provider="groq",
+                feature="chat"
+            )
+            if resolved_api_key:
+                groq_api_key = resolved_api_key
+        except Exception as e:
+            logger.error(f"Failed to resolve Groq API key for web search: {e}")
+
+        # 2. Instantiate the service with all its required dependencies, including the selected_model and keys
         web_search_service = WebSearchService(
             query=get_user_latest_query(conversation_history),
             async_client=async_client,
             crawler_service=crawler_service,
             selected_model=selected_model,
-            history=conversation_history
+            history=conversation_history,
+            groq_api_key=groq_api_key,
+            user_id=self.context.user_id
         )
 
         # 3. Execute the service and stream events

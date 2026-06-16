@@ -54,6 +54,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     content={"detail": "Authentication failed: Access token is missing."}
                 )
 
+        # 1. Perform Authentication
         try:
             decoded_token = jwt.decode(
                 access_token,
@@ -88,9 +89,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
                                     photo=sql_user.photo,
                                     role=sql_user.role,
                                     active=sql_user.active,
-                                    password_changed_at=sql_user.password_changed_at,
                                     social_media=sql_user.social_media
                                 )
+                                if sql_user.password_changed_at:
+                                    current_user.password_changed_at = sql_user.password_changed_at
                     except Exception as pg_err:
                         logger.warning("Postgres auth lookup failed: {}", pg_err)
 
@@ -108,7 +110,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
             request.state.access = [{"role": current_user.role}] if current_user.role else []
 
             logger.debug(f"User {user_id} successfully authenticated.")
-            return await call_next(request)
 
         except jwt.ExpiredSignatureError:
             logger.info("Access token expired. Attempting refresh...")
@@ -131,13 +132,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return response
 
         except Exception as e:
-            logger.error("An unexpected error occurred in auth middleware", exc_info=True)
+            logger.error("An unexpected error occurred in auth middleware during verification", exc_info=True)
             response = JSONResponse(
                 status_code=500,
                 content={"detail": "An internal server error occurred during authentication."}
             )
             await clear_auth_cookies(response)
             return response
+
+        # 2. Dispatch to Downstream Router (outside of Auth try-except)
+        return await call_next(request)
 
     async def _handle_refresh_and_proceed(
         self, request: Request, call_next: RequestResponseEndpoint, refresh_token_raw: str

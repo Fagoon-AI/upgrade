@@ -1,13 +1,69 @@
 import os
+import json
 from loguru import logger
 from dotenv import load_dotenv
 from typing import Any, Optional, Literal
 
-from src.cloud.google_storage import GCSFileStorageManager
-
 load_dotenv()
 
-STORAGE_MANAGER = os.getenv("DEFAULT_STORAGE_MANAGER", "GOOGLE")
+STORAGE_MANAGER = os.getenv("DEFAULT_STORAGE_MANAGER", "LOCAL")
+
+class LocalFileStorageManager:
+    def __init__(self, base_dir: str = "outputs"):
+        self.base_dir = base_dir
+        os.makedirs(self.base_dir, exist_ok=True)
+        logger.info(f"LocalFileStorageManager initialized. Base directory: {self.base_dir}")
+
+    def upload_binary_file(
+        self,
+        file_bytes: bytes,
+        destination_path: str,
+        file_prefix: Literal["workflow", "agents", "upgrade", "users"] = "agents",
+        content_type: str = "application/octet-stream",
+        bucket_name: Optional[str] = None,
+    ) -> str:
+        # Clean destination path to prevent directory traversal
+        clean_path = destination_path.lstrip("/\\")
+        prefixed_path = f"{file_prefix}/{clean_path}"
+        full_path = os.path.join(self.base_dir, prefixed_path)
+        
+        # Ensure parent directory exists
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        
+        with open(full_path, "wb") as f:
+            f.write(file_bytes)
+        logger.info(f"File uploaded locally to {full_path}")
+        
+        # Return the relative path served by /outputs
+        return prefixed_path.replace("\\", "/")
+
+    def read_binary_file(
+        self, file_path: str, bucket_name: Optional[str] = None
+    ) -> bytes:
+        full_path = os.path.join(self.base_dir, file_path)
+        if not os.path.exists(full_path):
+            raise FileNotFoundError(f"File not found: {full_path}")
+        with open(full_path, "rb") as f:
+            return f.read()
+
+    def generate_signed_url(self, blob_name: str, expiration_in_hours: int = 24) -> Optional[str]:
+        from src.core.settings import system_setting
+        base_url = system_setting.get_value("DEFAULT_URL") or "http://localhost:8000"
+        return f"{base_url.rstrip('/')}/outputs/{blob_name.replace('\\', '/')}"
+
+    def upload_json_data(
+        self,
+        data: Any,
+        destination_path: str,
+        file_prefix: Literal["workflow", "agents", "upgrade"],
+    ) -> str:
+        file_bytes = json.dumps(data, indent=2).encode("utf-8")
+        return self.upload_binary_file(
+            file_bytes=file_bytes,
+            destination_path=destination_path,
+            file_prefix=file_prefix,
+            content_type="application/json"
+        )
 
 
 class FileStorageService:
@@ -19,11 +75,16 @@ class FileStorageService:
     def manager(self):
         if self._manager is None:
             if self._storage_manager.upper() == "GOOGLE":
-                self._manager = GCSFileStorageManager()
+                try:
+                    from src.cloud.google_storage import GCSFileStorageManager
+                    self._manager = GCSFileStorageManager()
+                    logger.info("Using Google Cloud Storage Manager.")
+                except Exception as e:
+                    logger.error(f"Failed to initialize GCSFileStorageManager ({e}). Falling back to LocalFileStorageManager.")
+                    self._manager = LocalFileStorageManager()
             else:
-                raise ValueError(
-                    f"Unsupported storage manager: {self._storage_manager}"
-                )
+                self._manager = LocalFileStorageManager()
+                logger.info("Using Local File Storage Manager.")
         return self._manager
 
     def upload_file_to_agent_folder(
@@ -34,9 +95,6 @@ class FileStorageService:
         bucket_name: Optional[str] = None,
         file_prefix: Literal["workflow", "agents", "upgrade", "users"] = "agents",
     ):
-        """
-        Upload binary data to Agents Directory in Google Cloud Storage
-        """
         return self.upload_file(
             file_bytes=file_bytes,
             destination_path=destination_path,
@@ -46,9 +104,6 @@ class FileStorageService:
         )
 
     def generate_signed_url(self, blob_name: str, expiration_in_hours: int = 24) -> Optional[str]:
-        """
-        Generates a v4 signed URL for a GCS blob. This method proxies the call to the storage manager.
-        """
         logger.info(f"Generating signed URL for blob: {blob_name}")
         return self.manager.generate_signed_url(
             blob_name=blob_name,
@@ -63,9 +118,6 @@ class FileStorageService:
         file_prefix: Literal["workflow", "agents", "upgrade"] = "workflow",
         bucket_name: Optional[str] = None,
     ):
-        """
-        Upload binary data to Agents Directory in Google Cloud Storage
-        """
         return self.upload_file(
             file_bytes=file_bytes,
             destination_path=destination_path,
@@ -82,9 +134,6 @@ class FileStorageService:
         file_prefix: Literal["workflow", "agents", "upgrade"] = "upgrade",
         bucket_name: Optional[str] = None,
     ):
-        """
-        Upload binary data to Agents Directory in Google Cloud Storage
-        """
         return self.upload_file(
             file_bytes=file_bytes,
             destination_path=destination_path,
@@ -98,21 +147,9 @@ class FileStorageService:
         file_bytes: bytes,
         destination_path: str,
         content_type: str,
-        file_prefix: Literal['workflow', 'agents', "upgrade"],
+        file_prefix: Literal["workflow", "agents", "upgrade"],
         bucket_name: Optional[str] = None,
     ) -> str:
-        """
-        Uploads binary data to Google Cloud Storage.
-
-        Args:
-            file_bytes (bytes): The file content in bytes.
-            destination_path (str): The path in the bucket to store the file.
-            content_type (str): MIME type of the file.
-            bucket_name (Optional[str]): Name of the GCS bucket (optional).
-
-        Returns:
-            str: Path of the uploaded file in GCS.
-        """
         return self.manager.upload_binary_file(
             file_bytes=file_bytes,
             destination_path=destination_path,
@@ -122,16 +159,6 @@ class FileStorageService:
         )
 
     def read_file(self, file_path: str, bucket_name: Optional[str] = None) -> bytes:
-        """
-        Reads a binary file from the specified path, optionally from a cloud storage bucket.
-
-        Args:
-            file_path (str): Path to the file to be read.
-            bucket_name (Optional[str], optional): The cloud storage bucket name.
-
-        Returns:
-            bytes: The content of the file as binary data.
-        """
         return self.manager.read_binary_file(
             file_path=file_path, bucket_name=bucket_name
         )
@@ -140,8 +167,22 @@ class FileStorageService:
         self,
         data: Any,
         file_path: str,
-        file_prefix: Literal["workflow", "agent", "upgrade"],
+        file_prefix: Literal["workflow", "agents", "upgrade"],
     ):
-        return self.manager.upload_json_data(
-            data=data, destination_path=file_path, file_prefix=file_prefix
-        )
+        if hasattr(self.manager, 'upload_json_data'):
+            return self.manager.upload_json_data(
+                data=data, destination_path=file_path, file_prefix=file_prefix
+            )
+        elif hasattr(self.manager, 'upload_json_file'): # Compatibility
+            return self.manager.upload_json_file(
+                data=data, destination_path=file_path, file_prefix=file_prefix
+            )
+        else:
+            # Fallback
+            file_bytes = json.dumps(data, indent=2).encode("utf-8")
+            return self.upload_file(
+                file_bytes=file_bytes,
+                destination_path=file_path,
+                content_type="application/json",
+                file_prefix=file_prefix,
+            )

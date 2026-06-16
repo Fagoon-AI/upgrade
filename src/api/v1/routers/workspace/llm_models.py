@@ -16,8 +16,8 @@ from src.utils.upgrade_auth.app_error import AppError
 
 router = APIRouter()
 
-SUPPORTED_PROVIDERS = ["openai", "hugging_face", "groq", "anthropic", "localhost"]
-SUPPORTED_FEATURES = ["chat", "agents", "workflow"]
+SUPPORTED_PROVIDERS = ["openai", "hugging_face", "groq", "anthropic", "localhost", "gemini", "perplexity", "ollama"]
+SUPPORTED_FEATURES = ["chat", "agents", "workflow", "vibe_coder"]
 
 
 def _get_authenticated_user(request: Request) -> UserInDB:
