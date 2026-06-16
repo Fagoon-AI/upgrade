@@ -1,20 +1,39 @@
 from typing import AsyncGenerator, List, Dict, Any
+import uuid
 from loguru import logger
 
 from src.services.tool_handlers.base import BaseToolHandler
 from src.services.imagen import ImageGenerationService
 from src.schemas.diffusion import BaseDiffusionConfig
-from src.storages.file_storage import FileStorageService
 from src.utils.misc import get_user_latest_query
 from src.schemas.upgrade_chat import ChatEventType as EventType
 
 class ImageGenerationHandler(BaseToolHandler):
     """Wraps the ImageGenerationService to integrate with the streaming orchestrator."""
     async def execute(self, conversation_history: List[Dict[str, Any]]) -> AsyncGenerator[str, None]:
-        # This configuration can be made more dynamic if needed
-        diffusion_config = BaseDiffusionConfig(provider="gemini")
-        storage_service = FileStorageService()
-        image_service = ImageGenerationService(config=diffusion_config, storage_service=storage_service)
+        
+        image_provider = "gemini"
+        image_api_key = None
+        
+        # Dynamically fetch the user's API key for image generation
+        from src.services.api_key_resolver import resolve_api_key
+        try:
+            resolved_key = await resolve_api_key(
+                user_id=uuid.UUID(str(self.context.user_id)),
+                provider=image_provider,
+                feature="chat"
+            )
+            if resolved_key:
+                image_api_key = resolved_key
+        except Exception as e:
+            logger.error(f"Failed to resolve custom Image Generation API key in Upgrade Chat: {e}")
+            
+        diffusion_config = BaseDiffusionConfig(provider=image_provider, api_key=image_api_key)
+        
+        image_service = ImageGenerationService(
+            config=diffusion_config, 
+            postgres_manager=self.context.postgres_manager
+        )
         user_prompt = get_user_latest_query(conversation_history)
 
         # The service itself is an async generator; we adapt its events to our stream

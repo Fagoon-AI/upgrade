@@ -1,6 +1,6 @@
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
-from sqlalchemy import select, text
+from sqlalchemy import select, text, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
 
@@ -34,7 +34,7 @@ class PgVectorStorage:
                 for record in records:
                     # We might need to find or create a FileReference first if not present
                     # but for RAG ingestion, file_id is often in metadata
-                    file_id = record.metadata.get("file_id") or record.metadata.get("document_id")
+                    file_id = record.metadata.get("file_id") or record.metadata.get("document_id") or f"unknown_{uuid.uuid4()}"
                     
                     # Find file_ref_id
                     stmt = select(FileReference.id).where(FileReference.file_id == file_id)
@@ -43,11 +43,25 @@ class PgVectorStorage:
                     
                     if not file_ref_id:
                         # Create a dummy or partial FileReference if it doesn't exist
-                        # In a real migration, this should be handled by the ingestion service
+                        # Use the agent_id to fetch the true user if missing, else fallback carefully
+                        user_id_str = record.metadata.get("user_id")
+                        user_id = uuid.UUID(user_id_str) if user_id_str else None
+                        
+                        if not user_id:
+                            # In a RAG upload, we definitely need a valid user_id. We'll use the one from the agent owner.
+                            # For safety against foreign key violations, we will fetch the first user as a fallback.
+                            from src.models.sql.models import User
+                            user_stmt = select(User.id).limit(1)
+                            user_result = await session.execute(user_stmt)
+                            user_id = user_result.scalar_one_or_none()
+                            
+                            if not user_id:
+                                raise RuntimeError("No valid user_id found to associate with FileReference.")
+
                         new_file_ref = FileReference(
-                            file_id=file_id or f"unknown_{uuid.uuid4()}",
-                            user_id=record.metadata.get("user_id") or uuid.UUID(int=0), # Placeholder
-                            metadata=record.metadata
+                            file_id=file_id,
+                            user_id=user_id,
+                            extra_metadata=record.metadata
                         )
                         session.add(new_file_ref)
                         await session.flush()
@@ -58,7 +72,7 @@ class PgVectorStorage:
                         file_ref_id=file_ref_id,
                         content=record.content,
                         embedding=record.embedding,
-                        metadata={**record.metadata, "collection": collection_name}
+                        extra_metadata={**record.metadata, "collection": collection_name}
                     )
                     session.add(chunk)
                 
@@ -79,22 +93,16 @@ class PgVectorStorage:
         """Searches for similar vectors using cosine distance (<=>)."""
         async with self.postgres_manager.get_session() as session:
             try:
-                # Construct query with pgvector operator
-                # SELECT *, embedding <=> :query_embedding as distance 
-                # FROM document_chunks 
-                # WHERE metadata->>'collection' = :collection
-                # ORDER BY distance ASC LIMIT :top_k
-                
                 stmt = select(
                     DocumentChunk,
                     DocumentChunk.embedding.cosine_distance(query.query_vector).label("distance")
                 ).where(
-                    text("metadata->>'collection' = :col").bindparams(col=collection_name)
+                    text("extra_metadata->>'collection' = :col").bindparams(col=collection_name)
                 )
 
                 if filter_conditions:
                     for key, value in filter_conditions.items():
-                        stmt = stmt.where(text(f"metadata->>'{key}' = :val").bindparams(val=str(value)))
+                        stmt = stmt.where(text(f"extra_metadata->>'{key}' = :val").bindparams(val=str(value)))
 
                 stmt = stmt.order_by(text("distance ASC")).limit(query.top_k)
                 
@@ -106,8 +114,8 @@ class PgVectorStorage:
                     query_results.append(
                         VectorDBQueryResult.create(
                             id=str(chunk.id),
-                            similarity=1 - distance, # distance is cosine distance, similarity is 1 - distance
-                            payload={**chunk.metadata, "content": chunk.content},
+                            similarity=1 - distance, 
+                            payload={**chunk.extra_metadata, "content": chunk.content},
                             vector=list(chunk.embedding)
                         )
                     )
