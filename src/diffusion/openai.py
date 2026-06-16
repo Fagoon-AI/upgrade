@@ -19,7 +19,8 @@ class OpenAIDiffusion(BaseDiffusion):
     def client(self) -> AsyncClient:
         """Async client property."""
         if self._client is None:
-            self._client = aget_client()
+            # Pass the dynamically resolved api_key down to the client
+            self._client = aget_client(api_key=self.config.api_key)
         return self._client
 
     async def generate_image(

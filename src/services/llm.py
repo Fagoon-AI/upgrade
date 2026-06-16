@@ -53,13 +53,28 @@ class LLMService:
             )
             
             if is_key_missing:
-                logger.warning(
-                    f"No valid API key found for provider '{self._config.provider}'. "
-                    f"Failing over to local fallback model (Ollama - gemma:2b)..."
-                )
-                self._config.provider = "ollama"
-                self._config.model = "gemma:2b"
-                self._config.api_key = None
+                from src.core.settings import system_setting
+                
+                # Check if we have a default fallback key available
+                fallback_provider = system_setting.SMART_MODEL_PROVIDER
+                fallback_key = getattr(system_setting, f"{fallback_provider.upper()}_API_KEY", None)
+                
+                if fallback_key:
+                    logger.warning(
+                        f"No valid API key found for provider '{self._config.provider}'. "
+                        f"Failing over to default cloud fallback ({fallback_provider})..."
+                    )
+                    self._config.provider = fallback_provider
+                    self._config.model = system_setting.SMART_MODEL_ID
+                    self._config.api_key = fallback_key
+                else:
+                    logger.warning(
+                        f"No valid API key found for provider '{self._config.provider}'. "
+                        f"Failing over to local fallback model (Ollama - gemma:2b)..."
+                    )
+                    self._config.provider = "ollama"
+                    self._config.model = "gemma:2b"
+                    self._config.api_key = None
 
     @property
     def config(self) -> BaseLLMConfig:

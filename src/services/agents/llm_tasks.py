@@ -56,12 +56,16 @@ async def generate_general_chat_response(
     model_name: str, 
     max_tokens: int = 1000,
     user_id: Optional[str] = None,
-    feature: str = "chat"
+    feature: str = "chat",
+    agent_id: Optional[str] = None
 ):
 
     # 1. Try to get the provider from your YAML config
-    provider = get_model_provider(model_id=model_name)
-    
+    try:
+        provider = get_model_provider(model_id=model_name)
+    except ValueError:
+        provider = None
+        
     # --- CRITICAL FIX: Safe Fallback Routing ---
     # If the config file misses the model, prevent the Hugging Face crash
     if not provider or provider == "hugging_face":
@@ -82,7 +86,8 @@ async def generate_general_chat_response(
             api_key = await resolve_api_key(
                 user_id=uuid.UUID(str(user_id)),
                 provider=provider,
-                feature=feature
+                feature=feature,
+                specific_id=agent_id
             )
         except Exception as e:
             from loguru import logger
@@ -119,14 +124,16 @@ async def acreate_title_from_history(conversations: List[Dict[str, Any]]):
     """
     Create a title from the given conversation history
     """
+    from src.core.settings import system_setting
+    
     title_generation_prompt = "    You are an extremely smart and helpful title generator assistant. Given a conversation, extract the subject of the conversation. Crisp, informative, ten words or less."
     prepared_message = SYSTEM_PROMPTS[SystemPrompt.CHAT_TITLE_GENERATION].format(
         chat_history=conversations
     )
     llm_service = LLMService(
         BaseLLMConfig(
-            model="llama-3.3-70b-versatile",
-            provider="groq",
+            model=system_setting.FAST_MODEL_ID,
+            provider=system_setting.FAST_MODEL_PROVIDER,
         )
     )
 

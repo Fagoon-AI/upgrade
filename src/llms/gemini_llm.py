@@ -1,6 +1,8 @@
+from openai import AsyncClient
 from src.llms.openai_llm import OpenAILLM
 from src.schemas.llm import BaseLLMConfig
 from src.providers.gemini_client import aget_client
+from src.core.settings import system_setting
 
 class GeminiLLM(OpenAILLM):
     def __init__(self, config: BaseLLMConfig):

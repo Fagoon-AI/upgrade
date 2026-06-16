@@ -1,9 +1,10 @@
 import os
 import uuid
 from typing import List, Optional
-from fastapi import APIRouter, UploadFile, File, status, Form, Depends, HTTPException, Request
+from fastapi import APIRouter, UploadFile, File, status, Form, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from loguru import logger
+from sqlalchemy import select
 
 from src.constants import MAX_FILE_SIZE
 from src.core.globals import get_postgres_services
@@ -14,8 +15,32 @@ from src.services.nosql.postgres_services import PostgresServices
 from src.services.upgrade.chat import UpgradeChatService
 from src.services.document_processor import DocumentProcessor
 from src.utils.common import generate_id, generate_uuid
+from src.models.sql.models import GeneratedImage
 
 router = APIRouter()
+
+@router.get("/image/{image_id}", operation_id="get_generated_image")
+async def get_generated_image(
+    request: Request,
+    image_id: str
+):
+    try:
+        import uuid
+        parsed_id = uuid.UUID(image_id)
+        async with request.app.state.postgres_manager.get_session() as session:
+            stmt = select(GeneratedImage).where(GeneratedImage.id == parsed_id)
+            result = await session.execute(stmt)
+            image_record = result.scalar_one_or_none()
+            
+            if not image_record:
+                raise HTTPException(status_code=404, detail="Image not found")
+                
+            return Response(content=image_record.image_data, media_type=image_record.content_type)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid image ID format")
+    except Exception as e:
+        logger.error(f"Failed to retrieve image {image_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving image")
 
 file_storage_service = FileStorageService()
 file_service = FileService(file_storage_service)
