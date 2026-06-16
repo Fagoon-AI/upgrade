@@ -30,7 +30,12 @@ class DeepResearchHandler(BaseToolHandler):
             conversation_history, research_preferences
         )
 
-        async for chunk in generate_general_chat_response(messages=messages, model_name=model):
+        async for chunk in generate_general_chat_response(
+            messages=messages, 
+            model_name=model,
+            user_id=self.context.user_id,
+            feature="chat"
+        ):
             if chunk:
                 self.response_manager.append_message_chunk(chunk)
                 async for event_chunk in self.response_manager.send_event(EventType.LLM_RESPONSE, chunk):

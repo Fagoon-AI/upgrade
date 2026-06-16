@@ -168,3 +168,21 @@ class PostgresServices:
         stmt = select(FileReference).where(FileReference.file_id.in_(file_ids))
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_file_references_by_user_id(self, user_id: uuid.UUID) -> List[FileReference]:
+        stmt = select(FileReference).where(FileReference.user_id == user_id)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def delete_file_reference(self, file_id: str, user_id: uuid.UUID) -> bool:
+        stmt = select(FileReference).where(
+            FileReference.file_id == file_id,
+            FileReference.user_id == user_id
+        )
+        result = await self.session.execute(stmt)
+        file_ref = result.scalar_one_or_none()
+        if file_ref:
+            await self.session.delete(file_ref)
+            await self.session.commit()
+            return True
+        return False

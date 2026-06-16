@@ -52,7 +52,12 @@ async def generate_general_response(
 
 # This is for general chat
 async def generate_general_chat_response(
-    messages: List[Dict[str, Any]], model_name: str, max_tokens: int = 1000):
+    messages: List[Dict[str, Any]], 
+    model_name: str, 
+    max_tokens: int = 1000,
+    user_id: Optional[str] = None,
+    feature: str = "chat"
+):
 
     # 1. Try to get the provider from your YAML config
     provider = get_model_provider(model_id=model_name)
@@ -68,9 +73,25 @@ async def generate_general_chat_response(
             provider = "openai"  # Ultimate safe default
     # -------------------------------------------
 
+    # Resolve user's API key if user_id is provided
+    api_key = None
+    if user_id:
+        import uuid
+        from src.services.api_key_resolver import resolve_api_key
+        try:
+            api_key = await resolve_api_key(
+                user_id=uuid.UUID(str(user_id)),
+                provider=provider,
+                feature=feature
+            )
+        except Exception as e:
+            from loguru import logger
+            logger.error(f"Failed to resolve custom API key for general chat: {e}")
+
     config_params = {
         "model": model_name,
         "provider": provider,
+        "api_key": api_key,
     }
 
     if model_name == "o4-mini":

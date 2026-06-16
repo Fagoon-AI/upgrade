@@ -11,7 +11,7 @@ from src.schemas.llm import BaseLLMConfig
 from src.services.map_model_provider import get_model_provider
 from src.storages.vectordb_storages.base import VectorDBQuery
 from src.core.settings import system_setting
-from src.services.agents.llm_tasks import generate_general_chat_response
+from src.services.agents.llm_tasks import generate_general_chat_response, generate_general_response
 
 class ChatOrchestrator:
     def __init__(
@@ -24,7 +24,7 @@ class ChatOrchestrator:
         self.vector_store = vector_store
         self.chat_service = chat_service
 
-    def _build_llm_service_for_agent(self, agent_id: str, agent: Any) -> tuple[LLMService, str]:
+    async def _build_llm_service_for_agent(self, agent_id: str, agent: Any, user_id: str) -> tuple[LLMService, str]:
         """
         Safely builds an LLMService instance by resolving model settings 
         nested deep inside an agent's 'config' field layer.
@@ -55,6 +55,17 @@ class ChatOrchestrator:
 
         model = model_settings.get("llm_model") or model_settings.get("model") or model
         provider = model_settings.get("provider")
+
+        # Guardrail: Handle generic model IDs to map to proper working model IDs
+        if provider:
+            provider_lower = provider.lower()
+            if provider_lower == "gemini" and model in ("gemini", None, ""):
+                model = "gemini-1.5-flash"
+            elif provider_lower == "openai" and model in ("openai", None, ""):
+                model = "gpt-4o-mini"
+            elif provider_lower == "groq" and model in ("groq", None, ""):
+                model = "llama-3.3-70b-versatile"
+
         temperature = model_settings.get("temperature", temperature)
         top_p = model_settings.get("top_p", top_p)
         max_tokens = model_settings.get("max_tokens", max_tokens)
@@ -66,8 +77,22 @@ class ChatOrchestrator:
             except ValueError:
                 provider = system_setting.SMART_MODEL_PROVIDER
 
+        # Resolve user's API key for agents
+        from src.services.api_key_resolver import resolve_api_key
+        try:
+            resolved_api_key = await resolve_api_key(
+                user_id=uuid.UUID(str(user_id)),
+                provider=provider,
+                feature="agents",
+                specific_id=agent_id
+            )
+            if resolved_api_key:
+                api_key = resolved_api_key
+        except Exception as e:
+            logger.error(f"Failed to resolve custom API key: {e}")
+
         logger.info(
-            f"🔑 [Key Resolution] Agent: {agent_id}. "
+            f"[Key Resolution] Agent: {agent_id}. "
             f"Model: {model} | Provider: {provider} | "
             f"Using Custom Database Key: {bool(api_key)}"
         )
@@ -97,7 +122,7 @@ class ChatOrchestrator:
             return
 
         # 2. Build Text Generation Service
-        llm_service, model_name = self._build_llm_service_for_agent(agent_id, agent)
+        llm_service, model_name = await self._build_llm_service_for_agent(agent_id, agent, user_id)
         collection_name = f"agent_{agent_id}"
         
         # 3. Clean RAG Retrieval Layer (Zero external fallbacks to error out on)
@@ -153,8 +178,8 @@ class ChatOrchestrator:
         # 7. Stream from LLM Task Layer
         full_response = ""
         try:
-            async for token in generate_general_chat_response(
-                messages=messages, model_name=model_name
+            async for token in generate_general_response(
+                messages=messages, llm_config=llm_service.config
             ):
                 full_response += token
                 yield token

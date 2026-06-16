@@ -67,14 +67,23 @@ class WebSearchService:
         async_client: httpx.AsyncClient, 
         crawler_service: Crawl4AIService, 
         selected_model: str, 
-        history: list = None
+        history: list = None,
+        groq_api_key: str = None,
+        user_id: str = None
     ):
         self.query = query
         self.selected_model = selected_model
         self.async_client = async_client
         self.crawler_service = crawler_service
         self.history = history or [] 
-        self.llm_service = LLMService(BaseLLMConfig(model="llama-3.3-70b-versatile", provider="groq"))
+        self.user_id = user_id
+        self.llm_service = LLMService(
+            BaseLLMConfig(
+                model="llama-3.3-70b-versatile", 
+                provider="groq", 
+                api_key=groq_api_key
+            )
+        )
 
     async def _generate_search_queries(self) -> List[str]:
         now = datetime.datetime.now()
@@ -244,6 +253,9 @@ class WebSearchService:
             })
 
         async for token in generate_general_chat_response(
-            messages=messages, model_name=self.selected_model
+            messages=messages, 
+            model_name=self.selected_model,
+            user_id=self.user_id,
+            feature="chat"
         ):
             yield token

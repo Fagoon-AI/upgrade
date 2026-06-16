@@ -21,12 +21,29 @@ router = APIRouter()
 async def chat_completion(
     input_request: ChatInputRequest,
 ) -> Union[SuccessResponse, ErrorResponse]:
+    import uuid
+    api_key = None
+    
+    if input_request.user_id:
+        from src.services.api_key_resolver import resolve_api_key
+        try:
+            resolved_api_key = await resolve_api_key(
+                user_id=uuid.UUID(input_request.user_id),
+                provider=input_request.llm_config.provider,
+                feature="workflow"
+            )
+            if resolved_api_key:
+                api_key = resolved_api_key
+        except Exception as e:
+            logger.error(f"Failed to resolve custom API key for workflow: {e}")
+
     llm_configuration = BaseLLMConfig(
         provider=input_request.llm_config.provider,
         model=input_request.llm_config.model,
         temperature=input_request.llm_config.temperature,
         max_tokens=input_request.llm_config.max_tokens,
         top_p=input_request.llm_config.top_p,
+        api_key=api_key,
     )
 
     try:

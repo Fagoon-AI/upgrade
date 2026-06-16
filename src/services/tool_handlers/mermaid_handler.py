@@ -34,7 +34,12 @@ class MermaidHandler(BaseToolHandler):
         try:
             model_name = self.context.request.selected_model
             full_description = "".join([
-                chunk async for chunk in generate_general_chat_response(messages=messages, model_name=model_name)
+                chunk async for chunk in generate_general_chat_response(
+                    messages=messages, 
+                    model_name=model_name,
+                    user_id=self.context.user_id,
+                    feature="chat"
+                )
             ])
 
             if not full_description.strip():
@@ -57,7 +62,7 @@ class MermaidHandler(BaseToolHandler):
             async for chunk in self.response_manager.send_event(EventType.STATUS, status_update):
                 yield chunk
 
-            markdown_code = await mermaid_service.generate_mermaid_code(user_prompt, selected_llm_model)
+            markdown_code = await mermaid_service.generate_mermaid_code(user_prompt, selected_llm_model, user_id=self.context.user_id)
 
             # Step 2: Send the generated diagram asset to the user
             asset_data = {"asset_type": "mermaid", "code": markdown_code}

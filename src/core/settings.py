@@ -37,12 +37,12 @@ class Settings(BaseSettings):
     ]
 
     # LLM Related Configuration
-    OPENAI_API_KEY: str = None
-    GROQ_API_KEY: str = None
-    HUGGINGFACE_API_KEY: str = None
-    ELEVENLABS_API_KEY: str = None
-    GOOGLE_API_KEY: str = None
-    ANTHROPIC_API_KEY: str = None
+    OPENAI_API_KEY: Optional[str] = None
+    GROQ_API_KEY: Optional[str] = None
+    HUGGINGFACE_API_KEY: Optional[str] = None
+    ELEVENLABS_API_KEY: Optional[str] = None
+    GOOGLE_API_KEY: Optional[str] = None
+    ANTHROPIC_API_KEY: Optional[str] = None
     ENV: str = "development"
 
     # PostgreSQL Connection
@@ -70,7 +70,7 @@ class Settings(BaseSettings):
 
     # Video related configs
     GCS_BUCKET_NAME: str
-    GEMINI_API_KEY: str
+    GEMINI_API_KEY: Optional[str] = None
     VIDEO_STORAGE_PATH: str
     CELERY_BROKER_URL: str
     CELERY_RESULT_BACKEND: str
@@ -94,11 +94,11 @@ class Settings(BaseSettings):
     COOKIE_DOMAIN_2: str
     COOKIE_DOMAIN_3: str
     # Email Settings
-    EMAIL_HOST: str
-    EMAIL_PORT: int
-    EMAIL_USERNAME: str
-    EMAIL_PASSWORD: str
-    EMAIL_FROM: str
+    EMAIL_HOST: str = "localhost"
+    EMAIL_PORT: int = 587
+    EMAIL_USERNAME: str = "mock_username"
+    EMAIL_PASSWORD: str = "mock_password"
+    EMAIL_FROM: str = "mock_from@example.com"
 
     FAGOON_URL: str
     DEFAULT_URL: str

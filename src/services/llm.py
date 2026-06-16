@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Type, Optional, AsyncGenerator
+from loguru import logger
 
 from src.llms.anthropic_llm import AnthropicLLM
 from src.llms.base import BaseLLM
@@ -6,6 +7,7 @@ from src.llms.groq_llm import GroqLLM
 from src.llms.huggingface_llm import HuggingFaceLLM
 from src.llms.openai_llm import OpenAILLM
 from src.llms.gemini_llm import GeminiLLM
+from src.llms.ollama_llm import OllamaLLM
 from src.schemas.llm import BaseLLMConfig
 from src.utils.common import async_time_execution
 
@@ -19,11 +21,45 @@ class LLMService:
         "groq": GroqLLM,
         "anthropic": AnthropicLLM,
         "gemini": GeminiLLM,
+        "ollama": OllamaLLM,
     }
 
     def __init__(self, config: BaseLLMConfig) -> None:
         self._config = config
         self._llm: Optional[BaseLLM] = None
+
+        # --- Fallback to Local Ollama Gemma 2B if API keys are missing ---
+        if self._config.provider != "ollama":
+            api_key = self._config.api_key
+            
+            # Retrieve default key from settings if not passed in config
+            if not api_key:
+                from src.core.settings import system_setting
+                key_map = {
+                    "openai": system_setting.OPENAI_API_KEY,
+                    "gemini": system_setting.GEMINI_API_KEY,
+                    "groq": system_setting.GROQ_API_KEY,
+                    "hugging_face": system_setting.HUGGINGFACE_API_KEY,
+                    "anthropic": system_setting.ANTHROPIC_API_KEY,
+                }
+                api_key = key_map.get(self._config.provider)
+                
+            # Check if the key is empty, None, or a placeholder
+            is_key_missing = (
+                not api_key or 
+                api_key.strip() == "" or 
+                api_key.startswith("YOUR_") or 
+                api_key == "None"
+            )
+            
+            if is_key_missing:
+                logger.warning(
+                    f"No valid API key found for provider '{self._config.provider}'. "
+                    f"Failing over to local fallback model (Ollama - gemma:2b)..."
+                )
+                self._config.provider = "ollama"
+                self._config.model = "gemma:2b"
+                self._config.api_key = None
 
     @property
     def config(self) -> BaseLLMConfig:

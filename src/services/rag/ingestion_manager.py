@@ -26,10 +26,15 @@ class IngestionManager:
 
         for file_ref in knowledge_base.uploaded_files or []:
             # file_ref is path in 'uploaded_files' list
-            if not os.path.exists(file_ref):
-                continue
-            
-            chunks = await self.doc_processor.process_file(file_ref)
+            actual_path = file_ref
+            if not os.path.exists(actual_path):
+                # Try with 'outputs' prefix for local storage compatibility
+                actual_path = os.path.join("outputs", file_ref)
+                if not os.path.exists(actual_path):
+                    logger.warning(f"Knowledge file not found: {file_ref} or outputs/{file_ref}")
+                    continue
+
+            chunks = await self.doc_processor.process_file(actual_path)
             for chunk in chunks:
                 chunk['metadata'] = {
                     "agent_id": agent_id,
