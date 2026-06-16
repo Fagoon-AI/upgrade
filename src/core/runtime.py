@@ -77,7 +77,12 @@ async def build_runtime(settings: Settings) -> Runtime:
     log.info("Building FULL runtime: Redis limiter/cache, Celery queue.")
     import redis.asyncio as aioredis
 
-    redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+    # Only pass ssl_cert_reqs if the URL implies an SSL connection (rediss://)
+    kwargs = {"encoding": "utf-8", "decode_responses": True}
+    if settings.REDIS_URL.startswith("rediss://"):
+        kwargs["ssl_cert_reqs"] = "none"
+
+    redis_client = aioredis.from_url(settings.REDIS_URL, **kwargs)
 
     from src.core.task_processing.celery_app import celery_app
 
