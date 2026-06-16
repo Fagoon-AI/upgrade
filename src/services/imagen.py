@@ -1,3 +1,4 @@
+import uuid
 from loguru import logger
 from typing import Type, Optional, Dict, Any
 
@@ -9,10 +10,12 @@ from src.diffusion.fal_ai import FalAIDiffusion
 from src.diffusion.gemini_imagen import GeminiImagenDiffusion
 
 from src.schemas.diffusion import BaseDiffusionConfig
-from src.storages.file_storage import FileStorageService
 from src.services.prompt_enhancer_service import PromptEnhancerService
 from src.services.image_description_service import ImageDescriptionService
 from src.utils.misc import convert_pil_image_to_bytes, generate_unique_id
+from src.core.database.postgres import PostgresManager
+from src.models.sql.models import GeneratedImage
+from src.core.settings import system_setting
 
 class ImageGenerationService:
     _provider_map: dict[str, Type[BaseDiffusion]] = {
@@ -23,11 +26,11 @@ class ImageGenerationService:
     }
 
     def __init__(
-            self, config: BaseDiffusionConfig, storage_service: FileStorageService
+            self, config: BaseDiffusionConfig, postgres_manager: PostgresManager
     ):
         self._config = config
         self._diffusion: Optional[BaseDiffusion] = None
-        self._storage_service = storage_service
+        self._postgres_manager = postgres_manager
         self._prompt_enhancer = PromptEnhancerService()
         self._description_service = ImageDescriptionService()
 
@@ -70,41 +73,45 @@ class ImageGenerationService:
             # 3. Convert to WebP bytes
             image_bytes = convert_pil_image_to_bytes(generated_image, format="WEBP")
 
-            # 4. Upload to GCS
-            yield {"type": "status", "data": "Uploading your creation..."}
-            short_id = generate_unique_id(8)
-            destination_path = f"{user_id}/images/{short_id}.webp"
-            gcs_path = self._storage_service.upload_file(
-                file_bytes=image_bytes,
-                destination_path=destination_path,
-                content_type=IMAGE_FILE_WEBP,
-                file_prefix="users"
-            )
+            # 4. Save to Database
+            yield {"type": "status", "data": "Saving your creation..."}
+            new_image_id = uuid.uuid4()
+            async with self._postgres_manager.get_session() as session:
+                db_image = GeneratedImage(
+                    id=new_image_id,
+                    user_id=uuid.UUID(user_id),
+                    image_data=image_bytes,
+                    content_type="image/webp"
+                )
+                session.add(db_image)
+                await session.commit()
 
-            # 5. Generate Signed URL
-            signed_url = self._storage_service.generate_signed_url(blob_name=gcs_path)
-            if not signed_url:
-                raise Exception("Failed to generate a signed URL for the uploaded image.")
+            # 5. Generate Local URL
+            # Use DEFAULT_URL from settings to construct the full URL
+            base_url = system_setting.DEFAULT_URL.rstrip('/')
+            local_url = f"{base_url}/api/v1/file/image/{new_image_id}"
 
             # 6. Prepare final data packet with the preliminary description
             final_asset_data = {
                 "asset_type": "image",
-                "url": signed_url,
-                "gcs_path": gcs_path,
+                "url": local_url,
+                "db_id": str(new_image_id),
                 "prompt": enhanced_prompt,
                 "summary": description,
             }
 
             # 7. (Conditional) Generate a more detailed image summary and overwrite the default
+            # Note: describe_image needs an accessible public URL. If the server is local-only, this might fail,
+            # so we'll catch the error and fall back to the preliminary description safely.
             if generate_summary:
                 yield {"type": "status", "data": "Creating an image description for our chat..."}
                 try:
-                    # This call gets a summary from the *actual* generated image
-                    summary = await self._description_service.describe_image(image_url=signed_url)
+                    summary = await self._description_service.describe_image(image_url=local_url)
                     final_asset_data["summary"] = summary
                 except Exception as desc_exc:
-                    logger.error("Failed to generate image summary: {}", desc_exc)
-                    final_asset_data["summary"] = "A description for this image could not be generated."
+                    logger.warning("Failed to generate detailed image summary via Vision model (local URLs might not be accessible to cloud models): {}", desc_exc)
+                    # We already have the preliminary description in `final_asset_data["summary"]`
+                    pass
 
             yield {"type": "final_asset", "data": final_asset_data}
 

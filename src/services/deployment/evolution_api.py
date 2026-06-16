@@ -38,9 +38,11 @@ ws_manager = ConnectionManager()
 
 class EvolutionAPIService:
     def __init__(self):
-        self.base_url = 'http://localhost:8080'
+        self.base_url = EVOLUTION_API_URL or 'http://localhost:8080'
+        
+        api_key = EVOLUTION_API_KEY or 'fagoon-super-secret-password-12345!'
         self.headers = {
-            'apikey': 'fagoon-super-secret-password-12345!',
+            'apikey': api_key,
             'Content-Type': 'application/json'
         }
 
@@ -69,10 +71,11 @@ class EvolutionAPIService:
         create_endpoint = '/instance/create'
         instance_name = agent_id if agent_id.startswith('agent-') else f"agent-{agent_id}"
         
+        base_webhook_url = WEBHOOK_URL or "http://host.docker.internal:8000"
         payload = {
             'instanceName': instance_name,
             'qrcode': True,
-            'webhook': f"http://host.docker.internal:8000/api/v1/whatsapp-session/webhook/{instance_name}",
+            'webhook': f"{base_webhook_url}/api/v1/whatsapp-session/webhook/{instance_name}",
             'events': ['QRCODE_UPDATED', 'CONNECTION_UPDATE', 'MESSAGES_UPSERT']
         }
         

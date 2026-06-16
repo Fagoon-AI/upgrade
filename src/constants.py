@@ -37,4 +37,5 @@ ALLOWED_URL_PATH_WITHOUT_AUTHORIZATION = [
     "/ws",
     "/api/v1/ws",
     "/api/v1/whatsapp-session/webhook",
+    "/api/v1/whatsapp-session/start",
 ]
