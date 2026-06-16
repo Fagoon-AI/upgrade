@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, Field
 from typing import Optional, Literal, List
 
@@ -41,8 +42,8 @@ class LLMModelConfigResponse(BaseModel):
     agent_ids: List[str] = Field(default_factory=list)
     workflow_ids: List[str] = Field(default_factory=list)
     is_enabled: bool = True
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
