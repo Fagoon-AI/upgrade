@@ -1,4 +1,5 @@
 from celery import Celery
+import ssl
 
 from src.core.settings import system_setting
 
@@ -20,3 +21,17 @@ celery_app.conf.update(
     task_acks_late=True,
     worker_prefetch_multiplier=1,
 )
+
+if system_setting.CELERY_BROKER_URL.startswith("rediss://"):
+    celery_app.conf.update(
+        broker_use_ssl={
+            "ssl_cert_reqs": ssl.CERT_NONE
+        }
+    )
+
+if system_setting.CELERY_RESULT_BACKEND.startswith("rediss://"):
+    celery_app.conf.update(
+        redis_backend_use_ssl={
+            "ssl_cert_reqs": ssl.CERT_NONE
+        }
+    )
