@@ -52,6 +52,15 @@ def parse_cors(v: Any) -> list[str] | str:
     raise ValueError(v)
 
 
+# ==============================================================================
+# Naming and Casing Convention:
+#   1. Connection URLs, third-party API Keys, and standard system-level environment
+#      variables remain UPPERCASE (e.g. DATABASE_URL, REDIS_URL, OPENAI_API_KEY, etc.)
+#      to mirror the standard Unix env-var naming expected by external integrations.
+#   2. Local directories, feature switches, generated secrets, and runtime-mode flags
+#      remain lowercase (e.g. data_dir, lite_mode, encryption_key, jwt_secret, features)
+#      for internal system consistency.
+# ==============================================================================
 class Settings(BaseSettings):
     # --- dual mode ---
     lite_mode: bool = False
