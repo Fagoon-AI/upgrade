@@ -56,16 +56,15 @@ class InlineTaskQueueWithSyncSupport(InlineTaskQueue):
 
 
 async def build_runtime(settings: Settings) -> Runtime:
-    from src.core.task_processing.celery_tasks import (
-        generate_video_task,
-        process_webhook_message_task,
-    )
-
     if settings.lite_mode:
         log.info("Building LITE runtime: in-memory limiter/cache, inline queue, no Redis.")
+        from src.services.taskqueue.lite_tasks import (
+            generate_video_lite,
+            process_webhook_message_lite,
+        )
         queue = InlineTaskQueueWithSyncSupport()
-        queue.register("generate_video_task", generate_video_task)
-        queue.register("process_webhook_message_task", process_webhook_message_task)
+        queue.register("generate_video_task", generate_video_lite)
+        queue.register("process_webhook_message_task", process_webhook_message_lite)
 
         return Runtime(
             limiter=MemoryRateLimiter(),
@@ -75,6 +74,10 @@ async def build_runtime(settings: Settings) -> Runtime:
         )
 
     log.info("Building FULL runtime: Redis limiter/cache, Celery queue.")
+    from src.core.task_processing.celery_tasks import (
+        generate_video_task,
+        process_webhook_message_task,
+    )
     import redis.asyncio as aioredis
 
     # Only pass ssl_cert_reqs if the URL implies an SSL connection (rediss://)
