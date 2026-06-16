@@ -21,9 +21,14 @@ class OpenAILLM(BaseLLM):
 
     async def get_embeddings(self, text: str) -> List[float]:
         """Generate text embeddings using OpenAI."""
+        # Use the configured model if it looks like an embedding model, else fallback
+        model = self.config.model if self.config.model and "embedding" in self.config.model else "text-embedding-3-small"
+        
+        # We must explicitly request 1536 dimensions because our PgVector schema hardcodes Vector(1536)
         response = await self.client.embeddings.create(
             input=text,
-            model="text-embedding-3-small"  # You might want to make this configurable
+            model=model,
+            dimensions=1536
         )
         return response.data[0].embedding
 
