@@ -1,6 +1,12 @@
 from celery import Celery
 import ssl
 
+from src.core.bootstrap import ensure_bootstrap
+from src.core.settings import get_settings
+
+# Guarantee that the Celery process runs the bootstrapper and loads persisted config.json values
+ensure_bootstrap(get_settings())
+
 from src.core.settings import system_setting
 
 
