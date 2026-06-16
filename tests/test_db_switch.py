@@ -48,7 +48,7 @@ def test_read_status_defaults_when_missing(tmp_path):
 def test_persist_url_writes_config(tmp_path):
     svc._persist_url(str(tmp_path), "postgresql+asyncpg://u:p@cloud/db")
     cfg = json.loads((tmp_path / "config.json").read_text())
-    assert cfg["database_url"] == "postgresql+asyncpg://u:p@cloud/db"
+    assert cfg["DATABASE_URL"] == "postgresql+asyncpg://u:p@cloud/db"
 
 
 def test_persist_url_preserves_existing_config(tmp_path):
@@ -56,7 +56,7 @@ def test_persist_url_preserves_existing_config(tmp_path):
     svc._persist_url(str(tmp_path), "postgresql://u:p@cloud/db")
     cfg = json.loads((tmp_path / "config.json").read_text())
     assert cfg["jwt_secret"] == "keep-me"           # not clobbered
-    assert cfg["database_url"] == "postgresql://u:p@cloud/db"
+    assert cfg["DATABASE_URL"] == "postgresql://u:p@cloud/db"
 
 
 # --------------------------------------------------------------------------- #

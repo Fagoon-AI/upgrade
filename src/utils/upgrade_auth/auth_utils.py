@@ -27,7 +27,7 @@ async def create_access_token(user_id: str) -> str:
         "iat": datetime.now(timezone.utc).timestamp(),
     }
     encoded_jwt = jwt.encode(
-        to_encode, system_setting.JWT_SECRET, algorithm=system_setting.JWT_ALGORITHM
+        to_encode, system_setting.jwt_secret, algorithm=system_setting.JWT_ALGORITHM
     )
     return encoded_jwt
 
@@ -160,7 +160,7 @@ async def create_and_send_token(
 
         access_token_payload = jwt.decode(
             access_token,
-            system_setting.JWT_SECRET,
+            system_setting.jwt_secret,
             algorithms=[system_setting.JWT_ALGORITHM],
         )
         access_token_expires = datetime.fromtimestamp(

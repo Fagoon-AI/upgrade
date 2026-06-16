@@ -132,7 +132,7 @@ class Settings(BaseSettings):
     MOCK_VEO_API_IF_DISABLED: bool = True
 
     # Upgrade Authentication
-    JWT_SECRET: str = ""
+    jwt_secret: str = ""
     JWT_EXPIRES_IN: str = "90d"
     JWT_ALGORITHM: str = "HS256"
     JWT_COOKIE_EXPIRES_IN_DAYS: int = 90
@@ -215,6 +215,10 @@ class Settings(BaseSettings):
         if not self.DATABASE_URL and self.database_url_default:
             self.DATABASE_URL = self.database_url_default
 
+        # Fallback REDIS_URL to CELERY_BROKER_URL if empty to prevent local dev hard-crashing.
+        if not self.REDIS_URL and self.CELERY_BROKER_URL:
+            self.REDIS_URL = self.CELERY_BROKER_URL
+
         # Full mode requires Redis: fail loud rather than silently degrade.
         if not self.lite_mode and not self.REDIS_URL:
             raise ValueError(
@@ -231,8 +235,8 @@ class Settings(BaseSettings):
 
 
 @lru_cache
-def get_settings() -> Settings:
-    return Settings(data_dir=os.environ.get("DATA_DIR", "/data"))
+def get_settings(env_file: str | None = ".env") -> Settings:
+    return Settings(data_dir=os.environ.get("DATA_DIR", "/data"), _env_file=env_file)
 
 
 # Dynamic module-level attribute lookup to proxy system_setting to get_settings()
@@ -240,3 +244,4 @@ def __getattr__(name: str) -> Any:
     if name == "system_setting":
         return get_settings()
     raise AttributeError(f"module {__name__} has no attribute {name}")
+

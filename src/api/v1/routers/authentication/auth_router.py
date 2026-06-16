@@ -107,7 +107,7 @@ async def logout(response: Response, request: Request, auth_service: AuthService
         jwt_token = request.cookies.get("jwt") or request.headers.get("Authorization", "").replace("Bearer ", "")
         if jwt_token:
             try:
-                decoded_token = jwt.decode(jwt_token, system_setting.JWT_SECRET, algorithms=[system_setting.JWT_ALGORITHM])
+                decoded_token = jwt.decode(jwt_token, system_setting.jwt_secret, algorithms=[system_setting.JWT_ALGORITHM])
                 user_id_to_logout = decoded_token.get("_id")
             except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
                 logger.debug("Logout: Could not extract user_id from expired/invalid access token.")

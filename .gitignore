@@ -196,3 +196,5 @@ gcs.json
 clients-application.json
 QR.html
 
+.DUAL_MODE_IMPLEMENTATION.md
+.DB_SWITCH_IMPLEMENTATION.md

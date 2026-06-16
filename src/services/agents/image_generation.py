@@ -37,12 +37,6 @@ class AgentImageGeneration:
             chat_history_records.append(event)
             yield event
 
-        # TODO: If user query is not very much clear to generate image, and much detail is not provided, ask the user for more description
-        # TODO: Can make a change (change the enhanced_user_query ko prompt in such as way which will return the is_descriptive_query and enhanced query,
-        # TODO: Sample -> (False, <ask detail> or True, <enhanced_query>)
-
-        # TODO: False aayeasi sidhai return gardida hunca, clarify mageko question lai stream gareypaxi
-
         enhanced_query = await self.enhance_user_query()
         logger.debug(f"Enhanced user query is: {enhanced_query}")
 
@@ -53,8 +47,7 @@ class AgentImageGeneration:
             chat_history_records.append(event)
             yield event
 
-        #! NOTE: (To Use "gpt-image-1" model, need to verify organization)
-        # TODO: Ask with shekhar dai to verify the origanization in OpenAI, ani tes paxi gpt-image-1 model use garda hunca
+    
         openai_llm = OpenAIDiffusion(config=BaseDiffusionConfig(provider="openai"))
         generated_image = await openai_llm.generate_image(
             prompt=enhanced_query, model="dall-e-3"

@@ -304,7 +304,7 @@ def _persist_url(data_dir: str, target_url: str) -> None:
             cfg = json.loads(cfg_path.read_text())
         except json.JSONDecodeError:
             cfg = {}
-    cfg["database_url"] = target_url
+    cfg["DATABASE_URL"] = target_url
     cfg_path.write_text(json.dumps(cfg, indent=2))
     try:
         cfg_path.chmod(0o600)
