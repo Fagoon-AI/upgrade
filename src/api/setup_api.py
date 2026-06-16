@@ -22,6 +22,7 @@ from src.deep_research.server import server
 from src.api.v1.routers.workspace import ai, google_auth, docs, drive, gmail, llm_models
 from src.api.v1.routers.video_gen.video_gen_routes import router as video_gen_router
 from src.api.v1.routers.authentication import auth_router, user_router
+from src.api.v1.routers.whatsapp import whatsapp_router
 
 
 def setup_and_combine_all_routers() -> APIRouter:
@@ -150,6 +151,7 @@ def setup_and_combine_all_routers() -> APIRouter:
     # Upgrade Auth Routes
     router.include_router(auth_router.router, prefix="/auth", tags=["Upgrade Authentication"])
     router.include_router(user_router.router, prefix="/users", tags=["User Management"])
-
+    # WhatsApp Deployment Routes
+    router.include_router(whatsapp_router, prefix="/whatsapp-session", tags=["WhatsApp Deployment"])
 
     return router

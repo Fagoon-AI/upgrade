@@ -1,4 +1,7 @@
 services:
+  # ----------------------------------------
+  # 1. YOUR FASTAPI BACKEND
+  # ----------------------------------------
   upgrade-fagoon-dev:
     build: .
     image: upgrade-fagoon:dev
@@ -11,3 +14,53 @@ services:
       - PYTHONUNBUFFERED=1
       - ENV=development
     restart: unless-stopped
+    depends_on:
+      - evolution-api
+
+  # ----------------------------------------
+  # 2. THE WHATSAPP GATEWAY (EVOLUTION API)
+  # ----------------------------------------
+  evolution-api:
+    image: atendai/evolution-api:v1.8.7
+    container_name: evolution_api_container
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - AUTHENTICATION_TYPE=apikey
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY}
+      - WPP_LID_MODE=true
+      - DATABASE_ENABLED=false
+      - CACHE_REDIS_ENABLED=false
+      - WEBSOCKET_ENABLED=false
+      - RABBITMQ_ENABLED=false
+      - SQS_ENABLED=false
+    volumes:
+      - evolution_instances:/Evolution/instances
+    depends_on:
+      - evolution-db
+    restart: unless-stopped
+
+  evolution-db:
+    image: postgres:15-alpine
+    container_name: evolution_api_db
+    environment:
+      - POSTGRES_USER=evolution
+      - POSTGRES_PASSWORD=secretpassword
+      - POSTGRES_DB=evolution
+    volumes:
+      - evolution_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  evolution-redis:
+    image: redis:alpine
+    container_name: evolution_api_redis
+    restart: unless-stopped
+    volumes:
+      - evolution_redis_data:/data
+
+volumes:
+  evolution_instances:
+  evolution_db_data:
+  evolution_redis_data:
