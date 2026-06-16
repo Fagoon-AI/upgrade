@@ -38,12 +38,12 @@ class Settings(BaseSettings):
     ]
 
     # LLM Related Configuration
-    OPENAI_API_KEY: str = None
-    GROQ_API_KEY: str = None
-    HUGGINGFACE_API_KEY: str = None
-    ELEVENLABS_API_KEY: str = None
-    GOOGLE_API_KEY: str = None
-    ANTHROPIC_API_KEY: str = None
+    OPENAI_API_KEY: Optional[str] = None
+    GROQ_API_KEY: Optional[str] = None
+    HUGGINGFACE_API_KEY: Optional[str] = None
+    ELEVENLABS_API_KEY: Optional[str] = None
+    GOOGLE_API_KEY: Optional[str] = None
+    ANTHROPIC_API_KEY: Optional[str] = None
     ENV: str = "development"
 
     # PostgreSQL Connection
@@ -105,7 +105,7 @@ class Settings(BaseSettings):
     DEFAULT_URL: str
     SERPER_API_KEY: str
     SERPAPI_API_KEY: str
-    FAL_KEY: str = None
+    FAL_KEY: Optional[str] = None
     FAST_MODEL_PROVIDER: str = "groq"
     FAST_MODEL_ID: str = "llama-3.3-70b-versatile"
 
