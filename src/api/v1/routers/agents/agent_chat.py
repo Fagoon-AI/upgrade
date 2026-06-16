@@ -216,7 +216,9 @@ async def agent_chat_streaming(
             agent_id=input_request.agent_id,
             history_id=input_request.conversation_id,
             message=input_request.message,
-            llm_config=llm_config
+            llm_config=llm_config,
+            http_client=getattr(request.app.state, "httpx_client", None),
+            crawl_service=getattr(request.app.state, "crawl_service", None)
         ):
             # Wrap token in SSE event
             yield f"data: {token}\n\n"
@@ -259,11 +261,16 @@ async def generate_chat_title(
 
         # 5. Generate the title using your fast default model
         title = ""
+        # Get the agent_id to resolve the specific API key for the agent
+        db_chat = await chat_service.get_chat_history(input_request.conversation_id)
+        agent_id = str(db_chat.agent_id) if db_chat and db_chat.agent_id else None
+
         async for token in generate_general_chat_response(
-            messages=messages, 
+            messages=messages,
             model_name=system_setting.FAST_MODEL_ID,
             user_id=request.state.user_id,
-            feature="chat"
+            feature="agents",
+            agent_id=agent_id
         ):
             title += token
 

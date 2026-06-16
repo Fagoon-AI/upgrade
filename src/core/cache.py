@@ -45,8 +45,13 @@ class RedisCache:
     def __init__(self, redis_url: str):
         if not aioredis:
             raise RuntimeError("redis.asyncio is required for RedisCache")
-        # Add ssl_cert_reqs=None to resolve connection issues with Upstash rediss:// URLs
-        self.client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=True, ssl_cert_reqs=None)
+        
+        # Only pass ssl_cert_reqs if the URL implies an SSL connection (rediss://)
+        kwargs = {"encoding": "utf-8", "decode_responses": True}
+        if redis_url.startswith("rediss://"):
+            kwargs["ssl_cert_reqs"] = "none" # Use string 'none' per redis-py docs
+            
+        self.client = aioredis.from_url(redis_url, **kwargs)
 
     async def set(self, key: str, value: Any, ex: Optional[int] = None) -> None:
         if isinstance(value, (dict, list)):

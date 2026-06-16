@@ -5,13 +5,14 @@ from typing import Tuple
 
 from src.schemas.llm import BaseLLMConfig
 from src.services.llm import LLMService
+from src.core.settings import system_setting
 
 class PromptEnhancerService:
     def __init__(self):
         self.llm_service = LLMService(
             BaseLLMConfig(
-                model="llama-3.3-70b-versatile",
-                provider="groq",
+                model=system_setting.FAST_MODEL_ID,
+                provider=system_setting.FAST_MODEL_PROVIDER,
             )
         )
 

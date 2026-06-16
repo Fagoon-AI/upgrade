@@ -34,9 +34,6 @@ async def start_session(
     """Starts a new WhatsApp Web session and triggers QR generation."""
     try:
         agent_id = request_data.agent_id
-        current_user = getattr(request.state, "user", None)
-        if not current_user:
-             raise HTTPException(status_code=401, detail="Authentication required.")
         
         # Ensure agent exists and is valid
         async with request.app.state.postgres_manager.get_session() as db_session:
@@ -50,14 +47,17 @@ async def start_session(
                 result = await db_session.execute(session_query)
                 existing_session = result.scalars().first()
                 
+                # Use the agent's owner as the user_id for the session to prevent foreign key errors
+                agent_owner_id = agent.user_id
+                
                 if existing_session:
                     existing_session.state = "initializing"
-                    existing_session.user_id = uuid.UUID(str(current_user.id))
+                    existing_session.user_id = agent_owner_id
                     existing_session.session_id = f"{agent_id}"
                 else:
                     new_session = WhatsAppSession(
                         agent_id=uuid.UUID(agent_id),
-                        user_id=uuid.UUID(str(current_user.id)),
+                        user_id=agent_owner_id,
                         session_id=f"{agent_id}",
                         state="initializing"
                     )

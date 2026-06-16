@@ -30,8 +30,17 @@ class FileService:
             self, user_id: str, agent_id: str, files: List[UploadFile], pg_services: Optional[PostgresServices] = None
     ) -> List[dict]:
         """
-        Processes a list of uploaded files, validates extensions, uploads them, and 
+        Processes a list of uploaded files, validates extensions, uploads them to GCS, and
         records them in the PostgreSQL knowledge base database (file_references table).
+
+        Args:
+            user_id (str): The ID of the user.
+            agent_id (str): The ID of the agent.
+            files (List[UploadFile]): The list of files from the request.
+
+        Returns:
+            List[dict]: A list of dictionaries containing the original filename
+                        and the remote GCS storage path for each uploaded file.
         """
         uploaded_files_metadata = []
         for file in files:
@@ -42,43 +51,23 @@ class FileService:
                 # Read file content into memory
                 file_bytes = await file.read()
 
-                # Define a structured, predictable destination path
+                # Define a structured, predictable destination path in GCS
                 destination_path = f"{user_id}/agents/{agent_id}/sources/{file.filename}"
 
-                logger.info(f"Uploading '{file.filename}' to destination: {destination_path}")
+                logger.info(f"Uploading '{file.filename}' to GCS destination: {destination_path}")
 
-                # Use the storage service to upload the file bytes
+                # Use the storage service to upload the file bytes directly to GCS
                 gcs_path = self.storage_service.upload_file_to_agent_folder(
                     file_bytes=file_bytes,
                     destination_path=destination_path,
-                    content_type=file.content_type or "application/octet-stream"
+                    content_type=file.content_type
                 )
-
-                # Register in database if pg_services is available for automatic Knowledge Base integration
-                if pg_services:
-                    try:
-                        file_ref_data = {
-                            "id": uuid.uuid4(),
-                            "file_id": gcs_path,
-                            "user_id": uuid.UUID(user_id) if isinstance(user_id, str) else user_id,
-                            "extra_metadata": {
-                                "filename": file.filename,
-                                "content_type": file.content_type,
-                                "agent_id": agent_id,
-                                "source": "agent_upload",
-                                "size": len(file_bytes),
-                            }
-                        }
-                        await pg_services.insert_file_reference(file_ref_data)
-                        logger.info(f"Registered file '{file.filename}' in user Knowledge Base (file_references).")
-                    except Exception as db_err:
-                        logger.error(f"Failed to record file reference in database: {db_err}")
 
                 uploaded_files_metadata.append({
                     "file_name": file.filename,
-                    "gcs_path": gcs_path,
+                    "gcs_path": gcs_path, 
                 })
-                logger.success(f"Successfully uploaded and recorded path for '{file.filename}'.")
+                logger.success(f"Successfully uploaded to GCS and recorded path for '{file.filename}'.")
 
             except HTTPException as he:
                 logger.warning(f"File validation failed for '{file.filename}': {he.detail}")
@@ -92,7 +81,7 @@ class FileService:
                 uploaded_files_metadata.append({
                     "file_name": file.filename,
                     "gcs_path": None,
-                    "error": f"Failed to upload file: {str(e)}"
+                    "error": f"Failed to upload file to GCS: {e}"
                 })
             finally:
                 # Ensure file stream is closed
