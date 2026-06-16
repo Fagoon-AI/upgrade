@@ -9,7 +9,9 @@ if git grep -nE '^[[:space:]]*(import|from)[[:space:]]+(redis|celery)' -- \
      ':(exclude)src/services/cache/redis_cache.py' \
      ':(exclude)src/services/taskqueue/celery_queue.py' \
      ':(exclude)src/core/runtime.py' \
-     ':(exclude)src/core/celery_app.py'; then
+     ':(exclude)src/core/task_processing/celery_app.py' \
+     ':(exclude)src/core/task_processing/celery_tasks.py' \
+     ':(exclude)src/core/task_processing/celery_worker_setup.py'; then
   echo "ERROR: redis/celery imported outside approved backend modules."
   echo "Route the dependency through an interface in src/services/* instead."
   exit 1

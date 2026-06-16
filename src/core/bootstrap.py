@@ -21,7 +21,7 @@ from cryptography.fernet import Fernet
 from src.core.settings import Settings, get_settings
 
 
-def ensure_bootstrap(settings: Settings) -> Settings:
+def ensure_bootstrap(settings: Settings, env_file: str | None = ".env") -> Settings:
     data_dir = Path(settings.data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
     cfg_path = data_dir / "config.json"
@@ -35,7 +35,7 @@ def ensure_bootstrap(settings: Settings) -> Settings:
 
     changed = False
 
-    if not settings.JWT_SECRET and not cfg.get("jwt_secret"):
+    if not settings.jwt_secret and not cfg.get("jwt_secret"):
         cfg["jwt_secret"] = secrets.token_urlsafe(48)
         changed = True
 
@@ -44,8 +44,8 @@ def ensure_bootstrap(settings: Settings) -> Settings:
         changed = True
 
     # Persist the resolved DB url so it is stable across restarts.
-    if not cfg.get("database_url") and settings.DATABASE_URL:
-        cfg["database_url"] = settings.DATABASE_URL
+    if not cfg.get("DATABASE_URL") and settings.DATABASE_URL:
+        cfg["DATABASE_URL"] = settings.DATABASE_URL
         changed = True
 
     if changed:
@@ -58,4 +58,4 @@ def ensure_bootstrap(settings: Settings) -> Settings:
 
     # Re-read so freshly written values are picked up by the json source.
     get_settings.cache_clear()
-    return get_settings()
+    return get_settings(env_file=env_file)

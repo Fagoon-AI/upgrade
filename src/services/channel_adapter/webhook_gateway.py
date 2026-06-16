@@ -194,8 +194,8 @@ class WebhookGatewayService:
                 self.queue.enqueue("process_webhook_message_task", event)
                 logger.info("Webhook event dispatched to App State Queue for async processing.")
             else:
-                process_webhook_message_task.delay(event)
-                logger.info("Webhook event dispatched to Celery for async processing.")
+                logger.info("No queue configured. Falling back to in-process background task.")
+                background_tasks.add_task(process_webhook_event, event)
         except Exception as e:
             logger.warning("Queue dispatch failed, falling back to in-process background task: {}", e)
             background_tasks.add_task(process_webhook_event, event)
