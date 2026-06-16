@@ -105,7 +105,7 @@ class Settings(BaseSettings):
     DEFAULT_URL: str
     SERPER_API_KEY: str
     SERPAPI_API_KEY: str
-    FAL_KEY: str = None
+    FAL_KEY: Optional[str] = None
     FAST_MODEL_PROVIDER: str = "groq"
     FAST_MODEL_ID: str = "llama-3.3-70b-versatile"
 
