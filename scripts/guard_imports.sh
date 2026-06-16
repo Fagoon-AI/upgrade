@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Fails if redis/celery are imported outside the approved backend modules.
+# Backup to import-linter; catches string-level cases too.
+set -euo pipefail
+
+if git grep -nE '^[[:space:]]*(import|from)[[:space:]]+(redis|celery)' -- \
+     'src/**/*.py' \
+     ':(exclude)src/services/limiter/redis_limiter.py' \
+     ':(exclude)src/services/cache/redis_cache.py' \
+     ':(exclude)src/services/taskqueue/celery_queue.py' \
+     ':(exclude)src/core/runtime.py' \
+     ':(exclude)src/core/celery_app.py'; then
+  echo "ERROR: redis/celery imported outside approved backend modules."
+  echo "Route the dependency through an interface in src/services/* instead."
+  exit 1
+fi
+echo "import guard passed"

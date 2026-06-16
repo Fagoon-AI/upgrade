@@ -8,7 +8,6 @@ from loguru import logger
 import uuid
 
 from src.agents.agent_manager import AgentManager
-from src.core.cache import CacheClient
 from src.core.settings import system_setting
 from src.services.agents.chat import AgentChatService
 from src.services.channel_adapter.channel_config_service import (
@@ -16,7 +15,6 @@ from src.services.channel_adapter.channel_config_service import (
     merge_channel_config,
 )
 from src.services.channel_adapter.processor import process_webhook_event
-from src.core.task_processing.celery_tasks import process_webhook_message_task
 
 
 class WebhookGatewayService:
@@ -24,11 +22,17 @@ class WebhookGatewayService:
         self,
         agent_manager: AgentManager,
         chat_service: AgentChatService,
-        cache_client: Optional[CacheClient] = None,
+        cache_client: Optional[Any] = None,
+        queue: Any = None,
     ):
         self.agent_manager = agent_manager
         self.chat_service = chat_service
-        self.cache = cache_client or CacheClient()
+        if cache_client is None:
+            from src.services.cache.memory_cache import MemoryCache
+            self.cache = MemoryCache()
+        else:
+            self.cache = cache_client
+        self.queue = queue
 
     async def _get_agent_channel_config(self, agent_id: str, channel: str) -> Dict[str, Any]:
         if not self.agent_manager:
@@ -186,10 +190,14 @@ class WebhookGatewayService:
 
     async def _enqueue_event(self, event: Dict[str, Any], background_tasks: BackgroundTasks) -> None:
         try:
-            process_webhook_message_task.delay(event)
-            logger.info("Webhook event dispatched to Celery for async processing.")
+            if self.queue:
+                self.queue.enqueue("process_webhook_message_task", event)
+                logger.info("Webhook event dispatched to App State Queue for async processing.")
+            else:
+                process_webhook_message_task.delay(event)
+                logger.info("Webhook event dispatched to Celery for async processing.")
         except Exception as e:
-            logger.warning("Celery dispatch failed, falling back to in-process background task: {}", e)
+            logger.warning("Queue dispatch failed, falling back to in-process background task: {}", e)
             background_tasks.add_task(process_webhook_event, event)
 
     async def handle_webhook(

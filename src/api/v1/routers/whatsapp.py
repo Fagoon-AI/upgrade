@@ -136,7 +136,7 @@ async def process_whatsapp_message(agent_id: str, remote_jid: str, text: str, ap
         vector_store = app_state.vector_store
         
         # We need to map remote_jid to a history_id.
-        webhook_gateway = WebhookGatewayService(agent_manager, chat_service)
+        webhook_gateway = WebhookGatewayService(agent_manager, chat_service, queue=app_state.queue)
         history_id = await webhook_gateway._get_or_create_history_id("whatsapp", agent_id, remote_jid)
         
         # Now run ChatOrchestrator

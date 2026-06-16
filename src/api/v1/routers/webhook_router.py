@@ -35,6 +35,7 @@ async def verify_webhook(
     gateway = WebhookGatewayService(
         agent_manager=request.app.state.agent_manager,
         chat_service=request.app.state.agent_chat_service,
+        queue=request.app.state.queue,
     )
     try:
         challenge = await gateway.verify_subscription(
@@ -82,6 +83,7 @@ async def receive_webhook(
     gateway = WebhookGatewayService(
         agent_manager=request.app.state.agent_manager,
         chat_service=request.app.state.agent_chat_service,
+        queue=request.app.state.queue,
     )
     result = await gateway.handle_webhook(
         channel=channel,
