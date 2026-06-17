@@ -67,6 +67,25 @@ async def handle_start_command(websocket, data: str, manager: 'WebSocketManager'
         logger.info("Starting research for conversation_id: {}", conversation_id)
 
         postgres_manager = websocket.app.state.postgres_manager
+
+        # Setup Vibe Coder environment using user-assigned model configurations
+        user_id = None
+        try:
+            from src.models.sql.models import UpgradeChatHistory
+            from sqlalchemy import select
+            from src.services.api_key_resolver import setup_vibe_coder_environment
+            async with postgres_manager.get_session() as session:
+                res = await session.execute(
+                    select(UpgradeChatHistory).where(UpgradeChatHistory.id == uuid.UUID(conversation_id))
+                )
+                history = res.scalars().first()
+                if history:
+                    user_id = history.user_id
+        except Exception as e:
+            logger.error(f"Error fetching user_id from conversation_id {conversation_id} in ws: {e}")
+
+        if user_id:
+            await setup_vibe_coder_environment(user_id, postgres_manager)
         chat_service_instance = UpgradeChatService(postgres_manager, DocumentProcessor())
         await chat_service_instance.store_user_research_request(conversation_id, task)
 
