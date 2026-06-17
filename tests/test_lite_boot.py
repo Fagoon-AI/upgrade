@@ -87,19 +87,7 @@ def test_fastapi_app_imports_and_loads_routers(tmp_path, monkeypatch):
 
     assert app.routes
     
-    def get_paths(routes, prefix=""):
-        res = set()
-        for r in routes:
-            path = getattr(r, "path", None)
-            if path is not None:
-                res.add(prefix + path)
-            if hasattr(r, "routes"):
-                res.update(get_paths(r.routes, prefix + (getattr(r, "path", "") or "")))
-            elif hasattr(r, "app") and hasattr(r.app, "routes"):
-                res.update(get_paths(r.app.routes, prefix + (getattr(r, "path", "") or "")))
-        return res
-
-    paths = get_paths(app.routes)
+    paths = list(app.openapi()["paths"].keys())
     
     assert any("/webhook" in p for p in paths), f"Webhook path missing. Paths registered: {sorted(paths)}"
     assert any("/video-generation" in p for p in paths), f"Video generation path missing. Paths registered: {sorted(paths)}"
