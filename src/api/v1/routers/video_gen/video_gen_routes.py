@@ -46,7 +46,7 @@ async def submit_video_prompt(
         await create_video_job_in_db(pg_services=pg_services, job_id=job_id, job_data=job_create_payload)
 
         try:
-            enhanced_prompt_text = await enhance_prompt_text_async(original_prompt)
+            enhanced_prompt_text = await enhance_prompt_text_async(original_prompt, user_id=user_id)
             final_prompt_for_video = enhanced_prompt_text
             await update_job_in_db(
                 pg_services=pg_services,

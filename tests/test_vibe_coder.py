@@ -2,7 +2,6 @@ import os
 import uuid
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from src.services.api_key_resolver import setup_vibe_coder_environment
 
 class MockLLMModelConfig:
     def __init__(self, provider, model_id, api_key, features, is_deleted=False):
@@ -16,8 +15,11 @@ class MockLLMModelConfig:
 
 @pytest.mark.asyncio
 async def test_setup_vibe_coder_environment(monkeypatch):
-    # Clear environment variables to be clean
-    for env_var in ("SMART_LLM", "SMART_LLM_PROVIDER", "FAST_LLM", "FAST_LLM_PROVIDER", "OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
+    # Set LITE_MODE to true first so settings don't require REDIS_URL during import / initialization
+    monkeypatch.setenv("LITE_MODE", "true")
+    
+    # Clear other environment variables to be clean
+    for env_var in ("SMART_LLM", "SMART_LLM_PROVIDER", "FAST_LLM", "FAST_LLM_PROVIDER", "OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "REDIS_URL"):
         monkeypatch.delenv(env_var, raising=False)
 
     user_id = uuid.uuid4()
@@ -49,6 +51,9 @@ async def test_setup_vibe_coder_environment(monkeypatch):
     from src.services.nosql.postgres_services import PostgresServices
     get_configs_mock = AsyncMock(return_value=mock_configs)
     monkeypatch.setattr(PostgresServices, "get_llm_model_configs_by_user_id", get_configs_mock)
+
+    # Import setup_vibe_coder_environment here inside the test to prevent load-time settings errors
+    from src.services.api_key_resolver import setup_vibe_coder_environment
 
     await setup_vibe_coder_environment(user_id, postgres_manager_mock)
 

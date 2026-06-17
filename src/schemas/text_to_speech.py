@@ -6,6 +6,7 @@ class BaseTTSConfig(BaseModel):
     provider: Literal["elevenlabs", "openai", "groq", "fagoon"]
     model: Optional[str] = Field(None, description="Name of the TTS Model, e.g., 'tts-1-hd'")
     voice_id: str = Field(..., description="Voice ID for the selected model/provider.")
+    api_key: Optional[str] = None
 
 class TTSRequestWithUserId(BaseModel):
     user_id: str = Field(..., description="The ID of the user requesting the TTS.")

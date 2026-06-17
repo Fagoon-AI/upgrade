@@ -30,3 +30,6 @@ class ChatInputRequest(BaseModel):
     user_prompt: Optional[str] = Field(
         ..., description="Prompt message provided by the user"
     )
+    feature: Optional[str] = Field(
+        default="workflow", description="The feature requesting the completion"
+    )

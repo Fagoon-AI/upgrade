@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from google.oauth2.credentials import Credentials
 from googleapiclient.errors import HttpError
 
-from .deps import get_google_credentials
+import uuid
+from .deps import get_google_credentials, get_current_user
+from src.models.auth_models.user_model import UserInDB
 from src.schemas.workspace.common import Message
 from src.schemas.workspace.gmail import (EmailInfo, FullEmailDetails,
                                SendEmailReplyRequest, SendEmailRequest,
@@ -21,8 +23,9 @@ async def get_gmail_service(
     return GoogleGmailService(credentials)
 
 
-async def get_ai_service() -> AIService:
-    return AIService()
+async def get_ai_service(current_user: UserInDB = Depends(get_current_user)) -> AIService:
+    user_uuid = uuid.UUID(str(current_user.id)) if current_user else None
+    return AIService(user_id=user_uuid)
 
 
 @router.post(
