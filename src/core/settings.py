@@ -1,7 +1,47 @@
+"""Application settings with a layered resolver.
+
+Precedence (highest first):
+    1. Explicit constructor kwargs (used internally)
+    2. Environment variables  -> contributors set these via .env
+    3. .env file
+    4. <DATA_DIR>/config.json  -> package mode persists generated values here
+    5. Hardcoded field defaults
+
+The same class serves both audiences: a contributor's env wins, while a
+package user who sets nothing still boots on file + default layers.
+"""
+from __future__ import annotations
+
+import json
 import os
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Annotated, List, Optional
-from pydantic import AnyUrl, BeforeValidator, computed_field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from pydantic import AnyUrl, BeforeValidator, computed_field, model_validator
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
+
+
+class JsonConfigSource(PydanticBaseSettingsSource):
+    """Lowest-priority source (above field defaults): reads persisted config
+    written by the bootstrap step at <DATA_DIR>/config.json."""
+
+    def __init__(self, settings_cls, path: Path):
+        super().__init__(settings_cls)
+        self._path = path
+
+    def get_field_value(self, field, field_name):  # abstract, unused here
+        return None, field_name, False
+
+    def __call__(self) -> dict:
+        try:
+            return json.loads(self._path.read_text())
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
 
 
 def parse_cors(v: Any) -> list[str] | str:
@@ -12,7 +52,26 @@ def parse_cors(v: Any) -> list[str] | str:
     raise ValueError(v)
 
 
+# ==============================================================================
+# Naming and Casing Convention:
+#   1. Connection URLs, third-party API Keys, and standard system-level environment
+#      variables remain UPPERCASE (e.g. DATABASE_URL, REDIS_URL, OPENAI_API_KEY, etc.)
+#      to mirror the standard Unix env-var naming expected by external integrations.
+#   2. Local directories, feature switches, generated secrets, and runtime-mode flags
+#      remain lowercase (e.g. data_dir, lite_mode, encryption_key, jwt_secret, features)
+#      for internal system consistency.
+# ==============================================================================
 class Settings(BaseSettings):
+    # --- dual mode ---
+    lite_mode: bool = False
+    data_dir: str = "/data"
+    web_concurrency: int = 1
+    database_url_default: str = ""  # bundled DSN injected by compose in lite mode
+    allow_self_restart: bool = False  # if true, app SIGTERMs itself after a switch
+    features: str = "chat,agents,workflow,vibecoder"
+    encryption_key: str = ""
+
+    # --- existing configs (made optional with defaults for zero-env boot) ---
     FRONTEND_HOST: str = "*"
 
     API_V1_STR: str = "/api/v1"
@@ -48,16 +107,15 @@ class Settings(BaseSettings):
     ENV: str = "development"
 
     # PostgreSQL Connection
-    DATABASE_URL: str
+    DATABASE_URL: str = ""
 
     # External APIs
-
     GROQ_MODEL_NAME: str = "llama3-8b-8192"
 
     # Google OAuth Settings
-    GOOGLE_CLIENT_ID: str
-    GOOGLE_CLIENT_SECRET: str
-    GOOGLE_REDIRECT_URI: str
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = ""
     FRONTEND_REDIRECT_URI: str = "http://localhost:3000"
 
     GOOGLE_AUTH_SCOPES: list[str] = [
@@ -71,12 +129,12 @@ class Settings(BaseSettings):
     ]
 
     # Video related configs
-    GCS_BUCKET_NAME: str
+    GCS_BUCKET_NAME: str = ""
     GEMINI_API_KEY: Optional[str] = None
-    VIDEO_STORAGE_PATH: str
-    CELERY_BROKER_URL: str
-    CELERY_RESULT_BACKEND: str
-    SECRET_KEY: str
+    VIDEO_STORAGE_PATH: str = ""
+    CELERY_BROKER_URL: str = ""
+    CELERY_RESULT_BACKEND: str = ""
+    SECRET_KEY: str = ""
     LOG_LEVEL: str = "INFO"
     ENABLE_VEO_GENERATION: bool = True
     MAX_VEO_GENERATIONS_PER_JOB: int = 15
@@ -84,17 +142,17 @@ class Settings(BaseSettings):
     MOCK_VEO_API_IF_DISABLED: bool = True
 
     # Upgrade Authentication
-    JWT_SECRET: str
+    jwt_secret: str = ""
     JWT_EXPIRES_IN: str = "90d"
-    JWT_ALGORITHM: str
+    JWT_ALGORITHM: str = "HS256"
     JWT_COOKIE_EXPIRES_IN_DAYS: int = 90
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Cookie Domain Settings
-    COOKIE_DOMAIN_1: str
-    COOKIE_DOMAIN_2: str
-    COOKIE_DOMAIN_3: str
+    COOKIE_DOMAIN_1: str = ""
+    COOKIE_DOMAIN_2: str = ""
+    COOKIE_DOMAIN_3: str = ""
     # Email Settings
     EMAIL_HOST: str = "localhost"
     EMAIL_PORT: int = 587
@@ -102,10 +160,10 @@ class Settings(BaseSettings):
     EMAIL_PASSWORD: str = "mock_password"
     EMAIL_FROM: str = "mock_from@example.com"
 
-    FAGOON_URL: str
-    DEFAULT_URL: str
-    SERPER_API_KEY: str
-    SERPAPI_API_KEY: str
+    FAGOON_URL: str = ""
+    DEFAULT_URL: str = ""
+    SERPER_API_KEY: str = ""
+    SERPAPI_API_KEY: str = ""
     FAL_KEY: Optional[str] = None
     FAST_MODEL_PROVIDER: str = "gemini"
     FAST_MODEL_ID: str = "gemini-2.5-flash"
@@ -114,7 +172,7 @@ class Settings(BaseSettings):
     SMART_MODEL_ID: str = "gemini-2.5-pro"
 
     # Channel webhook / integration configuration
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = ""
     WEBHOOK_VERIFY_TOKEN: Optional[str] = None
     WHATSAPP_APP_SECRET: Optional[str] = None
     WHATSAPP_PHONE_NUMBER_ID: Optional[str] = None
@@ -128,12 +186,72 @@ class Settings(BaseSettings):
     EVOLUTION_API_URL: Optional[str] = None
     WEBHOOK_URL: Optional[str] = None
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_ignore_empty=True, env_file_encoding='utf-8', case_sensitive=False, override=True)
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+        env_ignore_empty=True,
+        env_file_encoding='utf-8',
+        case_sensitive=False,
+        override=True
+    )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls,
+        init_settings,
+        env_settings,
+        dotenv_settings,
+        file_secret_settings,
+    ):
+        data_dir = Path(
+            init_settings.init_kwargs.get("data_dir")
+            or os.environ.get("DATA_DIR")
+            or "/data"
+        )
+        json_source = JsonConfigSource(settings_cls, data_dir / "config.json")
+        return (init_settings, env_settings, dotenv_settings, json_source)
+
+    @property
+    def enabled_features(self) -> set[str]:
+        return {f.strip() for f in self.features.split(",") if f.strip()}
+
+    def feature_enabled(self, name: str) -> bool:
+        return name in self.enabled_features
+
+    @model_validator(mode="after")
+    def _resolve(self):
+        # DB url falls back to the bundled DSN (lite mode) when nothing explicit.
+        if not self.DATABASE_URL and self.database_url_default:
+            self.DATABASE_URL = self.database_url_default
+
+        # Fallback REDIS_URL to CELERY_BROKER_URL if empty to prevent local dev hard-crashing.
+        if not self.REDIS_URL and self.CELERY_BROKER_URL:
+            self.REDIS_URL = self.CELERY_BROKER_URL
+
+        # Full mode requires Redis: fail loud rather than silently degrade.
+        if not self.lite_mode and not self.REDIS_URL:
+            raise ValueError(
+                "REDIS_URL is required when LITE_MODE is false. "
+                "Set REDIS_URL, or run with LITE_MODE=true."
+            )
+        # Lite mode ignores redis_url even if present (explicit contract).
+        return self
 
     @staticmethod
     def get_value(key: str) -> str:
         """Fetches the value of an environment variable by key."""
         return os.getenv(key)
 
-## Get the setting via function call (Singleton Instance Created to reduce making multiple instance)
-system_setting = Settings()
+
+@lru_cache
+def get_settings(env_file: str | None = ".env") -> Settings:
+    return Settings(data_dir=os.environ.get("DATA_DIR", "/data"), _env_file=env_file)
+
+
+# Dynamic module-level attribute lookup to proxy system_setting to get_settings()
+def __getattr__(name: str) -> Any:
+    if name == "system_setting":
+        return get_settings()
+    raise AttributeError(f"module {__name__} has no attribute {name}")
+

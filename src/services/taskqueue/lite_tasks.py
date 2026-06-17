@@ -1,0 +1,113 @@
+"""Lite Mode task implementations (CELERY-FREE).
+
+These tasks contain the exact same business logic as the Celery task wrappers
+but are entirely asynchronous, self-contained, and do NOT import or depend on
+Celery or Redis.
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+import uuid
+from typing import Optional
+
+from src.core.database.postgres import PostgresManager
+from src.services.nosql.postgres_services import PostgresServices
+from src.services.veo_video_generator import (
+    VeoVideoGenerator,
+    VeoVideoGeneratorConfig,
+    VideoGenerationError,
+)
+from src.core.settings import get_settings
+from src.services.channel_adapter.processor import process_webhook_event
+
+log = logging.getLogger(__name__)
+
+
+async def generate_video_lite(
+    video_path: str,
+    job_id: str,
+    original_prompt: str,
+    final_prompt_for_video: str,
+    enhanced_prompt_text: Optional[str],
+) -> None:
+    log.info("Lite video generation task started for job_id: %s", job_id)
+    settings = get_settings()
+    pg_manager = PostgresManager(settings.DATABASE_URL)
+    try:
+        async with pg_manager.get_session() as session:
+            db_services = PostgresServices(session)
+            
+            # Update job status to PROCESSING
+            await db_services.update_video_job(
+                uuid.UUID(job_id) if len(job_id) == 36 else None,
+                {"status": "PROCESSING", "progress": 0}
+            )
+            log.info("Job %s successfully updated to PROCESSING.", job_id)
+
+            log.info("Job %s: Initializing video generator...", job_id)
+            veo_config = VeoVideoGeneratorConfig(
+                model="veo-2.0-generate-001",
+            )
+            video_generator = VeoVideoGenerator(config=veo_config)
+            log.info("Job %s: Calling video generator for video generation...", job_id)
+
+            # Veo generation is blocking, run in a separate OS thread to avoid freezing the server
+            video_output_path_or_url = await asyncio.to_thread(
+                video_generator.generate_video, video_path, job_id, final_prompt_for_video
+            )
+
+            log.info(
+                "Job %s: Video generation complete. Output at: %s", job_id, video_output_path_or_url
+            )
+
+            if video_output_path_or_url and (
+                video_output_path_or_url.startswith("gs://") or 
+                video_output_path_or_url.startswith("http://") or 
+                video_output_path_or_url.startswith("https://")
+            ):
+                update_data = {
+                    "status": "COMPLETED",
+                    "progress": 100,
+                    "video_url": video_output_path_or_url,
+                    "file_path": None
+                }
+            else:
+                update_data = {
+                    "status": "COMPLETED",
+                    "progress": 100,
+                    "video_url": f"/api/v1/videos/{job_id}/download",
+                    "file_path": video_output_path_or_url
+                }
+
+            await db_services.update_video_job(uuid.UUID(job_id) if len(job_id) == 36 else None, update_data)
+            log.info("Job %s successfully updated to COMPLETED.", job_id)
+
+    except VideoGenerationError as e:
+        log.error("Video generation specific error for job_id %s: %s", job_id, e, exc_info=True)
+        error_detail = str(e)
+        if hasattr(e, "__cause__") and e.__cause__:
+            error_detail += f" - Caused by: {e.__cause__}"
+        
+        fail_data = {"status": "FAILED", "error_message": error_detail}
+        async with pg_manager.get_session() as session:
+            await PostgresServices(session).update_video_job(uuid.UUID(job_id) if len(job_id) == 36 else None, fail_data)
+        log.error("Job %s updated to FAILED with error: %s", job_id, error_detail)
+
+    except Exception as e:
+        log.error("Unexpected error in lite task for job_id %s: %s", job_id, e, exc_info=True)
+        fail_data = {"status": "FAILED", "error_message": f"Unexpected error: {str(e)}"}
+        async with pg_manager.get_session() as session:
+            await PostgresServices(session).update_video_job(uuid.UUID(job_id) if len(job_id) == 36 else None, fail_data)
+        log.error("Job %s updated to FAILED with unexpected error: %s", job_id, str(e))
+    finally:
+        await pg_manager.close()
+
+
+async def process_webhook_message_lite(event: dict) -> None:
+    log.info("Lite webhook message task started for event: %s", event.get("message_id"))
+    try:
+        await process_webhook_event(event)
+        log.info("Lite webhook message task finished for event: %s", event.get("message_id"))
+    except Exception as e:
+        log.error("Error running webhook message lite task: %s", e, exc_info=True)

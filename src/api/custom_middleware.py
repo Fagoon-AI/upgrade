@@ -58,7 +58,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         try:
             decoded_token = jwt.decode(
                 access_token,
-                system_setting.JWT_SECRET,
+                system_setting.jwt_secret,
                 algorithms=[system_setting.JWT_ALGORITHM],
             )
             user_id = decoded_token.get("_id")
@@ -209,7 +209,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                         new_access = await create_access_token(str(refreshed_user.id))
                         new_refresh_raw, new_refresh_exp = await create_refresh_token(str(refreshed_user.id), PostgresServices(session))
                         
-                        payload = jwt.decode(new_access, system_setting.JWT_SECRET, algorithms=[system_setting.JWT_ALGORITHM])
+                        payload = jwt.decode(new_access, system_setting.jwt_secret, algorithms=[system_setting.JWT_ALGORITHM])
                         return (new_access, new_refresh_raw, datetime.fromtimestamp(payload["exp"], tz=timezone.utc), new_refresh_exp, refreshed_user)
 
         return None

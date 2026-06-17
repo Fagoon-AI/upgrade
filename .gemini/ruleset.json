@@ -1,0 +1,87 @@
+{
+  "project": "Fagoon AI Agents Workflow",
+  "version": "1.0.0",
+  "description": "Architectural invariants and ruleset to maintain an unbreakable Dual-Mode (Lite/Full) and Database Switch workflow.",
+  "invariants": {
+    "dual_mode": {
+      "lite_mode": {
+        "definition": "A lightweight, single-process runtime designed to run with zero dependencies (no Redis, Celery, or Postgres required on first boot).",
+        "concurrency_limit": "WEB_CONCURRENCY=1 must be enforced at startup. In-memory limiter/queue/cache do not share memory across multiple worker processes.",
+        "secrets_bootstrapping": "Infra secrets (jwt_secret, encryption_key) are auto-generated on first-boot and persisted to <DATA_DIR>/config.json.",
+        "backends": {
+          "limiter": "MemoryRateLimiter",
+          "queue": "InlineTaskQueueWithSyncSupport",
+          "cache": "MemoryCache",
+          "redis": "None"
+        }
+      },
+      "full_mode": {
+        "definition": "A production-grade, distributed runtime designed to scale with multi-process workers.",
+        "backends": {
+          "limiter": "RedisRateLimiter",
+          "queue": "CeleryTaskQueue",
+          "cache": "RedisCache",
+          "redis": "aioredis.from_url"
+        }
+      }
+    },
+    "dependency_isolation": {
+      "import_boundaries": {
+        "rule": "Direct imports of 'redis' or 'celery' are strictly prohibited inside API routers and general business modules.",
+        "exception_files": [
+          "src/services/limiter/redis_limiter.py",
+          "src/services/cache/redis_cache.py",
+          "src/services/taskqueue/celery_queue.py",
+          "src/core/runtime.py",
+          "src/core/task_processing/celery_app.py",
+          "src/core/task_processing/celery_tasks.py",
+          "src/core/task_processing/celery_worker_setup.py"
+        ],
+        "interface_contract": "All modules must route rate-limiting, caching, and background jobs through app.state.limiter, app.state.cache, and app.state.queue."
+      },
+      "task_dispatch": {
+        "rule": "Background jobs must be dispatched by task name via app.state.queue.enqueue('task_name', *args). Never call celery_task.delay() directly in business code."
+      }
+    },
+    "settings": {
+      "casing_rule": "Unified case partitioning standard:",
+      "uppercase_rules": {
+        "convention": "Connection URLs, third-party API Keys, and standard system-level environment variables remain UPPERCASE to match external tools (Alembic, Redis, Celery) and Unix conventions.",
+        "fields": ["DATABASE_URL", "REDIS_URL", "CELERY_BROKER_URL", "CELERY_RESULT_BACKEND"]
+      },
+      "lowercase_rules": {
+        "convention": "Local directories, feature switches, generated secrets, and runtime-mode flags remain lowercase for internal consistency.",
+        "fields": ["data_dir", "lite_mode", "encryption_key", "jwt_secret", "features", "web_concurrency"]
+      }
+    },
+    "distributed_coordination": {
+      "standalone_bootstrap": "Standalone Celery worker processes must explicitly call ensure_bootstrap(get_settings()) inside celery_app.py at startup to prevent settings desynchronization races on fresh deployments.",
+      "container_startup_order": "In full-mode orchestrations (docker-compose), the Celery worker container must map the shared fagoon_data volume and wait for the app container to be healthy (which runs bootstrap first):",
+      "docker_compose": {
+        "worker_dependencies": [
+          "redis: { condition: service_started }",
+          "db: { condition: service_healthy }",
+          "app: { condition: service_healthy }"
+        ]
+      }
+    }
+  },
+  "verification_commands": {
+    "tests": {
+      "command": "uv run pytest tests",
+      "description": "Executes all unit, integration, and unmocked ASGI end-to-end webhook tests."
+    },
+    "import_linter": {
+      "command": "uv run lint-imports",
+      "description": "Enforces strict import boundaries on Celery/Redis."
+    },
+    "import_guard_script": {
+      "command": "./scripts/guard_imports.sh",
+      "description": "Checks the codebase for direct imports of forbidden libraries."
+    },
+    "linting": {
+      "command": "uv run ruff check .",
+      "description": "Verifies code quality and formatting."
+    }
+  }
+}
