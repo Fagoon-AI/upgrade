@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional, List
+from typing import Optional
 from loguru import logger
 from src.core.settings import system_setting
 from src.core.database.postgres import PostgresManager
@@ -60,8 +60,8 @@ async def resolve_api_key(
                         logger.debug(f"Resolved API key for user {user_id} using feature {feature}.")
                         break
                         
-        # 2b. Fallback to 'chat' feature match if requested feature is 'agents' or 'workflow'
-        if not user_api_key and feature in ("agents", "workflow"):
+        # 2b. Fallback to 'chat' feature match if requested feature is 'agents', 'workflow', or 'vibe_coder'
+        if not user_api_key and feature in ("agents", "workflow", "vibe_coder"):
             for config in provider_configs:
                 if isinstance(config.features, list) and "chat" in config.features:
                     if config.api_key:
@@ -98,3 +98,111 @@ async def resolve_api_key(
     }
     
     return provider_fallback_map.get(provider)
+
+
+async def setup_vibe_coder_environment(user_id: uuid.UUID, postgres_manager: PostgresManager):
+    """
+    Sets up the environment variables for Vibe Coder (GPT Researcher)
+    based on the user's custom model configurations in Postgres.
+    """
+    import os
+    logger.info(f"Setting up vibe coder environment for user {user_id}...")
+
+    # Define standard environment mapping for API keys
+    provider_env_map = {
+        "openai": "OPENAI_API_KEY",
+        "gemini": "GEMINI_API_KEY",
+        "google": "GOOGLE_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+        "groq": "GROQ_API_KEY",
+        "huggingface": "HUGGINGFACE_API_KEY",
+        "hugging_face": "HUGGINGFACE_API_KEY",
+        "mistral": "MISTRAL_API_KEY",
+        "mistralai": "MISTRAL_API_KEY",
+        "openrouter": "OPENROUTER_API_KEY",
+    }
+
+    try:
+        async with postgres_manager.get_session() as session:
+            services = PostgresServices(session)
+            configs = await services.get_llm_model_configs_by_user_id(user_id)
+
+        # 1. Resolve and set API keys for ALL user's configured providers.
+        for config in configs:
+            if config.is_deleted or not config.api_key:
+                continue
+
+            provider = config.provider.lower()
+            env_var = provider_env_map.get(provider)
+            if env_var:
+                resolved_key = await resolve_api_key(
+                    user_id=user_id,
+                    provider=provider,
+                    feature="vibe_coder",
+                    postgres_services=services
+                )
+                if resolved_key:
+                    os.environ[env_var] = resolved_key
+                    if provider == "gemini":
+                        os.environ["GOOGLE_API_KEY"] = resolved_key
+                    logger.info(f"Set environment variable {env_var} for provider '{provider}'.")
+
+        # 2. Look for the best model configuration specifically assigned to the vibe_coder feature
+        best_config = None
+        for config in configs:
+            if not config.is_deleted and config.api_key and isinstance(config.features, list) and "vibe_coder" in config.features:
+                best_config = config
+                break
+
+        if not best_config:
+            for config in configs:
+                if not config.is_deleted and config.api_key and isinstance(config.features, list) and "chat" in config.features:
+                    best_config = config
+                    break
+
+        if not best_config:
+            for config in configs:
+                if not config.is_deleted and config.api_key:
+                    best_config = config
+                    break
+
+        if best_config:
+            provider = best_config.provider.lower()
+            model_id = best_config.model_id
+
+            provider_map = {
+                "openai": "openai",
+                "gemini": "google_genai",
+                "google": "google_genai",
+                "anthropic": "anthropic",
+                "groq": "groq",
+                "huggingface": "huggingface",
+                "hugging_face": "huggingface",
+                "mistral": "mistralai",
+            }
+
+            smart_provider = provider_map.get(provider, provider)
+            os.environ["SMART_LLM_PROVIDER"] = smart_provider
+            os.environ["FAST_LLM_PROVIDER"] = smart_provider
+
+            if not model_id:
+                if provider == "openai":
+                    model_id = "gpt-4o"
+                elif provider in ("gemini", "google"):
+                    model_id = "gemini-1.5-pro"
+                elif provider == "anthropic":
+                    model_id = "claude-3-5-sonnet-20240620"
+                elif provider == "groq":
+                    model_id = "llama-3.1-70b-versatile"
+                else:
+                    model_id = "gpt-4o"
+
+            os.environ["SMART_LLM"] = model_id
+            os.environ["FAST_LLM"] = model_id
+            logger.info(f"Configured gpt-researcher with provider '{smart_provider}' and model '{model_id}' based on user configuration.")
+        else:
+            logger.info("No custom user configurations found. Relying on default system vibe coder settings.")
+
+    except Exception as e:
+        logger.error(f"Error setting up vibe coder environment: {e}", exc_info=True)
+
