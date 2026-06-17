@@ -6,6 +6,12 @@ from fastapi import UploadFile, HTTPException
 from loguru import logger
 from src.storages.file_storage import FileStorageService
 from src.services.nosql.postgres_services import PostgresServices
+from src.storages.vectordb_storages.pgvector import PgVectorStorage
+from src.services.document_processor import DocumentProcessor
+from src.schemas.llm import BaseLLMConfig
+from src.services.llm import LLMService
+from src.schemas.document import Document
+from src.services.api_key_resolver import resolve_api_key
 
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt", ".csv"}
 
@@ -27,22 +33,50 @@ class FileService:
         logger.info("FileService initialized.")
 
     async def process_and_upload_files(
-            self, user_id: str, agent_id: str, files: List[UploadFile], pg_services: Optional[PostgresServices] = None
+            self,
+            user_id: str,
+            agent_id: str,
+            files: List[UploadFile],
+            pg_services: Optional[PostgresServices] = None,
+            vector_store: Optional[PgVectorStorage] = None
     ) -> List[dict]:
         """
-        Processes a list of uploaded files, validates extensions, uploads them to GCS, and
-        records them in the PostgreSQL knowledge base database (file_references table).
+        Processes a list of uploaded files, validates extensions, extracts pages,
+        generates embeddings, and stores them directly in PgVector without uploading to GCS/local.
 
         Args:
             user_id (str): The ID of the user.
             agent_id (str): The ID of the agent.
             files (List[UploadFile]): The list of files from the request.
+            pg_services (Optional[PostgresServices]): Services for Postgres.
+            vector_store (Optional[PgVectorStorage]): PgVector Storage.
 
         Returns:
             List[dict]: A list of dictionaries containing the original filename
                         and the remote GCS storage path for each uploaded file.
         """
         uploaded_files_metadata = []
+
+        if vector_store:
+            try:
+                api_key = await resolve_api_key(
+                    user_id=uuid.UUID(user_id),
+                    provider="gemini",
+                    feature="agents",
+                    specific_id=agent_id
+                )
+            except Exception as e:
+                logger.error(f"Failed to resolve API key: {e}")
+                api_key = None
+
+            llm_config = BaseLLMConfig(
+                provider="gemini",
+                model="gemini-embedding-2",
+                api_key=api_key
+            )
+            embedding_service = LLMService(config=llm_config)
+            doc_processor = DocumentProcessor()
+
         for file in files:
             try:
                 # Validate file extension
@@ -51,23 +85,70 @@ class FileService:
                 # Read file content into memory
                 file_bytes = await file.read()
 
-                # Define a structured, predictable destination path in GCS
-                destination_path = f"{user_id}/agents/{agent_id}/sources/{file.filename}"
+                if vector_store:
+                    # Direct chunking, embedding and storing in PgVector
+                    processed_doc = await doc_processor.process_single_file(
+                        filename=file.filename,
+                        file_bytes=file_bytes
+                    )
 
-                logger.info(f"Uploading '{file.filename}' to GCS destination: {destination_path}")
+                    if processed_doc.status == "error":
+                        raise HTTPException(status_code=500, detail=f"Failed to extract text: {processed_doc.error}")
 
-                # Use the storage service to upload the file bytes directly to GCS
-                gcs_path = self.storage_service.upload_file_to_agent_folder(
-                    file_bytes=file_bytes,
-                    destination_path=destination_path,
-                    content_type=file.content_type
-                )
+                    all_chunks = []
+                    file_id = f"{user_id}/agents/{agent_id}/sources/{file.filename}"
+                    for page_data in processed_doc.data or []:
+                        metadata = page_data.metadata.copy() if page_data.metadata else {}
+                        metadata.update({
+                            "agent_id": agent_id,
+                            "file_name": file.filename,
+                            "file_id": file_id,
+                            "user_id": user_id,
+                        })
+                        all_chunks.append({
+                            "content": page_data.content,
+                            "metadata": metadata
+                        })
 
-                uploaded_files_metadata.append({
-                    "file_name": file.filename,
-                    "gcs_path": gcs_path, 
-                })
-                logger.success(f"Successfully uploaded to GCS and recorded path for '{file.filename}'.")
+                    # Embed and Add
+                    vector_documents = []
+                    for chunk in all_chunks:
+                        if not chunk['content'].strip():
+                            continue
+
+                        embedding = await embedding_service.get_embeddings(chunk['content'])
+                        vector_documents.append(Document(
+                            id=str(uuid.uuid4()),
+                            content=chunk['content'],
+                            embedding=embedding,
+                            metadata=chunk['metadata']
+                        ))
+
+                    collection_name = f"agent_{agent_id}"
+                    await vector_store.add(vector_documents, collection_name)
+                    logger.success(f"Directly ingested {len(vector_documents)} chunks for agent {agent_id} from '{file.filename}'.")
+
+                    uploaded_files_metadata.append({
+                        "file_name": file.filename,
+                        "gcs_path": file_id,
+                    })
+
+                else:
+                    # Fallback to standard upload if vector_store is not provided
+                    destination_path = f"{user_id}/agents/{agent_id}/sources/{file.filename}"
+                    logger.info(f"Fallback: Uploading '{file.filename}' to GCS destination: {destination_path}")
+
+                    gcs_path = self.storage_service.upload_file_to_agent_folder(
+                        file_bytes=file_bytes,
+                        destination_path=destination_path,
+                        content_type=file.content_type
+                    )
+
+                    uploaded_files_metadata.append({
+                        "file_name": file.filename,
+                        "gcs_path": gcs_path,
+                    })
+                    logger.success(f"Successfully uploaded to GCS and recorded path for '{file.filename}'.")
 
             except HTTPException as he:
                 logger.warning(f"File validation failed for '{file.filename}': {he.detail}")
@@ -77,11 +158,11 @@ class FileService:
                     "error": he.detail
                 })
             except Exception as e:
-                logger.error("Failed to process and upload file '{}': {}", file.filename, e, exc_info=True)
+                logger.error("Failed to process and ingest file '{}': {}", file.filename, e, exc_info=True)
                 uploaded_files_metadata.append({
                     "file_name": file.filename,
                     "gcs_path": None,
-                    "error": f"Failed to upload file to GCS: {e}"
+                    "error": f"Failed to ingest file: {e}"
                 })
             finally:
                 # Ensure file stream is closed

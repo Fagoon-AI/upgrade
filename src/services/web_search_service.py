@@ -19,7 +19,7 @@ FORBIDDEN_DOMAINS = [
     "facebook.com", "twitter.com", "instagram.com", "youtube.com", "tiktok.com", 
     "linkedin.com", "pinterest.com", "reddit.com", "trendsnewsline.com", 
     "newsline", "live-blogs", "liveblog", "clickbait", "blogspot.com",
-    "govinfo.gov", "adst.org", "ndi.org"
+    "govinfo.gov", "adst.org", "ndi.org", "quora.com"
 ]
 
 def _normalize_domain(link: str) -> str:
@@ -122,21 +122,21 @@ class WebSearchService:
             # --- CRITICAL FIX: Restoring the Time Filter ---
             # Detect if the user wants recent news to trigger DuckDuckGo's time filter
             query_lower = self.query.lower()
-            needs_fresh_news = any(word in query_lower for word in ["current", "latest", "now", "today", "recent", "news"])
+            needs_fresh_news = any(word in query_lower for word in ["current", "latest", "now", "today", "recent", "news", "update", "updates"])
             
-            # Use 'm' (past month) to permanently ban old SEO articles when asking for current info
-            time_filter = "m" if needs_fresh_news else None
-
             def fetch_ddg_payload():
                 with DDGS() as ddgs:
-                    # We grab up to 15 results with a strict time filter
-                    return list(ddgs.text(query, max_results=15, timelimit=time_filter))
+                    if needs_fresh_news:
+                        # Use news search instead of text search for fresh news (timelimit="w" for past week to ensure enough results)
+                        return list(ddgs.news(query, max_results=15, timelimit="w"))
+                    else:
+                        return list(ddgs.text(query, max_results=15))
 
             raw_results = await asyncio.to_thread(fetch_ddg_payload)
 
             formatted_results = []
             for item in raw_results:
-                link = item.get("href", "")
+                link = item.get("url") or item.get("href", "")
                 # Only add the URL if it passes our strict spam/PDF shield
                 if _is_valid_link(link):
                     formatted_results.append({

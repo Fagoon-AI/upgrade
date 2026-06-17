@@ -42,5 +42,6 @@ else
     uv run uvicorn "$APP_MODULE" \
         --host "$HOST" \
         --port "$PORT" \
-        --reload
+        --reload \
+        --reload-dir src
 fi
