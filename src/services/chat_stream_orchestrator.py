@@ -1,17 +1,16 @@
 import asyncio
 from typing import AsyncGenerator, List, Dict, Any
 from loguru import logger
-from fastapi import HTTPException, status, BackgroundTasks
+from fastapi import BackgroundTasks
 import openai
 
 from src.schemas.chat_context import ChatContext
 from src.services.response_manager import ResponseManager
-from src.services.file_processor import FileProcessor, FileProcessingResult
+from src.services.file_processor import FileProcessor
 from src.services.tool_handlers.factory import get_tool_handler
 from src.services.query_analyzer import analyze_and_select_tools
 from src.utils.misc import is_query_empty, map_conversation_command
 from src.schemas.upgrade_chat import ChatEventType as EventType
-from src.schemas.common import ConversationRoleEnum
 from src.schemas.agent_enums import ToolType
 from src.services.upgrade.chat import UpgradeChatService
 from src.storages.file_storage import FileStorageService
@@ -148,7 +147,19 @@ class ChatStreamOrchestrator:
 
     async def _generate_audio_response(self) -> AsyncGenerator[str, None]:
         try:
-            tts_config = BaseTTSConfig(provider="openai", model="tts-1", voice_id="alloy")
+            from src.services.api_key_resolver import resolve_api_key
+            import uuid
+            resolved_key = None
+            try:
+                resolved_key = await resolve_api_key(
+                    user_id=uuid.UUID(str(self.context.user_id)),
+                    provider="openai",
+                    feature="chat"
+                )
+            except Exception as resolve_err:
+                logger.error(f"Failed to resolve TTS API key in chat orchestrator: {resolve_err}")
+
+            tts_config = BaseTTSConfig(provider="openai", model="tts-1", voice_id="alloy", api_key=resolved_key)
             tts_service = TextToSpeechServices(config=tts_config)
 
             audio_data = await tts_service.convert_text_to_speech_and_get_url(

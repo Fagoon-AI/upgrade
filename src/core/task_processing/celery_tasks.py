@@ -29,8 +29,26 @@ async def _generate_video_job_async(
         logger.info("Job {} successfully updated to PROCESSING.", job_id)
 
         logger.info("Job {}: Initializing video generator...", job_id)
+        
+        # Resolve dynamic API key
+        resolved_key = None
+        job = await db_services.get_video_job(uuid.UUID(job_id) if len(job_id) == 36 else None)
+        user_uuid = job.user_id if job else None
+        if user_uuid:
+            from src.services.api_key_resolver import resolve_api_key
+            try:
+                resolved_key = await resolve_api_key(
+                    user_id=user_uuid,
+                    provider="gemini",
+                    feature="chat"
+                )
+            except Exception as e:
+                logger.error(f"Error resolving key for video generation: {e}")
+
         veo_config = VeoVideoGeneratorConfig(
             model="veo-2.0-generate-001",
+            user_id=user_uuid,
+            api_key=resolved_key,
         )
         video_generator = VeoVideoGenerator(config=veo_config)
         logger.info("Job {}: Calling video generator for video generation...", job_id)

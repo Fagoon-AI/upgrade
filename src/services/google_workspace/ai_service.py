@@ -1,3 +1,4 @@
+import uuid
 from typing import Optional
 from loguru import logger
 from groq import Groq
@@ -9,36 +10,37 @@ class AIService:
     Service for integrating with AI models (e.g., for summarization, reply generation) using Groq.
     """
 
-    def __init__(self):
-        if not system_setting.GROQ_API_KEY:
-            logger.warning(
-                "GROQ_API_KEY is not set. AI Service will use placeholder logic."
-            )
-            self.client = None
-        else:
-            try:
-                self.client = Groq(api_key=system_setting.GROQ_API_KEY)
-                logger.info(
-                    "Groq AI Service initialized with model: {}.", system_setting.GROQ_MODEL_NAME
-                )
-            except Exception as e:
-                logger.error(
-                    "Failed to initialize Groq client: {}. AI Service will use placeholder logic.",
-                    e,
-                    exc_info=True,
-                )
-                self.client = None
+    def __init__(self, user_id: Optional[uuid.UUID] = None):
+        self.user_id = user_id
 
     async def _call_groq_api(
         self, system_prompt: str, user_prompt: str
     ) -> Optional[str]:
         """Helper to call the Groq API."""
-        if not self.client:
-            logger.warning("Groq client not initialized. Using placeholder.")
+        api_key = None
+        if self.user_id:
+            from src.services.api_key_resolver import resolve_api_key
+            try:
+                resolved_api_key = await resolve_api_key(
+                    user_id=self.user_id,
+                    provider="groq",
+                    feature="chat"
+                )
+                if resolved_api_key:
+                    api_key = resolved_api_key
+            except Exception as e:
+                logger.error(f"Error resolving Groq key in AIService: {e}")
+
+        if not api_key:
+            api_key = system_setting.GROQ_API_KEY
+
+        if not api_key:
+            logger.warning("GROQ_API_KEY is not set or resolved. Using placeholder.")
             return None
 
         try:
-            chat_completion = self.client.chat.completions.create(
+            client = Groq(api_key=api_key)
+            chat_completion = client.chat.completions.create(
                 messages=[
                     {
                         "role": "system",
@@ -113,7 +115,7 @@ class AIService:
         if not prompt:
             return "Please provide a prompt for text generation."
 
-        system_prompt = "You are a creative and helpful AI assistant that generates high-quality text based on user prompts."
+        system_prompt = "You are creative and helpful AI assistant that generates high-quality text based on user prompts."
         user_prompt = f"Generate text based on the following instructions:\n\n{prompt}"
 
         generated_text = await self._call_groq_api(system_prompt, user_prompt)

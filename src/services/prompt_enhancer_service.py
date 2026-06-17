@@ -1,7 +1,8 @@
 import json
 import re
+import uuid
 from loguru import logger
-from typing import Tuple
+from typing import Tuple, Optional
 
 from src.schemas.llm import BaseLLMConfig
 from src.services.llm import LLMService
@@ -16,7 +17,7 @@ class PromptEnhancerService:
             )
         )
 
-    async def enhance_prompt_and_create_description(self, original_prompt: str) -> Tuple[str, str]:
+    async def enhance_prompt_and_create_description(self, original_prompt: str, user_id: Optional[str] = None) -> Tuple[str, str]:
         """
         Takes a user's prompt and returns an enhanced, detailed prompt for a diffusion model
         and a user-facing description of the generated image.
@@ -35,7 +36,29 @@ class PromptEnhancerService:
         """
 
         try:
-            response_str = await self.llm_service.chat_completion(
+            api_key = None
+            if user_id:
+                from src.services.api_key_resolver import resolve_api_key
+                try:
+                    api_key = await resolve_api_key(
+                        user_id=uuid.UUID(str(user_id)),
+                        provider=system_setting.FAST_MODEL_PROVIDER,
+                        feature="chat"
+                    )
+                except Exception as e:
+                    logger.error(f"Error resolving key for prompt enhancer: {e}")
+
+            llm_service = self.llm_service
+            if api_key:
+                llm_service = LLMService(
+                    BaseLLMConfig(
+                        model=system_setting.FAST_MODEL_ID,
+                        provider=system_setting.FAST_MODEL_PROVIDER,
+                        api_key=api_key
+                    )
+                )
+
+            response_str = await llm_service.chat_completion(
                 user_query=original_prompt, system_prompt=system_prompt
             )
 
