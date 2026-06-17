@@ -26,16 +26,17 @@ async def chat_completion(
     
     if input_request.user_id:
         from src.services.api_key_resolver import resolve_api_key
+        feature_name = input_request.feature or "workflow"
         try:
             resolved_api_key = await resolve_api_key(
                 user_id=uuid.UUID(input_request.user_id),
                 provider=input_request.llm_config.provider,
-                feature="workflow"
+                feature=feature_name
             )
             if resolved_api_key:
                 api_key = resolved_api_key
         except Exception as e:
-            logger.error(f"Failed to resolve custom API key for workflow: {e}")
+            logger.error(f"Failed to resolve custom API key for {feature_name}: {e}")
 
     llm_configuration = BaseLLMConfig(
         provider=input_request.llm_config.provider,

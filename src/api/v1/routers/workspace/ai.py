@@ -1,15 +1,18 @@
+import uuid
 from loguru import logger
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.schemas.workspace.ai import GenerateTextRequest, GenerateTextResponse
-from src.schemas.workspace.gmail import SummarizeEmailRequest, SummarizeEmailResponse
 from src.services.google_workspace.ai_service import AIService
+from src.api.v1.routers.workspace.deps import get_current_user
+from src.models.auth_models.user_model import UserInDB
 
 router = APIRouter()
 
 
-async def get_ai_service_dep() -> AIService:
-    return AIService()
+async def get_ai_service_dep(current_user: UserInDB = Depends(get_current_user)) -> AIService:
+    user_uuid = uuid.UUID(str(current_user.id)) if current_user else None
+    return AIService(user_id=user_uuid)
 
 
 @router.post(

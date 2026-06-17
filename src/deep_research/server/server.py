@@ -36,9 +36,36 @@ manager = WebSocketManager()
 
 DOC_PATH = os.getenv("DOC_PATH", "./my-docs")
 
-async def write_report(research_request: ResearchRequest, postgres_manager):
+async def write_report(research_request: ResearchRequest, postgres_manager, user_id: Optional[str] = None):
     """Runs the agent and stores the report using PostgreSQL."""
     conversation_id = research_request.conversation_id
+
+    import uuid
+    from src.services.api_key_resolver import setup_vibe_coder_environment
+
+    resolved_user_id = None
+    if user_id:
+        try:
+            resolved_user_id = uuid.UUID(str(user_id))
+        except ValueError:
+            pass
+
+    if not resolved_user_id:
+        try:
+            from src.models.sql.models import UpgradeChatHistory
+            from sqlalchemy import select
+            async with postgres_manager.get_session() as session:
+                res = await session.execute(
+                    select(UpgradeChatHistory).where(UpgradeChatHistory.id == uuid.UUID(conversation_id))
+                )
+                history = res.scalars().first()
+                if history:
+                    resolved_user_id = history.user_id
+        except Exception as e:
+            logger.error(f"Error resolving user_id for vibe coder HTTP report: {e}")
+
+    if resolved_user_id:
+        await setup_vibe_coder_environment(resolved_user_id, postgres_manager)
 
     report_information = await run_agent(
         task=research_request.task, report_type=research_request.report_type,
@@ -74,7 +101,10 @@ async def write_report(research_request: ResearchRequest, postgres_manager):
 
 @router.post("/report/")
 async def generate_report(request: Request, research_request: ResearchRequest):
-    return await write_report(research_request, request.app.state.postgres_manager)
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id and getattr(request.state, "user", None):
+        user_id = str(request.state.user.id)
+    return await write_report(research_request, request.app.state.postgres_manager, user_id)
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):

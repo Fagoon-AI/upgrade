@@ -1,4 +1,8 @@
+import os
 import pytest
+
+# Default LITE_MODE to true for testing to avoid requiring REDIS_URL when not testing full mode
+os.environ.setdefault("LITE_MODE", "true")
 
 @pytest.fixture(autouse=True)
 def clear_settings_cache():

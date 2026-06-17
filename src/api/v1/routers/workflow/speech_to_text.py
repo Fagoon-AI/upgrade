@@ -1,6 +1,6 @@
 import json
 from loguru import logger
-from fastapi import APIRouter, status, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, status, HTTPException, UploadFile, File, Form, Request
 from fastapi.responses import JSONResponse
 
 from src.services.stt import SpeechToTextService
@@ -17,6 +17,7 @@ router = APIRouter()
     response_model=SuccessResponse
 )
 async def speech_to_text(
+        request: Request,
         config: str = Form(..., description="A JSON string representing the BaseSTTConfig."),
         file: UploadFile = File(..., description="The audio file to be transcribed.")
 ):
@@ -26,6 +27,25 @@ async def speech_to_text(
     try:
         # Parse the configuration string into a Pydantic model
         stt_config = BaseSTTConfig(**json.loads(config))
+
+        user_id = None
+        if hasattr(request.state, "user") and request.state.user:
+            user_id = request.state.user.id
+
+        if user_id:
+            from src.services.api_key_resolver import resolve_api_key
+            import uuid
+            try:
+                resolved_key = await resolve_api_key(
+                    user_id=uuid.UUID(str(user_id)),
+                    provider=stt_config.provider,
+                    feature="workflow"
+                )
+                if resolved_key:
+                    stt_config.api_key = resolved_key
+            except Exception as resolve_err:
+                logger.error(f"Failed to resolve STT API key: {resolve_err}")
+
         stt_service = SpeechToTextService(stt_config)
 
         audio_bytes = await file.read()

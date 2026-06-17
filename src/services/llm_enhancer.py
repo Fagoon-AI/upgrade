@@ -1,3 +1,5 @@
+import uuid
+from typing import Optional
 import httpx
 
 from loguru import logger
@@ -7,16 +9,33 @@ from src.core.settings import system_setting
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 
-async def enhance_prompt_text_async(original_prompt: str) -> str:
+async def enhance_prompt_text_async(original_prompt: str, user_id: Optional[uuid.UUID] = None) -> str:
     """
     Enhances the given prompt using Groq LLM.
     """
-    if not system_setting.GROQ_API_KEY or system_setting.GROQ_API_KEY == "YOUR_GROQ_API_KEY":
-        logger.warning("GROQ_API_KEY not configured. Returning original prompt.")
+    api_key = None
+    if user_id:
+        from src.services.api_key_resolver import resolve_api_key
+        try:
+            resolved_key = await resolve_api_key(
+                user_id=user_id,
+                provider="groq",
+                feature="chat"
+            )
+            if resolved_key:
+                api_key = resolved_key
+        except Exception as e:
+            logger.error(f"Error resolving key for prompt enhancer: {e}")
+
+    if not api_key:
+        api_key = system_setting.GROQ_API_KEY
+
+    if not api_key or api_key == "YOUR_GROQ_API_KEY":
+        logger.warning("GROQ_API_KEY not configured or resolved. Returning original prompt.")
         return f"{original_prompt}"
 
     headers = {
-        "Authorization": f"Bearer {system_setting.GROQ_API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
     payload = {

@@ -18,7 +18,7 @@ class ElevenLabsTextToSpeech(BaseTextToSpeech):
     def client(self) -> AsyncElevenLabs:
         """Async client property"""
         if self._client is None:
-            self._client = aget_client()
+            self._client = aget_client(api_key=getattr(self.config, "api_key", None))
 
         return self._client
 
