@@ -252,6 +252,7 @@ class LoginFailureResponse(BaseModel):
     message: str = "Invalid credentials or authentication failed"
 
 class MeResponse(BaseModel):
+    id: str = Field(alias="_id")
     name: str
     email: EmailStr
     photo: str
@@ -262,7 +263,6 @@ class MeResponse(BaseModel):
     description: Optional[str] = None
     social_media: Dict[str, Optional[str]]
     access: List[Dict[str, Any]] = []
-    access_token: str
 
 
     model_config = ConfigDict(

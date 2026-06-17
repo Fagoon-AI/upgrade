@@ -87,9 +87,8 @@ class ImageGenerationService:
                 await session.commit()
 
             # 5. Generate Local URL
-            # Use DEFAULT_URL from settings to construct the full URL
-            base_url = system_setting.DEFAULT_URL.rstrip('/')
-            local_url = f"{base_url}/api/v1/file/image/{new_image_id}"
+            # Use relative URL for the frontend, but keep an absolute URL for internal API calls if needed.
+            local_url = f"/api/v1/file/image/{new_image_id}"
 
             # 6. Prepare final data packet with the preliminary description
             final_asset_data = {
@@ -106,7 +105,9 @@ class ImageGenerationService:
             if generate_summary:
                 yield {"type": "status", "data": "Creating an image description for our chat..."}
                 try:
-                    summary = await self._description_service.describe_image(image_url=local_url)
+                    base_url = system_setting.DEFAULT_URL.rstrip('/')
+                    absolute_url = f"{base_url}{local_url}"
+                    summary = await self._description_service.describe_image(image_url=absolute_url)
                     final_asset_data["summary"] = summary
                 except Exception as desc_exc:
                     logger.warning("Failed to generate detailed image summary via Vision model (local URLs might not be accessible to cloud models): {}", desc_exc)
@@ -117,4 +118,4 @@ class ImageGenerationService:
 
         except Exception as e:
             logger.exception("An error occurred during image generation pipeline: {}", e)
-            yield {"type": "error", "data": "I'm sorry, I couldn't create the image. There was an issue with the generation service."}
+            yield {"type": "error", "data": f"I'm sorry, I couldn't create the image. {str(e)}"}
