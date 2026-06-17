@@ -1,8 +1,7 @@
 import uuid
 from loguru import logger
-from typing import Type, Optional, Dict, Any
+from typing import Type, Optional
 
-from src.constants import IMAGE_FILE_WEBP
 from src.diffusion.base import BaseDiffusion
 from src.diffusion.openai import OpenAIDiffusion
 from src.diffusion.huggingface import HuggingFaceDiffusion
@@ -12,7 +11,7 @@ from src.diffusion.gemini_imagen import GeminiImagenDiffusion
 from src.schemas.diffusion import BaseDiffusionConfig
 from src.services.prompt_enhancer_service import PromptEnhancerService
 from src.services.image_description_service import ImageDescriptionService
-from src.utils.misc import convert_pil_image_to_bytes, generate_unique_id
+from src.utils.misc import convert_pil_image_to_bytes
 from src.core.database.postgres import PostgresManager
 from src.models.sql.models import GeneratedImage
 from src.core.settings import system_setting
@@ -59,7 +58,7 @@ class ImageGenerationService:
         try:
             # 1. Enhance Prompt and get a preliminary description
             yield {"type": "status", "data": "Enhancing your creative idea..."}
-            enhanced_prompt, description = await self._prompt_enhancer.enhance_prompt_and_create_description(original_prompt)
+            enhanced_prompt, description = await self._prompt_enhancer.enhance_prompt_and_create_description(original_prompt, user_id=user_id)
 
             # 2. Generate Image
             yield {"type": "status", "data": "Bringing your vision to life..."}
@@ -107,7 +106,7 @@ class ImageGenerationService:
                 try:
                     base_url = system_setting.DEFAULT_URL.rstrip('/')
                     absolute_url = f"{base_url}{local_url}"
-                    summary = await self._description_service.describe_image(image_url=absolute_url)
+                    summary = await self._description_service.describe_image(image_url=absolute_url, user_id=user_id)
                     final_asset_data["summary"] = summary
                 except Exception as desc_exc:
                     logger.warning("Failed to generate detailed image summary via Vision model (local URLs might not be accessible to cloud models): {}", desc_exc)

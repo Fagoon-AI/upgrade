@@ -45,3 +45,4 @@ class BaseSTTConfig(BaseModel):
     model: Optional[str] = Field("whisper-1", description="The specific model to use for transcription.")
     language: Optional[str] = Field(None, description="The language of the audio in ISO 639-1 format.")
     temperature: Optional[float] = Field(0.0, ge=0.0, le=1.0, description="Sampling temperature for transcription.")
+    api_key: Optional[str] = None

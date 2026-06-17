@@ -1,8 +1,6 @@
-import os
 import time
 import uuid
-from loguru import logger
-from typing import Any, List, Optional
+from typing import Any, Optional
 from google import genai
 from google.genai import types
 from google.genai.errors import ClientError
@@ -16,7 +14,8 @@ class VideoGenerationError(Exception):
 
 
 class VeoVideoGeneratorConfig(BaseVideoGeneratorConfig):
-    pass
+    user_id: Optional[uuid.UUID] = None
+    api_key: Optional[str] = None
 
 
 class VeoVideoGenerator(BaseVideoGenerator):
@@ -28,11 +27,12 @@ class VeoVideoGenerator(BaseVideoGenerator):
 
     def _initialize_gemini_client(self):
         if self._client is None:
-            if not system_setting.GEMINI_API_KEY or system_setting.GEMINI_API_KEY == "YOUR_GEMINI_API_KEY":
+            api_key = getattr(self.config, "api_key", None) or system_setting.GEMINI_API_KEY
+            if not api_key or api_key == "YOUR_GEMINI_API_KEY":
                 self.logger.error("GEMINI_API_KEY is not configured or is placeholder. Cannot initialize Veo client for live generation.")
                 raise VideoGenerationError("Gemini API key is not configured for Veo generation.")
             try:
-                self._client = genai.Client(api_key=system_setting.GEMINI_API_KEY)
+                self._client = genai.Client(api_key=api_key)
                 self.logger.info("Successfully initialized Gemini client for Veo model.")
             except Exception as e:
                 self.logger.error("Failed to initialize Gemini client for live Veo generation: {}", e)

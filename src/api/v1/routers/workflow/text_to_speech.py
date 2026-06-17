@@ -55,6 +55,19 @@ async def text_to_speech(request: Request):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.errors())
 
     try:
+        from src.services.api_key_resolver import resolve_api_key
+        import uuid
+        try:
+            resolved_key = await resolve_api_key(
+                user_id=uuid.UUID(str(user_id)),
+                provider=config.provider,
+                feature="workflow"
+            )
+            if resolved_key:
+                config.api_key = resolved_key
+        except Exception as resolve_err:
+            logger.error(f"Failed to resolve TTS API key: {resolve_err}")
+
         tts_service = TextToSpeechServices(config=config)
         audio_data = await tts_service.convert_text_to_speech_and_get_url(
             user_id=str(user_id),
