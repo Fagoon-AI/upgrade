@@ -202,7 +202,13 @@ app.add_middleware(LoggingMiddleware)
 app.add_middleware(AuthMiddleware)
 
 try:
+    from fastapi import APIRouter
     combined = setup_and_combine_all_routers()
+    logger.info(f"DEBUG: APIRouter class ID: {id(APIRouter)}")
+    logger.info(f"DEBUG: combined router type: {type(combined)}")
+    logger.info(f"DEBUG: combined router type ID: {id(type(combined))}")
+    logger.info(f"DEBUG: isinstance(combined, APIRouter): {isinstance(combined, APIRouter)}")
+    
     logger.info(f"DEBUG: combined router has {len(combined.routes)} sub-routes before include")
     for i, r in enumerate(combined.routes):
         path = getattr(r, "path", "NO_PATH")
