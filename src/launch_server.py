@@ -200,4 +200,12 @@ app.add_middleware(
 
 app.add_middleware(LoggingMiddleware)
 app.add_middleware(AuthMiddleware)
-app.include_router(setup_and_combine_all_routers(), prefix=system_setting.API_V1_STR)
+
+try:
+    combined = setup_and_combine_all_routers()
+    logger.info(f"DEBUG: combined router has {len(combined.routes)} sub-routes before include")
+    app.include_router(combined, prefix=system_setting.API_V1_STR)
+    logger.info(f"DEBUG: app has {len(app.routes)} total routes after include")
+except Exception:
+    logger.exception("DEBUG: setup_and_combine_all_routers or include_router raised")
+    raise
