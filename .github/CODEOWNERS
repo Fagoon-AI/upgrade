@@ -1,0 +1,10 @@
+# Changes to the mode machinery require maintainer review even if CI passes.
+/src/core/runtime.py        @fagoon
+/src/core/settings.py       @fagoon
+/src/core/bootstrap.py      @fagoon
+/src/services/limiter/      @fagoon
+/src/services/taskqueue/    @fagoon
+/src/services/cache/        @fagoon
+/importlinter.ini           @fagoon
+/scripts/guard_imports.sh   @fagoon
+/.github/workflows/         @fagoon

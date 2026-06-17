@@ -41,7 +41,9 @@ from typing import Optional
 from src.api.custom_middleware import LoggingMiddleware, AuthMiddleware
 from src.api.logging_config import setup_logging
 from src.api.setup_api import setup_and_combine_all_routers
-from src.core.settings import system_setting
+from src.core.settings import get_settings, system_setting
+from src.core.bootstrap import ensure_bootstrap
+from src.core.runtime import build_runtime
 from src.core.database.postgres import PostgresManager
 from src.services.nosql.postgres_services import PostgresServices
 from src.utils.upgrade_auth.app_error import AppError
@@ -69,6 +71,23 @@ async def lifespan(app: FastAPI):
     global postgres_manager_instance_local
     logger.info("Application starting (Strict PostgreSQL Mode)...")
 
+    # Bootstrap settings and build runtime
+    settings = ensure_bootstrap(get_settings())
+    app.state.settings = settings
+
+    # Hard invariant: lite mode is single-process only.
+    if settings.lite_mode and settings.web_concurrency != 1:
+        raise RuntimeError(
+            "LITE_MODE requires WEB_CONCURRENCY=1. In-memory limiter/queue "
+            "fragment across workers. Use full mode for concurrency."
+        )
+
+    rt = await build_runtime(settings)
+    app.state.limiter = rt.limiter
+    app.state.queue = rt.queue
+    app.state.cache = rt.cache
+    app.state.redis = rt.redis
+
     # Create 'outputs' directory and mount static files
     os.makedirs("outputs", exist_ok=True)
     app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
@@ -82,8 +101,8 @@ async def lifespan(app: FastAPI):
     logger.info("Singleton httpx.AsyncClient initialized.")
 
     # Initialize PostgresManager
-    if system_setting.DATABASE_URL:
-        postgres_manager_instance_local = PostgresManager(system_setting.DATABASE_URL)
+    if settings.DATABASE_URL:
+        postgres_manager_instance_local = PostgresManager(settings.DATABASE_URL)
         app.state.postgres_manager = postgres_manager_instance_local
         logger.info("PostgresManager initialized and connected via lifespan.")
     else:
@@ -126,6 +145,12 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("Application shutting down...")
+    try:
+        await rt.shutdown()
+        logger.info("Runtime shut down successfully.")
+    except Exception as e:
+        logger.error("Error shutting down runtime: {}", e)
+
     if hasattr(app.state, "httpx_client"):
         await app.state.httpx_client.aclose()
         logger.info("Singleton httpx.AsyncClient connection closed.")
@@ -175,4 +200,29 @@ app.add_middleware(
 
 app.add_middleware(LoggingMiddleware)
 app.add_middleware(AuthMiddleware)
-app.include_router(setup_and_combine_all_routers(), prefix=system_setting.API_V1_STR)
+
+try:
+    from fastapi import APIRouter
+    combined = setup_and_combine_all_routers()
+    logger.info(f"DEBUG: APIRouter class ID: {id(APIRouter)}")
+    logger.info(f"DEBUG: combined router type: {type(combined)}")
+    logger.info(f"DEBUG: combined router type ID: {id(type(combined))}")
+    logger.info(f"DEBUG: isinstance(combined, APIRouter): {isinstance(combined, APIRouter)}")
+    
+    logger.info(f"DEBUG: combined router has {len(combined.routes)} sub-routes before include")
+    for i, r in enumerate(combined.routes):
+        path = getattr(r, "path", "NO_PATH")
+        methods = getattr(r, "methods", "NO_METHODS")
+        logger.info(f"DEBUG: Combined Route {i}: {type(r).__name__} | {path} | {methods}")
+    
+    prefix = system_setting.API_V1_STR
+    logger.info(f"DEBUG: Including combined router with prefix: '{prefix}'")
+    app.include_router(combined, prefix=prefix)
+    
+    logger.info(f"DEBUG: app has {len(app.routes)} total routes after include")
+    for i, r in enumerate(app.routes):
+        path = getattr(r, "path", "NO_PATH")
+        logger.info(f"DEBUG: App Route {i}: {type(r).__name__} | {path}")
+except Exception:
+    logger.exception("DEBUG: setup_and_combine_all_routers or include_router raised")
+    raise

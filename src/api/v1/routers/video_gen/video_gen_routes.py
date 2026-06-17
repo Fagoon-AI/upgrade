@@ -13,7 +13,6 @@ from src.core.globals import get_postgres_services
 
 from src.services.llm_enhancer import enhance_prompt_text_async
 from src.models.video_generation_models import (JobStatus, JobSubmissionResponse, PromptSubmit, VideoJob, VideoJobCreate)
-from src.core.task_processing.celery_tasks import generate_video_task
 from src.video_generation.websocket_manager import manager
 from src.utils.common import generate_uuid
 
@@ -72,8 +71,9 @@ async def submit_video_prompt(
         final_prompt_for_video = original_prompt
         await create_video_job_in_db(pg_services=pg_services, job_id=job_id, job_data=job_create_payload)
 
-    # Send task to Celery
-    generate_video_task.delay(
+    # Send task to the abstracted queue by name
+    request.app.state.queue.enqueue(
+        "generate_video_task",
         video_path=video_path,
         job_id=job_id,
         original_prompt=original_prompt,

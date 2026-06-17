@@ -23,6 +23,7 @@ from src.api.v1.routers.workspace import ai, google_auth, docs, drive, gmail, ll
 from src.api.v1.routers.video_gen.video_gen_routes import router as video_gen_router
 from src.api.v1.routers.authentication import auth_router, user_router
 from src.api.v1.routers.whatsapp import whatsapp_router
+from src.api.v1.routers.database import db_switch
 
 
 def setup_and_combine_all_routers() -> APIRouter:
@@ -153,5 +154,7 @@ def setup_and_combine_all_routers() -> APIRouter:
     router.include_router(user_router.router, prefix="/users", tags=["User Management"])
     # WhatsApp Deployment Routes
     router.include_router(whatsapp_router, prefix="/whatsapp-session", tags=["WhatsApp Deployment"])
+    # Database Switch Routes
+    router.include_router(db_switch.router)
 
     return router

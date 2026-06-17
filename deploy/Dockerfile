@@ -1,0 +1,21 @@
+FROM python:3.12-slim AS base
+ENV PYTHONUNBUFFERED=1 DATA_DIR=/data
+WORKDIR /app
+
+# Install postgresql-client-16
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates gnupg lsb-release wget \
+    && wget -qO /usr/share/keyrings/pgdg.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && echo "deb [signed-by=/usr/share/keyrings/pgdg.asc] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+        > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-16 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir uv
+COPY pyproject.toml uv.lock* ./
+RUN uv sync --frozen --extra full || uv sync --extra full
+
+COPY . .
+RUN chmod +x deploy/entrypoint.sh
+EXPOSE 8000
+ENTRYPOINT ["deploy/entrypoint.sh"]
