@@ -70,11 +70,13 @@ async def upload_agent_file_to_storage(
 
     try:
         # Pass pg_services for automatic registration in user Knowledge Base
+        vector_store = getattr(request.app.state, "vector_store", None)
         uploaded_files = await file_service.process_and_upload_files(
             user_id=effective_user_id,
             agent_id=agent_id,
             files=files,
-            pg_services=pg_services
+            pg_services=pg_services,
+            vector_store=vector_store
         )
         has_errors = any(item.get("error") for item in uploaded_files)
         message = "Files uploaded successfully."
@@ -180,11 +182,13 @@ async def upload_files_to_knowledge_base(
 
     try:
         general_kb_id = "general_knowledge"
+        vector_store = getattr(request.app.state, "vector_store", None)
         uploaded_files = await file_service.process_and_upload_files(
             user_id=effective_user_id,
             agent_id=general_kb_id,
             files=files,
-            pg_services=pg_services
+            pg_services=pg_services,
+            vector_store=vector_store
         )
         
         return JSONResponse(status_code=200, content={
