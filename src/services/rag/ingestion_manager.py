@@ -24,8 +24,32 @@ class IngestionManager:
         all_chunks = []
         collection_name = f"agent_{agent_id}"
 
+        from src.models.sql.models import FileReference
+        from sqlalchemy import select
+
         for file_ref in knowledge_base.uploaded_files or []:
             try:
+                # Check if the file exists physically in the storage
+                file_exists = False
+                try:
+                    if hasattr(self.file_storage.manager, 'base_dir'):
+                        full_path = os.path.join(self.file_storage.manager.base_dir, file_ref)
+                        if os.path.exists(full_path):
+                            file_exists = True
+                except Exception:
+                    pass
+
+                # If the file does not exist, check if we already have a FileReference for this file_ref.
+                # If we do, we can skip processing because it was directly ingested.
+                if not file_exists:
+                    async with self.vector_store.postgres_manager.get_session() as session:
+                        stmt = select(FileReference.id).where(FileReference.file_id == file_ref)
+                        result = await session.execute(stmt)
+                        file_ref_id = result.scalar_one_or_none()
+                        if file_ref_id:
+                            logger.info(f"File '{file_ref}' has already been directly ingested and has chunks in PgVector. Skipping background ingestion.")
+                            continue
+
                 # 1. Download file bytes from Google Cloud Storage into memory
                 file_bytes = self.file_storage.read_file(file_ref)
                 

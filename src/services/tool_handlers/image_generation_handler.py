@@ -55,11 +55,14 @@ class ImageGenerationHandler(BaseToolHandler):
 
             elif event_type == "final_asset":
                 # The service already provides a good summary message
-                message = f"Here is the image I created for you: {event_data.get('summary')}"
+                image_url = event_data.get('url')
+                summary = event_data.get('summary', 'Generated Image')
+                message = "Here is the image I created for you."
+                
                 self.response_manager.append_message_chunk(message)
                 self.response_manager.add_metadata_item("generated_image", event_data)
 
-                async for chunk in self.response_manager.send_event(EventType.GENERATED_ASSETS, event_data):
+                async for chunk in self.response_manager.send_event(EventType.IMAGE, event_data):
                     yield chunk
                 async for chunk in self.response_manager.send_event(EventType.LLM_RESPONSE, message):
                     yield chunk

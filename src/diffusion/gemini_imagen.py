@@ -51,6 +51,10 @@ class GeminiImagenDiffusion(BaseDiffusion):
             response.raise_for_status()
             
             data = response.json()
+            if not data or "predictions" not in data:
+                logger.error(f"Empty or missing predictions from Gemini Imagen API. Response: {data}")
+                raise RuntimeError("Image generation failed. The prompt may have violated safety guidelines or policy restrictions.")
+                
             try:
                 base64_img = data["predictions"][0]["bytesBase64Encoded"]
                 image_bytes = base64.b64decode(base64_img)
