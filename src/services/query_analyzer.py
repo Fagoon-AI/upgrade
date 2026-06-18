@@ -57,16 +57,17 @@ def build_prompt(
     routing_guardrails = (
         "\n\nCRITICAL ROUTING RULES FOR GENERAL CHAT AND SYSTEM TASKS:\n"
         "1. If the user is just saying hello, making casual conversation (e.g., 'how are you?', 'tell me a joke', 'what's up'), "
-        "or asking general standalone logic/questions, you MUST return Only [\"general\"].\n"
+        "you MUST return Only [\"general\"].\n"
         "2. If the user asks for the current time, date, or your name/identity, you MUST return Only [\"general\"]. Do NOT perform a web search.\n"
-        "3. You must ONLY select [\"web_search\"] if the user query explicitly demands live data, fresh news, real-time lookups, or current events information."
+        "3. You must ONLY select [\"web_search\"] if the user query explicitly demands live data, fresh news, real-time lookups, or current events information.\n"
+        "4. If the user asks a factual question, inquires about services, products, or company details, or asks something that might be covered by a knowledge base, you MUST return Only [\"rag\"]."
     )
     system_prompt_template += routing_guardrails
 
     generation_hint = (
         "\nHint: If the query is an explicit command to generate content "
-        "(e.g., 'draw a picture of...', 'create a flowchart for...'), select the corresponding generation "
-        "tool ('image_generation', 'mermaid_diagram')."
+        "(e.g., 'draw a picture of...', 'generate a video of...', 'create a flowchart for...'), select the corresponding generation "
+        "tool ('image_generation', 'video_generation', 'mermaid_diagram')."
     )
     system_prompt_template += generation_hint
 
@@ -110,6 +111,15 @@ async def analyze_and_select_tools(
     if query in general_exact_matches or any(query.startswith(p) for p in general_prefixes):
         logger.info(f"Rule-based tool selection: User message '{query}' is a general query. Selecting 'general' tool.")
         return [ToolType.GENERAL.value]
+
+    # Rule 1.5: Video generation direct matching
+    video_triggers = [
+        "generate video", "generate a video", "make a video", "make video", "create a video", "create video",
+        "render a video", "render video", "generate some video", "generate an animation", "make an animation"
+    ]
+    if any(query.startswith(trigger) for trigger in video_triggers):
+        logger.info(f"Rule-based tool selection: User message '{query}' is a video generation request. Selecting 'video_generation' tool.")
+        return [ToolType.VIDEO_GENERATION.value]
 
     # --- FIX 1: Protect Rule 2 with the web_search_enabled toggle ---
     # Only allow rule-based web search matching if the feature is explicitly enabled by the user
@@ -157,17 +167,17 @@ async def analyze_and_select_tools(
         valid_tools = [tool for tool in parsed if tool in ToolType._value2member_map_]
 
         if not valid_tools:
-            logger.warning("No valid tools selected, defaulting to general chat.")
-            return [ToolType.GENERAL.value]
+            logger.warning("No valid tools selected, defaulting to RAG.")
+            return [ToolType.RAG.value]
 
         logger.info("LLM selected tools: {}", valid_tools)
         return valid_tools
 
     except (json.JSONDecodeError, ValueError) as e:
         logger.error("Failed to parse or validate tool selection response: {}", e)
-        return [ToolType.GENERAL.value]
+        return [ToolType.RAG.value]
     except Exception as e:
         logger.error(
             "An unexpected error occurred during tool selection: {}", e, exc_info=True
         )
-        return [ToolType.GENERAL.value]
+        return [ToolType.RAG.value]

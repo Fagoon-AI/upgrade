@@ -102,12 +102,14 @@ class PDFReader(BasePDFReader):
 
         documents = []
         for page_number, page in enumerate(doc_reader.pages, start=1):
+            text = page.extract_text() or ""
+            text = text.replace("\x00", "")
             documents.append(
                 Document(
                     name=doc_name,
                     id=f"{doc_name}_{page_number}",
                     metadata={"page": page_number},
-                    content=page.extract_text(),
+                    content=text,
                 )
             )
         if self.chunk:
@@ -134,11 +136,13 @@ class PDFReader(BasePDFReader):
         async def _process_document(
             doc_name: str, page_number: int, page: Any
         ) -> Document:
+            text = page.extract_text() or ""
+            text = text.replace("\x00", "")
             return Document(
                 name=doc_name,
                 id=f"{doc_name}_{page_number}",
                 metadata={"page": page_number},
-                content=page.extract_text(),
+                content=text,
             )
 
         # Process pages in parallel using asyncio.gather
