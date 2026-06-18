@@ -9,8 +9,10 @@ class SystemPrompt(str, Enum):
 
 class ToolType(str, Enum):
     GENERAL = "general"
+    RAG = "rag"
     WEB_SEARCH = "web_search"
     IMAGE_GENERATION = "image_generation"
+    VIDEO_GENERATION = "video_generation"
     MERMAID_DIAGRAM = "mermaid_diagram"
     DEEP_RESEARCH = "deep_research"
     SUMMARIZATION = "summarization"
@@ -19,9 +21,11 @@ class ToolType(str, Enum):
 
 
 TOOL_USAGE_GUIDE = {
-    ToolType.GENERAL: "Can use its own knowledge base and general knowledge.",
+    ToolType.GENERAL: "Use this for casual conversation, greetings (like 'hello'), or generic questions that DO NOT require the agent's specific knowledge base.",
+    ToolType.RAG: "Use this tool to search the agent's knowledge base and document context to answer questions.",
     ToolType.WEB_SEARCH: "Use this tool if you are confident that user requests real-time, current, or factual data that may require a web search.",
     ToolType.IMAGE_GENERATION: "Use this if you are confident that user is requesting you to create a new picture based on their description. This DOES NOT support generating charts or graphs. It is for creative images.",
+    ToolType.VIDEO_GENERATION: "Use this if you are confident that user is requesting you to generate, create, make, or render a video based on their description or prompt.",
     ToolType.MERMAID_DIAGRAM: "Use this tool if you are confident that user refers to diagrams such as flowcharts, sequences, or process maps.",
     ToolType.DEEP_RESEARCH: "Use this tool if you are confident that user requests in-depth exploration, comparison, or step-by-step analysis.",
     ToolType.SUMMARIZATION: "Use this tool if you are confident that user asks for a shorter version, recap, or summary of long content.",

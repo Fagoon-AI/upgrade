@@ -51,6 +51,7 @@ class EventType(str, Enum):
     ERROR = "error"
     STATUS = "status"
     IMAGE = "image"
+    VIDEO = "video"
     LLM_RESPONSE = "llm_response"
 
 
