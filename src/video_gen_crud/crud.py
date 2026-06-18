@@ -12,7 +12,8 @@ async def create_video_job_in_db(
     """Creates a new video job in the database using PostgresServices."""
     job_dict = job_data.model_dump()
     job_dict["id"] = uuid.UUID(job_id) if len(job_id) == 36 else uuid.uuid4()
-    job_dict["user_id"] = uuid.UUID(job_data.user_id) if len(job_data.user_id) == 36 else uuid.uuid4()
+    user_id_str = str(job_data.user_id) if job_data.user_id else ""
+    job_dict["user_id"] = uuid.UUID(user_id_str) if len(user_id_str) == 36 else uuid.uuid4()
     return await pg_services.create_video_job(job_dict)
 
 

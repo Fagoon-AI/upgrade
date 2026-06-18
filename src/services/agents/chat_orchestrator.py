@@ -259,7 +259,11 @@ class ChatOrchestrator:
                     yield token
             except Exception as stream_err:
                 logger.error(f"General streaming failed: {stream_err}")
-                yield f"Error during streaming: {str(stream_err)}"
+                err_str = str(stream_err).lower()
+                if "rate_limit" in err_str or "429" in err_str:
+                    yield "I apologize, but our servers are currently experiencing extremely high volume. Please try again in a few minutes."
+                else:
+                    yield "I apologize, but I am experiencing some brief technical difficulties right now. Please try again in a moment."
                 return
 
         # ==========================================
@@ -268,12 +272,15 @@ class ChatOrchestrator:
         else:
             context = ""
             try:
-                query_vector = await llm_service.get_embeddings(message)
+                from src.services.embeddings import get_embedding_service
+                embedding_service = await get_embedding_service(user_id=user_id, agent_id=agent_id)
+                query_vector = await embedding_service.get_embeddings(message)
+
                 vector_query = VectorDBQuery(query_vector=query_vector, top_k=5)
                 search_results = await self.vector_store.query(vector_query, collection_name)
                 context = "\n".join([res.payload.get("content", "") for res in search_results])
             except Exception as e:
-                logger.info("Skipping knowledge retrieval layer for this model turn. Proceeding directly to chat.")
+                logger.warning(f"Skipping knowledge retrieval layer: {e}")
 
             if context:
                 guardrail_rules = (
@@ -302,7 +309,11 @@ class ChatOrchestrator:
                     yield token
             except Exception as stream_err:
                 logger.error(f"Streaming failed: {stream_err}")
-                yield f"Error during streaming generation: {str(stream_err)}"
+                err_str = str(stream_err).lower()
+                if "rate_limit" in err_str or "429" in err_str:
+                    yield "I apologize, but our servers are currently experiencing extremely high volume. Please try again in a few minutes."
+                else:
+                    yield "I apologize, but I am experiencing some brief technical difficulties right now. Please try again in a moment."
                 return
 
         # Save AI Response for all routes
