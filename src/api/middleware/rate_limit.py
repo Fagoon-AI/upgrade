@@ -12,6 +12,7 @@ Production-ready middleware that:
 
 import time
 import secrets
+import importlib
 from typing import Optional, Callable, Tuple, Dict, Any
 
 from fastapi import Request, Response, status
@@ -20,14 +21,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from loguru import logger
 
 from src.core.config import settings
-from src.core.rate_limiter import (
-    RateLimitManager,
-    RateLimitConfig,
-    RateLimitResult,
-    RateLimitTier,
-    RateLimitAlgorithm,
-    RateLimitScope,
-)
 
 
 # ============================================================
@@ -192,14 +185,17 @@ class RedisRateLimitMiddleware(BaseHTTPMiddleware):
     - Standard rate limit headers (X-RateLimit-*)
     """
 
-    def __init__(self, app, manager: Optional[RateLimitManager] = None):
+    def __init__(self, app, manager: Any = None):
         super().__init__(app)
         self._manager = manager
         self._initialized = False
         self._tiers = self._build_tiers()
 
-    def _build_tiers(self) -> Dict[str, RateLimitTier]:
+    def _build_tiers(self) -> Dict[str, Any]:
         """Build tier configurations from settings."""
+        rate_limiter_mod = importlib.import_module("src.core.rate_limiter")
+        RateLimitTier = rate_limiter_mod.RateLimitTier
+
         return {
             "anonymous": RateLimitTier(
                 "anonymous",
@@ -231,7 +227,7 @@ class RedisRateLimitMiddleware(BaseHTTPMiddleware):
             ),
         }
 
-    async def _ensure_manager(self) -> Optional[RateLimitManager]:
+    async def _ensure_manager(self) -> Any:
         """Ensure rate limit manager is initialized."""
         if self._manager:
             return self._manager
@@ -240,7 +236,11 @@ class RedisRateLimitMiddleware(BaseHTTPMiddleware):
             return None
 
         try:
-            from src.core.redis import redis_manager
+            rate_limiter_mod = importlib.import_module("src.core.rate_limiter")
+            RateLimitManager = rate_limiter_mod.RateLimitManager
+
+            redis_mod = importlib.import_module("src.core.redis")
+            redis_manager = redis_mod.redis_manager
 
             if not redis_manager.is_connected:
                 await redis_manager.connect()
@@ -321,6 +321,8 @@ class RedisRateLimitMiddleware(BaseHTTPMiddleware):
                 logger.debug("Rate limiter unavailable, failing open")
                 return await call_next(request)
             else:
+                rate_limiter_mod = importlib.import_module("src.core.rate_limiter")
+                RateLimitResult = rate_limiter_mod.RateLimitResult
                 return self._rate_limit_response(
                     RateLimitResult(
                         allowed=False,
@@ -336,7 +338,7 @@ class RedisRateLimitMiddleware(BaseHTTPMiddleware):
         self,
         request: Request,
         call_next: Callable,
-        manager: RateLimitManager,
+        manager: Any,
         client_ip: str,
         user_id: Optional[str],
         tier: str
@@ -350,6 +352,11 @@ class RedisRateLimitMiddleware(BaseHTTPMiddleware):
         endpoint_limit = get_endpoint_limit(path, method)
 
         if endpoint_limit:
+            rate_limiter_mod = importlib.import_module("src.core.rate_limiter")
+            RateLimitConfig = rate_limiter_mod.RateLimitConfig
+            RateLimitScope = rate_limiter_mod.RateLimitScope
+            RateLimitAlgorithm = rate_limiter_mod.RateLimitAlgorithm
+
             category, requests, window = endpoint_limit
             config = RateLimitConfig(
                 requests=requests,
@@ -396,7 +403,7 @@ class RedisRateLimitMiddleware(BaseHTTPMiddleware):
 
     def _rate_limit_response(
         self,
-        result: RateLimitResult,
+        result: Any,
         message: str = "Rate limit exceeded"
     ) -> JSONResponse:
         """Create rate limit exceeded response."""
