@@ -68,6 +68,11 @@ def test_fastapi_app_imports_and_loads_routers(tmp_path, monkeypatch):
     the complete FastAPI application mounts and registers all routers successfully
     with zero transitive dependencies or validation failures on boot."""
     import sys
+    try:
+        from sqlmodel import SQLModel
+        SQLModel.metadata.clear()
+    except Exception:
+        pass
     for k in list(sys.modules.keys()):
         if k.startswith("src.") or k == "src":
             sys.modules.pop(k, None)
@@ -101,6 +106,11 @@ async def test_webhook_roundtrip_lite(tmp_path, monkeypatch):
     the WhatsApp Meta payload, enqueues the event into the REAL InlineTaskQueueWithSyncSupport,
     and triggers the registered task mock-callback cleanly in the background."""
     import sys
+    try:
+        from sqlmodel import SQLModel
+        SQLModel.metadata.clear()
+    except Exception:
+        pass
     for k in list(sys.modules.keys()):
         if k.startswith("src.") or k == "src":
             sys.modules.pop(k, None)
