@@ -9,10 +9,8 @@
   },
   "context": {
     "fileName": [
-      "GEMINI.md",
-      "DUAL_MODE_IMPLEMENTATION.md",
-      "DB_SWITCH_IMPLEMENTATION.md",
-      "IMPLEMENTATION_PHASES.md"
-    ]
+      "GEMINI.md"
+    ],
+    "discoveryMaxDirs": 0
   }
 }

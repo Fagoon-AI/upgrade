@@ -86,6 +86,7 @@ async def lifespan(app: FastAPI):
     app.state.limiter = rt.limiter
     app.state.queue = rt.queue
     app.state.cache = rt.cache
+    app.state.pubsub = rt.pubsub
     app.state.redis = rt.redis
 
     # Create 'outputs' directory and mount static files

@@ -186,6 +186,81 @@ class Settings(BaseSettings):
     EVOLUTION_API_URL: Optional[str] = None
     WEBHOOK_URL: Optional[str] = None
 
+    # ==================== WORKFLOW: DATABASE TUNING ====================
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_TIMEOUT: int = 30
+    DB_ECHO: Optional[bool] = None
+
+    # ==================== WORKFLOW: SECURITY ====================
+    ENCRYPTION_KEY: str = ""
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    PASSWORD_HASH_ROUNDS: int = 12
+
+    # ==================== WORKFLOW: API / CORS ====================
+    VERSION: str = "2.0.0"
+    DEBUG: bool = False
+    API_V1_PREFIX: str = "/api/v1"
+    ALLOWED_HOSTS: List[str] = ["*"]
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
+
+    # ==================== WORKFLOW: REDIS (individual fields) ====================
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_PASSWORD: str = ""
+    REDIS_SSL: bool = False
+    REDIS_DB: int = 0
+    REDIS_MAX_CONNECTIONS: int = 10
+
+    # ==================== WORKFLOW: GCS / STORAGE ====================
+    GCS_SIGNED_URL_EXPIRY: int = 3600
+    MAX_UPLOAD_SIZE_MB: int = 100
+    GOOGLE_APPLICATION_CREDENTIALS: str = ""
+
+    # ==================== WORKFLOW: CELERY ====================
+    CELERY_TASK_TIMEOUT: int = 3600
+
+    # ==================== WORKFLOW: FEATURE FLAGS ====================
+    FEATURE_ENABLE_REGISTRATION: bool = True
+    FEATURE_ENABLE_OAUTH: bool = True
+    FEATURE_ENABLE_WEBHOOKS: bool = True
+    FEATURE_ENABLE_BROWSER_NODE: bool = True
+    FEATURE_ENABLE_CODE_NODE: bool = True
+
+    # ==================== WORKFLOW: SANDBOX ====================
+    SANDBOX_MODE: str = "docker"
+    SANDBOX_DOCKER_IMAGE: str = "workflow-sandbox-python:latest"
+    SANDBOX_TIMEOUT_SECONDS: int = 10
+    SANDBOX_MAX_MEMORY_MB: int = 128
+    SANDBOX_MAX_CPU_PERCENT: int = 50
+    SANDBOX_MAX_OUTPUT_BYTES: int = 1000000
+    SANDBOX_NETWORK_ENABLED: bool = False
+
+    # ==================== WORKFLOW: RATE LIMITING ====================
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_REQUESTS: int = 100
+    RATE_LIMIT_WINDOW_SECONDS: int = 60
+    RATE_LIMIT_BACKEND: str = "redis"
+    RATE_LIMIT_FAIL_OPEN: bool = True
+    RATE_LIMIT_TIER_ANONYMOUS: int = 30
+    RATE_LIMIT_TIER_FREE: int = 60
+    RATE_LIMIT_TIER_PRO: int = 300
+    RATE_LIMIT_TIER_ENTERPRISE: int = 1000
+    RATE_LIMIT_EXECUTE_PER_MINUTE: int = 30
+    RATE_LIMIT_AUTH_PER_MINUTE: int = 10
+    RATE_LIMIT_BYPASS_IPS: List[str] = []
+    RATE_LIMIT_BYPASS_HEADER: str = ""
+    RATE_LIMIT_BYPASS_SECRET: str = ""
+
+    # ==================== WORKFLOW: LOGGING ====================
+    LOG_FORMAT: str = "json"
+    LOG_FILE_PATH: Optional[str] = None
+
+    # ==================== WORKFLOW: EXTERNAL SERVICES ====================
+    BROWSERLESS_API_URL: str = "https://production-sfo.browserless.io"
+    SENTRY_DSN: Optional[str] = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore",
