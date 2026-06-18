@@ -155,3 +155,122 @@ def process_webhook_message_task(self, event: dict):
         logger.info("Celery webhook message task {} finished for event: {}", self.request.id, event.get("message_id"))
     except Exception as e:
         logger.error("Error running webhook message task {}: {}", self.request.id, e, exc_info=True)
+
+
+# ============================================================
+# WORKFLOW CELERY WRAPPERS
+# ============================================================
+
+from src.tasks.workflow import (
+    execute_workflow_logic,
+    cancel_execution_logic,
+    cleanup_stale_executions_logic,
+    health_check_logic,
+    _mark_execution_failed,
+)
+from src.tasks.scheduler import (
+    _process_due_schedules_async,
+    _create_schedule_from_workflow_async,
+    _disable_workflow_schedules_async,
+)
+from src.tasks.cleanup import (
+    _run_cleanup,
+    _run_trace_cleanup,
+)
+
+
+@celery_app.task(
+    name="execute_workflow_task",
+    bind=True,
+    max_retries=3,
+    soft_time_limit=3600,
+    time_limit=3900,
+    acks_late=True,
+    reject_on_worker_lost=True,
+)
+def execute_workflow_task(
+        self,
+        execution_id: str,
+        workflow_id: str,
+        initial_input: dict,
+        resume_node_id: str | None = None
+) -> dict:
+    from celery.exceptions import SoftTimeLimitExceeded, Reject
+    import traceback
+
+    logger.info(f"Starting Celery workflow execution: {execution_id}")
+    try:
+        result = asyncio.run(
+            execute_workflow_logic(
+                execution_id=execution_id,
+                workflow_id=workflow_id,
+                initial_input=initial_input,
+                resume_node_id=resume_node_id,
+            )
+        )
+        return result
+    except SoftTimeLimitExceeded:
+        logger.error(f"Execution {execution_id} exceeded time limit")
+        asyncio.run(_mark_execution_failed(execution_id, "Execution exceeded time limit"))
+        raise Reject("Time limit exceeded", requeue=False)
+    except Exception as e:
+        logger.error(f"Execution {execution_id} failed: {e}\n{traceback.format_exc()}")
+        if self.request.retries < self.max_retries:
+            delay = 60 * (2 ** self.request.retries)
+            delay = min(delay, 600)
+            logger.info(f"Retrying execution {execution_id} in {delay}s")
+            raise self.retry(exc=e, countdown=delay)
+        asyncio.run(_mark_execution_failed(execution_id, str(e)))
+        raise
+
+
+@celery_app.task(name="cancel_execution_task", bind=True)
+def cancel_execution_task(self, execution_id: str, reason: str = "Cancelled by user") -> dict:
+    logger.info(f"Celery cancel_execution_task: {execution_id}")
+    return asyncio.run(cancel_execution_logic(execution_id, reason))
+
+
+@celery_app.task(name="cleanup_stale_executions_task", bind=True)
+def cleanup_stale_executions_task(self, max_age_hours: int = 24) -> dict:
+    logger.info(f"Celery cleanup_stale_executions_task: max_age={max_age_hours}")
+    return asyncio.run(cleanup_stale_executions_logic(max_age_hours))
+
+
+@celery_app.task(name="health_check_task", bind=True)
+def health_check_task(self) -> dict:
+    logger.info("Celery health_check_task")
+    return health_check_logic(self.request.hostname or "unknown")
+
+
+@celery_app.task(name="process_due_schedules_task", bind=True)
+def process_due_schedules_task(self) -> dict:
+    logger.info("Celery process_due_schedules_task")
+    try:
+        return asyncio.run(_process_due_schedules_async())
+    except Exception as e:
+        logger.error(f"Scheduler task failed: {e}")
+        raise
+
+
+@celery_app.task(name="create_schedule_from_workflow_task", bind=True)
+def create_schedule_from_workflow_task(self, workflow_id: str, user_id: str) -> dict:
+    logger.info(f"Celery create_schedule_from_workflow_task: workflow={workflow_id}")
+    return asyncio.run(_create_schedule_from_workflow_async(workflow_id, user_id))
+
+
+@celery_app.task(name="disable_workflow_schedules_task", bind=True)
+def disable_workflow_schedules_task(self, workflow_id: str) -> dict:
+    logger.info(f"Celery disable_workflow_schedules_task: workflow={workflow_id}")
+    return asyncio.run(_disable_workflow_schedules_async(workflow_id))
+
+
+@celery_app.task(name="app.tasks.cleanup.cleanup_old_logs_task", bind=True)
+def cleanup_old_logs_task(self, retention_days: int = 30, batch_size: int = 1000) -> dict:
+    logger.info("Celery cleanup_old_logs_task")
+    return asyncio.run(_run_cleanup(retention_days, batch_size))
+
+
+@celery_app.task(name="app.tasks.cleanup.cleanup_traces_task", bind=True)
+def cleanup_traces_task(self, retention_days: int = 7, batch_size: int = 2000) -> dict:
+    logger.info("Celery cleanup_traces_task")
+    return asyncio.run(_run_trace_cleanup(retention_days, batch_size))

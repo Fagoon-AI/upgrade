@@ -8,6 +8,18 @@ from src.api.v1.routers.workflow import (
     text_to_speech,
     web_loader,
     speech_to_text,
+    workflows,
+    executions,
+    connections,
+    hooks,
+    nodes,
+    schedules,
+    streams,
+    templates,
+    usage,
+    variables,
+    workflow_templates,
+    discovery,
 )
 from src.api.v1.routers import webhook_router
 from src.api.v1.routers.agents import (
@@ -156,5 +168,19 @@ def setup_and_combine_all_routers() -> APIRouter:
     router.include_router(whatsapp_router, prefix="/whatsapp-session", tags=["WhatsApp Deployment"])
     # Database Switch Routes
     router.include_router(db_switch.router)
+
+    # -- Workflow Engine Routes --
+    router.include_router(workflows.router, prefix="/workflows", tags=["Workflows"])
+    router.include_router(executions.router, prefix="/executions", tags=["Executions"])
+    router.include_router(connections.router, prefix="/connections", tags=["Connections"])
+    router.include_router(hooks.router, prefix="/hooks", tags=["Hooks"])
+    router.include_router(nodes.router, prefix="/nodes", tags=["Nodes"])
+    router.include_router(schedules.router, prefix="/schedules", tags=["Schedules"])
+    router.include_router(streams.router, prefix="/streams", tags=["Streams"])
+    router.include_router(templates.router, prefix="/templates", tags=["Workflow Templates"])
+    router.include_router(usage.router, prefix="/usage", tags=["Usage Tracking"])
+    router.include_router(variables.router, prefix="/variables", tags=["Variables"])
+    router.include_router(workflow_templates.router, prefix="/workflow-templates", tags=["Workflow Presets"])
+    router.include_router(discovery.router, prefix="/discovery", tags=["Discovery"])
 
     return router

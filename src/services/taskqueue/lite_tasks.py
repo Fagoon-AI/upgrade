@@ -129,3 +129,85 @@ async def process_webhook_message_lite(event: dict) -> None:
         log.info("Lite webhook message task finished for event: %s", event.get("message_id"))
     except Exception as e:
         log.error("Error running webhook message lite task: %s", e, exc_info=True)
+
+
+# ============================================================
+# LITE WORKFLOW WRAPPERS
+# ============================================================
+
+from src.tasks.workflow import (
+    execute_workflow_logic,
+    cancel_execution_logic,
+    cleanup_stale_executions_logic,
+    health_check_logic,
+    _mark_execution_failed,
+)
+from src.tasks.scheduler import (
+    _process_due_schedules_async,
+    _create_schedule_from_workflow_async,
+    _disable_workflow_schedules_async,
+)
+from src.tasks.cleanup import (
+    _run_cleanup,
+    _run_trace_cleanup,
+)
+
+
+async def execute_workflow_lite(
+        execution_id: str,
+        workflow_id: str,
+        initial_input: dict,
+        resume_node_id: str | None = None
+) -> dict:
+    log.info("Lite execute_workflow_lite started for execution_id: %s", execution_id)
+    try:
+        return await execute_workflow_logic(
+            execution_id=execution_id,
+            workflow_id=workflow_id,
+            initial_input=initial_input,
+            resume_node_id=resume_node_id,
+        )
+    except Exception as e:
+        log.error("Execution failed in Lite Mode: %s", e, exc_info=True)
+        await _mark_execution_failed(execution_id, str(e))
+        raise
+
+
+async def cancel_execution_lite(execution_id: str, reason: str = "Cancelled by user") -> dict:
+    log.info("Lite cancel_execution_lite: %s", execution_id)
+    return await cancel_execution_logic(execution_id, reason)
+
+
+async def cleanup_stale_executions_lite(max_age_hours: int = 24) -> dict:
+    log.info("Lite cleanup_stale_executions_lite")
+    return await cleanup_stale_executions_logic(max_age_hours)
+
+
+async def health_check_lite() -> dict:
+    log.info("Lite health_check_lite")
+    return health_check_logic("lite-worker")
+
+
+async def process_due_schedules_lite() -> dict:
+    log.info("Lite process_due_schedules_lite")
+    return await _process_due_schedules_async()
+
+
+async def create_schedule_from_workflow_lite(workflow_id: str, user_id: str) -> dict:
+    log.info("Lite create_schedule_from_workflow_lite: %s", workflow_id)
+    return await _create_schedule_from_workflow_async(workflow_id, user_id)
+
+
+async def disable_workflow_schedules_lite(workflow_id: str) -> dict:
+    log.info("Lite disable_workflow_schedules_lite: %s", workflow_id)
+    return await _disable_workflow_schedules_async(workflow_id)
+
+
+async def cleanup_old_logs_lite(retention_days: int = 30, batch_size: int = 1000) -> dict:
+    log.info("Lite cleanup_old_logs_lite")
+    return await _run_cleanup(retention_days, batch_size)
+
+
+async def cleanup_traces_lite(retention_days: int = 7, batch_size: int = 2000) -> dict:
+    log.info("Lite cleanup_traces_lite")
+    return await _run_trace_cleanup(retention_days, batch_size)
