@@ -13,6 +13,16 @@ from src.storages.vectordb_storages.base import (
 from src.schemas.document import Document
 from src.core.database.postgres import PostgresManager
 
+def sanitize_null_bytes(data: Any) -> Any:
+    if isinstance(data, str):
+        return data.replace("\x00", "")
+    elif isinstance(data, dict):
+        return {k: sanitize_null_bytes(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [sanitize_null_bytes(item) for item in data]
+    else:
+        return data
+
 class PgVectorStorage:
     def __init__(self, postgres_manager: PostgresManager, vector_dim: int = 1536):
         self.postgres_manager = postgres_manager
@@ -58,21 +68,28 @@ class PgVectorStorage:
                             if not user_id:
                                 raise RuntimeError("No valid user_id found to associate with FileReference.")
 
+                        # Clean metadata from null bytes
+                        file_metadata_cleaned = sanitize_null_bytes(record.metadata)
+
                         new_file_ref = FileReference(
                             file_id=file_id,
                             user_id=user_id,
-                            extra_metadata=record.metadata
+                            extra_metadata=file_metadata_cleaned
                         )
                         session.add(new_file_ref)
                         await session.flush()
                         file_ref_id = new_file_ref.id
 
+                    # Clean record.content and metadata from null bytes recursively
+                    content_cleaned = sanitize_null_bytes(record.content or "")
+                    metadata_cleaned = sanitize_null_bytes(record.metadata)
+
                     chunk = DocumentChunk(
                         id=uuid.UUID(record.id) if isinstance(record.id, str) and len(record.id) == 36 else uuid.uuid4(),
                         file_ref_id=file_ref_id,
-                        content=record.content,
+                        content=content_cleaned,
                         embedding=record.embedding,
-                        extra_metadata={**record.metadata, "collection": collection_name}
+                        extra_metadata={**metadata_cleaned, "collection": collection_name}
                     )
                     session.add(chunk)
                 

@@ -262,7 +262,7 @@ async def generate_chat_title(
         # 5. Generate the title using your fast default model
         title = ""
         # Get the agent_id to resolve the specific API key for the agent
-        db_chat = await chat_service.get_chat_history(input_request.conversation_id)
+        db_chat = await chat_service.get_chat_history_metadata(input_request.conversation_id)
         agent_id = str(db_chat.agent_id) if db_chat and db_chat.agent_id else None
 
         async for token in generate_general_chat_response(
