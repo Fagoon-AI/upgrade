@@ -289,6 +289,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        if request.method == "OPTIONS":
+            return await call_next(request)
         log_parts = [f"Incoming request: {request.method} {request.url}"]
         query_params = dict(request.query_params)
         if query_params: log_parts.append(f"Params: {query_params}")
