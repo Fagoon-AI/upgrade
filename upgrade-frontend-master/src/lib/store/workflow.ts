@@ -521,11 +521,11 @@ export const useWorkflowStore = create<WorkflowState>()(
                 eventSource.close();
                 const detailRes = await axiosInstance.get(`/api/v1/executions/${executionId}/timeline`);
                 const detailData = detailRes.data;
-                const traces = Array.isArray(detailData)
-                  ? detailData
-                  : Array.isArray(detailData?.data)
-                    ? detailData.data
-                    : detailData?.data?.traces || detailData?.traces || [];
+const traces = Array.isArray(detailData)
+  ? detailData
+  : Array.isArray(detailData?.data)
+    ? detailData.data
+    : detailData?.data?.traces || detailData?.traces || [];
                 set((state) => {
                   const next = state.currentExecution ? { ...state.currentExecution, nodes: { ...(state.currentExecution.nodes || {}) } } : null;
                   if (!next) return { isRunning: false };
@@ -674,11 +674,11 @@ export const useWorkflowStore = create<WorkflowState>()(
                 eventSource.close();
                 const detailRes = await axiosInstance.get(`/api/v1/executions/${executionId}/timeline`);
                 const detailData = detailRes.data;
-                const traces = Array.isArray(detailData)
-                  ? detailData
-                  : Array.isArray(detailData?.data)
-                    ? detailData.data
-                    : detailData?.data?.traces || detailData?.traces || [];
+const traces = Array.isArray(detailData)
+  ? detailData
+  : Array.isArray(detailData?.data)
+    ? detailData.data
+    : detailData?.data?.traces || detailData?.traces || [];
                 set((state) => {
                   const next = state.currentExecution ? { ...state.currentExecution, nodes: { ...(state.currentExecution.nodes || {}) } } : null;
                   if (!next) return { isRunning: false };
