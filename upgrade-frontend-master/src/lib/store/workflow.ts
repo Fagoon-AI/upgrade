@@ -508,16 +508,15 @@ export const useWorkflowStore = create<WorkflowState>()(
           // Polling fallback for executeWorkflow (SSE may be buffered by Next.js proxy)
           const pollInterval = setInterval(async () => {
             try {
-              const res = await fetch(`/api/v1/executions/${executionId}/status`, { credentials: 'include', headers: { 'Authorization': `Bearer ${token}` } });
-              if (!res.ok) return;
-              const statusData = await res.json();
+              const res = await axiosInstance.get(`/api/v1/executions/${executionId}/status`);
+              const statusData = res.data;
               const execStatus = statusData?.data?.status || statusData?.status;
               console.log("POLL [workflow]: execution status =", execStatus);
               if (execStatus === 'COMPLETED' || execStatus === 'FAILED') {
                 clearInterval(pollInterval);
                 eventSource.close();
-                const detailRes = await fetch(`/api/v1/executions/${executionId}/timeline`, { credentials: 'include', headers: { 'Authorization': `Bearer ${token}` } });
-                const detailData = detailRes.ok ? await detailRes.json() : null;
+                const detailRes = await axiosInstance.get(`/api/v1/executions/${executionId}/timeline`);
+                const detailData = detailRes.data;
                 const traces = detailData?.data?.traces || detailData?.traces || [];
                 set((state) => {
                   const next = state.currentExecution ? { ...state.currentExecution, nodes: { ...(state.currentExecution.nodes || {}) } } : null;
@@ -652,16 +651,15 @@ export const useWorkflowStore = create<WorkflowState>()(
           // Polling fallback for buffered SSE
           const pollInterval = setInterval(async () => {
             try {
-              const res = await fetch(`/api/v1/executions/${executionId}/status`, { credentials: 'include', headers: { 'Authorization': `Bearer ${token}` } });
-              if (!res.ok) return;
-              const statusData = await res.json();
+              const res = await axiosInstance.get(`/api/v1/executions/${executionId}/status`);
+              const statusData = res.data;
               const execStatus = statusData?.data?.status || statusData?.status;
               console.log("POLL: execution status =", execStatus);
               if (execStatus === 'COMPLETED' || execStatus === 'FAILED') {
                 clearInterval(pollInterval);
                 eventSource.close();
-                const detailRes = await fetch(`/api/v1/executions/${executionId}/timeline`, { credentials: 'include', headers: { 'Authorization': `Bearer ${token}` } });
-                const detailData = detailRes.ok ? await detailRes.json() : null;
+                const detailRes = await axiosInstance.get(`/api/v1/executions/${executionId}/timeline`);
+                const detailData = detailRes.data;
                 const traces = detailData?.data?.traces || detailData?.traces || [];
                 set((state) => {
                   const next = state.currentExecution ? { ...state.currentExecution, nodes: { ...(state.currentExecution.nodes || {}) } } : null;
