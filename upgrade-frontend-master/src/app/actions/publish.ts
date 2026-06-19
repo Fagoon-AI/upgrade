@@ -1,6 +1,6 @@
 'use server'
 
-import { Duration, ms } from '@/lib/lib/duration'
+import { Duration, ms } from '@/lib/libs/duration'
 import { Sandbox } from '@e2b/code-interpreter'
 // import { kv } from '@vercel/kv'
 import { customAlphabet } from 'nanoid'
