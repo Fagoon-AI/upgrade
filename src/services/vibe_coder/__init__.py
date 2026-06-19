@@ -1,0 +1,1 @@
+# Initialize the Vibe Coder Services module
