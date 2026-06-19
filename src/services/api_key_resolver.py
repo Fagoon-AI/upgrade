@@ -80,24 +80,11 @@ async def resolve_api_key(
     except Exception as e:
         logger.error(f"Error resolving API key for user {user_id}: {str(e)}")
 
-    # 3. Fallback to system_setting if no user key was resolved
+    # 3. Raise exception if no user key was resolved
     if user_api_key:
         return user_api_key
         
-    logger.debug(f"Falling back to system-wide API key for provider '{provider}'.")
-    
-    provider_fallback_map = {
-        "openai": system_setting.OPENAI_API_KEY,
-        "gemini": system_setting.GEMINI_API_KEY,
-        "groq": system_setting.GROQ_API_KEY,
-        "hugging_face": system_setting.HUGGINGFACE_API_KEY,
-        "huggingface": system_setting.HUGGINGFACE_API_KEY,
-        "elevenlabs": system_setting.ELEVENLABS_API_KEY,
-        "google": system_setting.GOOGLE_API_KEY,
-        "anthropic": system_setting.ANTHROPIC_API_KEY,
-    }
-    
-    return provider_fallback_map.get(provider)
+    raise ValueError(f"No custom API key configured for provider '{provider}'. System fallback is disabled.")
 
 
 async def setup_vibe_coder_environment(user_id: uuid.UUID, postgres_manager: PostgresManager):

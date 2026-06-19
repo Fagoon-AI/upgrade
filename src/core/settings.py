@@ -205,6 +205,9 @@ class Settings(BaseSettings):
     ALLOWED_HOSTS: List[str] = ["*"]
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
 
+    # ==================== VIBE CODE MODE ====================
+    VIBE_MAX_CODE_LENGTH: int = 50000
+
     # ==================== WORKFLOW: REDIS (individual fields) ====================
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379

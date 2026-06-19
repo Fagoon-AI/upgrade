@@ -73,6 +73,130 @@ extract_refresh_token = RefreshTokenExtractor()
 
 
 # ============================================================
+# TOKEN VALIDATION
+# ============================================================
+
+class TokenPayload:
+    """Validated token payload."""
+
+    def __init__(
+            self,
+            user_id: UUID,
+            token_type: str,
+            exp: datetime,
+            iat: Optional[datetime] = None
+    ):
+        self.user_id = user_id
+        self.token_type = token_type
+        self.exp = exp
+        self.iat = iat
+
+    @property
+    def is_expired(self) -> bool:
+        """Check if token is expired."""
+        return datetime.now(timezone.utc) > self.exp
+
+
+def validate_token(
+        token: str,
+        expected_type: str = TokenType.ACCESS
+) -> TokenPayload:
+    """
+    Validates a JWT token and extracts payload.
+
+    Security checks:
+    1. Signature verification
+    2. Expiration check
+    3. Token type validation (CRITICAL - SEC-004 fix)
+    4. Required claims presence
+
+    Args:
+        token: JWT token string
+        expected_type: Expected token type ("access" or "refresh")
+
+    Returns:
+        TokenPayload with validated claims
+
+    Raises:
+        HTTPException: On validation failure
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    expired_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Token has expired",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    invalid_type_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=f"Invalid token type. Expected {expected_type} token.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        # Decode and verify signature
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY.get_secret_value(),
+            algorithms=[ALGORITHM]
+        )
+
+        # Extract required claims
+        user_id_str: str = payload.get("sub")
+        token_type: str = payload.get("type", TokenType.ACCESS)
+        exp_timestamp = payload.get("exp")
+        iat_timestamp = payload.get("iat")
+
+        # Validate required claims
+        if user_id_str is None:
+            logger.warning("Token missing 'sub' claim")
+            raise credentials_exception
+
+        # CRITICAL: Validate token type (SEC-004 fix)
+        # This prevents refresh tokens from being used as access tokens
+        if token_type != expected_type:
+            logger.warning(
+                f"Token type mismatch: got '{token_type}', expected '{expected_type}'"
+            )
+            raise invalid_type_exception
+
+        # Parse user ID
+        try:
+            user_uuid = UUID(user_id_str)
+        except ValueError:
+            logger.warning(f"Invalid user ID format in token: {user_id_str}")
+            raise credentials_exception
+
+        # Parse expiration
+        exp = datetime.fromtimestamp(exp_timestamp, tz=timezone.utc) if exp_timestamp else None
+        iat = datetime.fromtimestamp(iat_timestamp, tz=timezone.utc) if iat_timestamp else None
+
+        if exp is None:
+            logger.warning("Token missing expiration claim")
+            raise credentials_exception
+
+        return TokenPayload(
+            user_id=user_uuid,
+            token_type=token_type,
+            exp=exp,
+            iat=iat
+        )
+
+    except ExpiredSignatureError:
+        logger.debug("Token expired")
+        raise expired_exception
+
+    except JWTError as e:
+        logger.warning(f"JWT validation error: {e}")
+        raise credentials_exception
+
+
+# ============================================================
 # USER RETRIEVAL DEPENDENCIES
 # ============================================================
 
