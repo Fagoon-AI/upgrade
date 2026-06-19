@@ -4,7 +4,7 @@ Self-hostable AI agents + workflow platform. Two ways to run:
 
 ## Package users (one command)
 ```bash
-pipx install fagoon
+pipx install fagoon-upgrade
 fagoon up                 # lite mode: no Redis, no Celery, zero env required
 fagoon up --ollama        # add the local Gemma fallback LLM
 ```
@@ -13,7 +13,7 @@ Secrets are auto-generated; the database URL and config live in `~/.fagoon`.
 
 ## Contributors (clone + run)
 ```bash
-git clone https://github.com/you/fagoon
+git clone https://github.com/Fagoon-AI/upgrade.git
 cp .env.example .env      # fill minimal values
 docker compose -f deploy/docker-compose.full.yml up --build
 ```
