@@ -70,6 +70,36 @@ class ChatStreamOrchestrator:
                 async for chunk in self._process_and_stream_file_updates(conversation_history):
                     yield chunk
                 selected_tools = [ToolType.GENERAL.value]
+            elif self.context.request.file_data:
+                file_data = self.context.request.file_data
+                file_name = self.context.request.file_name
+                is_image = False
+                if file_data.startswith("data:image"):
+                    is_image = True
+                elif file_name and any(file_name.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp", ".gif"]):
+                    is_image = True
+                    
+                user_msg_content = conversation_history[-1].get("content")
+                if is_image:
+                    vision_ext = {
+                        "type": "image_url",
+                        "image_url": {"url": file_data if file_data.startswith("data:") else f"data:image/jpeg;base64,{file_data}"}
+                    }
+                    conversation_history[-1]["content"] = [
+                        {"type": "text", "text": f"{user_msg_content}\n[User attached an image: {file_name or 'image'}]"},
+                        vision_ext
+                    ]
+                else:
+                    import base64
+                    try:
+                        b64_content = file_data.split(",")[-1] if "," in file_data else file_data
+                        decoded_bytes = base64.b64decode(b64_content)
+                        extracted_text = decoded_bytes.decode('utf-8', errors='ignore')
+                        conversation_history[-1]["content"] = f"{user_msg_content}\n\n--- Attached File ({file_name or 'document'}) ---\n{extracted_text}\n--- End of File ---"
+                    except Exception as e:
+                        logger.error(f"Failed to decode uploaded file: {e}")
+                        conversation_history[-1]["content"] = f"{user_msg_content}\n[User attached a file, but it could not be read]"
+                selected_tools = [ToolType.GENERAL.value]
             elif self.context.request.web_search_enabled:
                 selected_tools = [ToolType.WEB_SEARCH.value]
             elif self.context.request.generate_audio:
