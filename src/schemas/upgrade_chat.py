@@ -21,6 +21,7 @@ class ChatEventType(Enum):
     TOOL_SELECTION = "tool_selection"
     ERROR = "error"
     IMAGE = "image"
+    VIDEO = "video"
     LLM_RESPONSE = "llm_response"
     AUDIO_OUTPUT = "audio_output"
 

@@ -70,7 +70,7 @@ async def _generate_video_job_async(
             update_data = {
                 "status": "COMPLETED",
                 "progress": 100,
-                "video_url": f"/api/v1/videos/{job_id}/download",
+                "video_url": f"/api/v1/video-generation/videos/{job_id}/download",
                 "file_path": video_output_path_or_url
             }
 
