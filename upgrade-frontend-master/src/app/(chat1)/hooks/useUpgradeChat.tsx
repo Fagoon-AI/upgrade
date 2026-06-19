@@ -3,11 +3,11 @@
 import { IAgentResponseType } from '@/app/agents/[agentId]/chat/[chatId]/types'
 import { useSelectedModelContext } from '@/contexts/SelectedModelContext'
 import { useWebSocket } from '@/lib/hooks/useWebSocket'
-import { Message } from '@/lib/lib/messages'
 import * as chatApi from '@/lib/api/chat'
 import { createContext, useContext, useState, ReactNode } from 'react'
 import { showErrorToast } from "@/utils/toast"
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Message } from '@/lib/libs/messages'
 
 type ChatContextType = {
     inputText: string
@@ -50,19 +50,6 @@ export const useConversationHistory = (conversationId?: string) => {
     });
 };
 
-export const useChatTitle = (historyId?: string) => {
-    return useQuery({
-        queryKey: ["chat-title", historyId],
-        queryFn: async () => {
-            if (!historyId) throw new Error("Missing historyId");
-            const res = await chatApi.generateUpgradeChatTitle(historyId);
-            return res.data.title;
-        },
-        enabled: !!historyId,
-        staleTime: 1000 * 60 * 5,
-    });
-};
-
 export const useSendMessage = () => {
 
     const {
@@ -98,16 +85,6 @@ export const useSendMessage = () => {
                 generate_audio,
             });
 
-            // If this is the first message (no existing messages in cache), generate a title
-            const currentHistory = queryClient.getQueryData<any>(["conversation", conversationId]);
-            const isFirstMessage = !currentHistory || !currentHistory.data?.messages || currentHistory.data.messages.length <= 2; // user + assistant placeholder
-
-            if (isFirstMessage) {
-                // Generate title in background
-                chatApi.generateUpgradeChatTitle(conversationId).then(() => {
-                    queryClient.invalidateQueries({ queryKey: ["chat-ids"] });
-                }).catch(console.error);
-            }
             if (!res.ok) {
                 setIsLoading(false);
                 const errorText = await res.text().catch(() => "");
