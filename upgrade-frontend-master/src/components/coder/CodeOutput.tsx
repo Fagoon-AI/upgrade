@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Code2, Maximize, Minimize } from "lucide-react";
+import { Code2, Maximize, Minimize, Copy, Check } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface CodeOutputProps {
   activeCode: string;
@@ -15,6 +16,13 @@ export function CodeOutput({
   setViewMode,
 }: CodeOutputProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(activeCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div
@@ -30,7 +38,7 @@ export function CodeOutput({
             onClick={() => setViewMode("code")}
             className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
               viewMode === "code"
-                ? "bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300"
+                ? "bg-[#FB923C]/10 dark:bg-[#FB923C]/20 text-[#FB923C] dark:text-[#FB923C]"
                 : "text-slate-500 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300"
             }`}
           >
@@ -40,7 +48,7 @@ export function CodeOutput({
             onClick={() => setViewMode("preview")}
             className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
               viewMode === "preview"
-                ? "bg-emerald-500/10 dark:bg-green-500/20 text-emerald-600 dark:text-green-300"
+                ? "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
                 : "text-slate-500 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300"
             }`}
           >
@@ -49,8 +57,19 @@ export function CodeOutput({
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={handleCopy}
+            className="p-1.5 rounded-md text-slate-500 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 hover:bg-slate-200/50 dark:hover:bg-gray-800/50 transition-all"
+            title={copied ? "Code Copied!" : "Copy Code"}
+          >
+            {copied ? (
+              <Check className="w-4 h-4 text-green-500" />
+            ) : (
+              <Copy className="w-4 h-4" />
+            )}
+          </button>
+          <button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1 rounded-md text-slate-500 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 hover:bg-slate-200/50 dark:hover:bg-gray-800/50 transition-all"
+            className="p-1.5 rounded-md text-slate-500 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 hover:bg-slate-200/50 dark:hover:bg-gray-800/50 transition-all"
             title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
           >
             {isFullscreen ? (
@@ -62,11 +81,13 @@ export function CodeOutput({
           <Code2 className="w-4 h-4 text-slate-400 dark:text-gray-500" />
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto bg-white dark:bg-[#0a0a0c] relative min-h-[300px]">
+      <div className="flex-1 overflow-hidden bg-white dark:bg-[#0a0a0c] relative min-h-[300px] flex flex-col">
         {viewMode === "code" ? (
-          <pre className="p-6 text-sm text-blue-600 dark:text-blue-300 font-mono whitespace-pre-wrap">
-            <code>{activeCode}</code>
-          </pre>
+          <ScrollArea className={`w-full ${isFullscreen ? "h-[calc(100vh-50px)]" : "h-[380px] lg:h-[calc(100vh-200px)]"}`}>
+            <pre className="p-6 text-sm text-blue-600 dark:text-blue-300 font-mono whitespace-pre-wrap select-text">
+              <code>{activeCode}</code>
+            </pre>
+          </ScrollArea>
         ) : (
           <iframe
             srcDoc={activeCode}

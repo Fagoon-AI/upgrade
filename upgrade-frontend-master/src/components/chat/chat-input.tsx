@@ -9,8 +9,11 @@ import { ChatArea } from './ChatArea';
 import { useSelectedModelContext } from '@/contexts/SelectedModelContext';
 import { useQuery } from '@tanstack/react-query';
 import { getModels } from '@/lib/api/models';
-const ChatInput = ({ history_id, handleSubmitInput }: { history_id: string, handleSubmitInput: (text: string) => void }) => {
-    const [selectedFile, setSelectedFile] = useState<string | null>(null);
+const ChatInput = ({ history_id, handleSubmitInput }: { history_id: string, handleSubmitInput: (text: string, fileData?: string | null, fileName?: string | null) => void }) => {
+    const [fileData, setFileData] = useState<string | null>(null);
+    const [fileName, setFileName] = useState<string | null>(null);
+    const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+
     const { assignmentMode,
         browserMode,
         inputText,
@@ -65,14 +68,30 @@ const ChatInput = ({ history_id, handleSubmitInput }: { history_id: string, hand
         setSelectedModel(model)
     }
 
+    const fileToBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+                const result = reader.result as string;
+                const base64Part = result.includes(',') ? result.split(',')[1] : result;
+                resolve(base64Part);
+            };
+            reader.onerror = (error) => reject(error);
+        });
+    };
+
     const handleSubmit = async () => {
         if (!inputText.trim()) return;
         const textarea = document.querySelector("textarea");
         if (textarea) {
             textarea.style.height = "auto";
         }
-        handleSubmitInput(inputText.trim());
+        handleSubmitInput(inputText.trim(), fileData, fileName);
         setInputText("");
+        setFileData(null);
+        setFileName(null);
+        setFilePreviewUrl(null);
     };
 
     const handleFileSelect = async (
@@ -80,26 +99,24 @@ const ChatInput = ({ history_id, handleSubmitInput }: { history_id: string, hand
     ) => {
         const file = event.target.files?.[0];
         if (!file) return;
-        const historyId = history_id
-        if (!historyId) {
-            return
-        }
 
         try {
-            if (file.size > 10 * 1024 * 1024) {
-                // 10MB limit
-                throw new Error("File size exceeds 10MB limit");
+            if (file.size > 5 * 1024 * 1024) {
+                alert("File is too large. Maximum size is 5MB.");
+                return;
             }
-            const user_id = JSON.parse(
-                localStorage.getItem("user") || '{"_id":"66ac99b7a2f0a35b8b149299"}'
-            )._id
-            const bodyFormData = new FormData()
-            bodyFormData.append('data', file)
-            // bodyFormData.append('conversation_id', historyId as string)
-            bodyFormData.append('user_id', user_id)
-            const response = await axios.post('/api/chat/upload-file', bodyFormData)
-            console.log(response.data)
-            setSelectedFile(response.data.file_url);
+            
+            const base64 = await fileToBase64(file);
+            setFileData(base64);
+            setFileName(file.name);
+
+            // Generate a local object URL if it's an image for direct thumbnail rendering
+            if (file.type.startsWith("image/")) {
+                const previewUrl = URL.createObjectURL(file);
+                setFilePreviewUrl(previewUrl);
+            } else {
+                setFilePreviewUrl(null);
+            }
         } catch (error) {
             console.error("File processing error:", error);
         }
@@ -112,13 +129,6 @@ const ChatInput = ({ history_id, handleSubmitInput }: { history_id: string, hand
                 <div className="flex flex-col bg-white dark:bg-[#2E2E2E]/90 rounded-3xl flex-1">
                     <div className="flex flex-row">
                         <div className={`relative flex flex-1 items-center`}>
-                            {/* {isRecording && (
-                                <div className="flex absolute right-4 items-center gap-2 z-10 px-3 py-1 rounded-full ">
-                                    {hasRecognitionSupport && (
-                                        <SoundWave isSpeaking={text !== ""} />
-                                    )}
-                                </div>
-                            )} */}
 
                             {/* Main Input */}
                             <div className={`relative flex-1 h-full flex items-center`}>
@@ -127,52 +137,27 @@ const ChatInput = ({ history_id, handleSubmitInput }: { history_id: string, hand
                                     onValueChange={setInputText}
                                     onSubmit={handleSubmit}
                                     onFileSelect={handleFileSelect}
-                                    selectedFile={selectedFile}
-                                    onRemoveFile={() => setSelectedFile(null)}
+                                    selectedFile={filePreviewUrl || fileName}
+                                    onRemoveFile={() => {
+                                        setFileData(null);
+                                        setFileName(null);
+                                        setFilePreviewUrl(null);
+                                    }}
                                     isStreaming={isStreaming}
                                     onStop={stopResponse}
                                     disabled={isInputDisabled}
                                 />
                             </div>
+                            <div className='pr-4'>
+                                <ModelSelector
+                                    models={fetchedModelsList}
+                                    selectedModel={selectedModel}
+                                    onSelect={handleSelectModel}
+                                />
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex justify-between ml-8 mr-4 mb-2">
-                        <div className="flex items-center gap-2 font-light">
-                            {/* Internet Search Toggle */}
-                            <Badge variant={'outline'} className={`flex items-center gap-2 border-gray-500 rounded-2xl
-                ${isInputDisabled ? "opacity-50 cursor-not-allowed pointer-events-none" : "cursor-pointer"}
-                ${internetSearchEnabled && "bg-gray-500/50"} py-1.5 font-medium`}
-                                onClick={() => !isInputDisabled && setInternetSearchEnabled(!internetSearchEnabled)}
-                            >
-                                Search
-                                <TfiWorld className="text-sm" />
-                            </Badge>
-                            {/* Thinking Toggle */}
-                            <Badge variant={'outline'} className={`flex items-center gap-2 border-gray-500 rounded-2xl
-                ${isInputDisabled ? "opacity-50 cursor-not-allowed pointer-events-none" : "cursor-pointer"}
-                ${assignmentMode && "bg-gray-500/50"} py-1.5 font-medium`}
-                                onClick={() => { if (!isInputDisabled) { setAssignmentMode(!assignmentMode); setBrowserMode(false); } }}
-                            >
-                                Assignment Mode
-                                <LuBrain className="text-base" />
-                            </Badge>
-                            {/* Browser Toggle */}
-                            <Badge variant={'outline'} className={`flex items-center gap-2 border-gray-500 rounded-2xl
-                ${isInputDisabled ? "opacity-50 cursor-not-allowed pointer-events-none" : "cursor-pointer"}
-                ${browserMode && "bg-blue-500/50"} py-1.5 font-medium`}
-                                onClick={() => { if (!isInputDisabled) { setBrowserMode(!browserMode); setAssignmentMode(false); } }}
-                            >
-                                Browser Control
-                                <TfiWorld className="text-base" />
-                            </Badge>
-                        </div>
-                        <ModelSelector
-                            models={fetchedModelsList}
-                            selectedModel={selectedModel}
-                            onSelect={handleSelectModel}
-                        />
-                    </div>
                 </div>
             </div>
         </div>
