@@ -1,0 +1,539 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Root Variables */
+@layer base {
+  :root {
+    /* Core colors */
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+
+    /* UI Components */
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+
+    /* Brand colors */
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+
+    /* Functional colors */
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Form elements */
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 10% 3.9%;
+
+    /* Chart colors */
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+
+    /* Other */
+    --radius: 0.5rem;
+    --scrollbar-thumb: #f29571;
+    --scrollbar-thumb-hover: #ec612c;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Core colors */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+
+    /* UI Components */
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+
+    /* Brand colors */
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+
+    /* Functional colors */
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Form elements */
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+
+    /* Chart colors */
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+
+    /* Other */
+    --scrollbar-thumb: #cc7357;
+    --scrollbar-thumb-hover: #ffa755;
+
+    /* --code: #374151; */
+
+    --sidebar-background: 240 5.9% 10%;
+
+    --sidebar-foreground: 240 4.8% 95.9%;
+
+    --sidebar-primary: 224.3 76.3% 48%;
+
+    --sidebar-primary-foreground: 0 0% 100%;
+
+    --sidebar-accent: 240 3.7% 15.9%;
+
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+
+    --sidebar-border: 240 3.7% 15.9%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@keyframes glow {
+  0% {
+    box-shadow: 0 0 5px rgba(235, 94, 40, 0.5);
+  }
+
+  50% {
+    box-shadow: 0 0 15px rgba(235, 94, 40, 1);
+  }
+
+  100% {
+    box-shadow: 0 0 5px rgba(235, 94, 40, 0.5);
+  }
+}
+
+.glow-effect {
+  animation: glow 300ms ease-out;
+  border-color: rgba(235, 94, 40, 0.9);
+}
+
+/* Base Styles */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply antialiased scroll-smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground transition-colors duration-200;
+  }
+
+  /* Typography */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-bold;
+    font-size: 22px;
+  }
+
+  /* Focus States */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+/* Component Styles */
+@layer components {
+
+  /* Chat Container */
+  .chat-container {
+    @apply bg-card text-card-foreground rounded-lg shadow-lg transition-colors duration-200;
+  }
+
+  /* Messages */
+  .message {
+    @apply p-4 rounded-lg transition-all duration-200;
+  }
+
+  .message-user {
+    @apply bg-primary/10 text-primary-foreground;
+  }
+
+  .message-assistant {
+    @apply bg-secondary text-secondary-foreground;
+  }
+
+  /* Input Container */
+  .input-container {
+    @apply border bg-background rounded-lg transition-colors duration-200;
+  }
+
+  /* Command Suggestions */
+  .command-suggestions {
+    @apply bg-popover text-popover-foreground rounded-lg shadow-lg overflow-hidden;
+  }
+
+  .suggestion-item {
+    @apply flex items-center justify-between px-4 py-2 hover:bg-accent/50 transition-colors duration-200 cursor-pointer;
+  }
+
+  .suggestion-item.selected {
+    @apply bg-accent text-accent-foreground;
+  }
+}
+
+/* Scrollbar Styles */
+@layer utilities {
+
+  /* Webkit Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-1;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-[var(--scrollbar-thumb)] rounded-full transition-colors duration-200;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-[var(--scrollbar-thumb-hover)];
+  }
+
+  /* Firefox Scrollbar */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+
+  /* Animations */
+  .fade-in {
+    @apply animate-[fadeIn_0.2s_ease-in-out];
+  }
+
+  .slide-in {
+    @apply animate-[slideIn_0.2s_ease-out];
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    @apply transition-none animate-none;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none;
+  }
+}
+
+.no-focus-outline {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* code {
+  color: #fff !important;
+  background-color: #374151 !important;
+} */
+
+a {
+  color: #f29571;
+  text-decoration: none;
+  transition: color 0.2s ease-in-out;
+}
+
+a:hover {
+  color: #ec612c;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  /* Internet Explorer 10+ */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+  /* Safari and Chrome */
+}
+
+/* React Toastify Customization */
+:root {
+  --toastify-font-family: inherit;
+  --toastify-border-radius: 0.5rem;
+}
+
+.Toastify__toast {
+  @apply border border-border shadow-md font-medium;
+}
+
+.Toastify__toast--success {
+  @apply bg-background text-foreground;
+}
+
+.Toastify__toast--error {
+  @apply bg-background text-foreground;
+}
+
+.Toastify__toast--warning {
+  @apply bg-background text-foreground;
+}
+
+.Toastify__toast--info {
+  @apply bg-background text-foreground;
+}
+
+.Toastify__progress-bar {
+  @apply bg-primary;
+}
+
+/* * {
+    font-family: 'Quicksand', sans-serif;
+} */
+
+pre div {
+  font-family: "Fira Code", monospace;
+  overflow: auto;
+  scrollbar-color: #191919 #cccccc;
+}
+
+/* table,
+tr,
+td {
+  border: 1px solid #ccc;
+  border-collapse: collapse;
+  border-spacing: 0;
+  margin-bottom: 15px;
+  margin-top: 15px;
+}
+td,
+th {
+  padding: 0.5rem;
+  text-align: left;
+  border: 1px solid #ccc;
+}
+th {
+  font-weight: bold;
+} */
+
+/* Table Styling */
+/* table {
+  @apply w-full border-collapse border border-gray-300 rounded-lg shadow-md;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+th,
+td {
+  @apply p-3 text-left border border-gray-300;
+}
+
+th {
+  @apply bg-gray-100 font-semibold;
+}
+
+tr:nth-child(even) {
+  @apply bg-gray-50;
+}
+
+tr:hover {
+  @apply bg-gray-100;
+}
+
+.dark th {
+  @apply bg-gray-800 text-white;
+}
+
+.dark tr:nth-child(even) {
+  @apply bg-gray-700;
+}
+
+.dark tr:hover {
+  @apply bg-gray-600;
+} */
+
+.think {
+  display: inline-block;
+  background-color: rgba(244, 247, 255, 0.15);
+  /* Subtle transparency */
+  color: var(--text-primary);
+  /* Use theme variable */
+  font-size: 0.875rem;
+  /* 14px */
+  line-height: 1.5;
+  padding: 2px 8px;
+  border-left: 2px solid rgba(59, 130, 246, 0.3);
+  /* Subtle accent */
+  border-radius: 2px;
+  font-style: normal;
+  margin: 0 1px;
+  opacity: 0.9;
+}
+
+p {
+  margin: 1rem 0;
+  line-height: 1.5;
+}
+
+/* Nested in paragraphs */
+p .think {
+  padding: 1px 4px;
+  border-left-width: 1px;
+  font-size: 0.8125rem;
+  /* 13px */
+  vertical-align: baseline;
+}
+
+/* Container structure */
+.think-container {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  background: rgba(248, 249, 250, 0.25);
+  border-left: 2px solid rgba(59, 130, 246, 0.15);
+  border-radius: 3px;
+  color: var(--text-secondary);
+}
+
+.think-block {
+  margin: 0.25rem 0;
+  padding: 0.25rem 0.5rem;
+  background: rgba(255, 216, 168, 0.05);
+  font-size: 0.8125rem;
+  /* 13px */
+}
+
+/* Dark mode adjustments */
+.dark .think-container {
+  background: rgba(45, 45, 45, 0.2);
+  border-color: rgba(77, 51, 25, 0.15);
+}
+
+.dark .think-block {
+  background: rgba(77, 51, 25, 0.05);
+}
+
+.dark .think {
+  background-color: rgba(30, 41, 59, 0.2);
+  border-color: rgba(59, 130, 246, 0.15);
+}
+
+/* Minimal hover interaction */
+.think-container:hover {
+  background: rgba(248, 249, 250, 0.3);
+  transition: background-color 0.2s ease;
+}
+
+.dark .think-container:hover {
+  background: rgba(45, 45, 45, 0.25);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+#models {
+  list-style: none;
+  font-size: 14px;
+}
+
+#models div {
+  /* display: flex; */
+  /* justify-content: space-between; */
+  /* align-items: center; */
+  /* padding: 0.5rem 1rem; */
+  border-bottom: 1px #ec612c;
+  font-size: 12px;
+  line-height: 1.1;
+}
+
+ul,
+ol {
+  padding-left: 20px;
+  margin: 0;
+  line-height: 1.6;
+  color: inherit;
+  font-size: 20px;
+  list-style: disc;
+}
+
+li {
+  padding: 6px 0;
+}
+
+p {
+  margin: 1rem 0;
+  line-height: 1.5;
+  font-size: 20px;
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

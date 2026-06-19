@@ -109,7 +109,7 @@ async def get_workflow_or_404(
 # ============================================================
 
 @router.get(
-    "/",
+    "",
     response_model=APIResponse[List[ScheduleListResponse]],
     summary="List schedules",
     description="Get all schedules for current user with pagination and filtering"
@@ -218,7 +218,7 @@ async def list_schedules(
 
 
 @router.post(
-    "/",
+    "",
     response_model=APIResponse[ScheduleResponse],
     status_code=status.HTTP_201_CREATED,
     summary="Create schedule",

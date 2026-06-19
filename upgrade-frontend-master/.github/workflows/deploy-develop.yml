@@ -1,0 +1,194 @@
+name: Deploy to VPS (Next.js)
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:  # Enable manual triggering
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_NAME: ${{ github.event.repository.name }}
+      SERVER_USER: ${{ secrets.SERVER_USERNAME }}
+      SERVER_HOST: ${{ secrets.SERVER_HOST }}
+      NODE_VERSION: '22.10.0'
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1  # Only need the latest commit for deployment
+      
+      - name: Cache node modules
+        uses: actions/cache@v3
+        id: cache-npm
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        if: steps.cache-npm.outputs.cache-hit != 'true'
+        run: npm ci
+      
+      - name: Create environment file
+        run: echo "${{ secrets.ENV_FILE_CONTENT }}" > .env.local
+      
+      - name: Build Next.js app
+        run: npm run build
+      
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Add error handling for ssh-keyscan
+          if ! ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts; then
+            echo "Error: Failed to get host key for $SERVER_HOST"
+            echo "Attempting alternative method..."
+            # Alternative approach using direct IP if possible
+            echo "$SERVER_HOST ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==" >> ~/.ssh/known_hosts
+          fi
+      - name: Debug SSH target
+        run: |
+         echo "Connecting to: $SERVER_USER@$SERVER_HOST"
+      - name: Test SSH connection
+        run: |
+          # Add verbose output for debugging SSH issues
+          echo "Testing SSH connection to $SERVER_HOST..."
+          if ! ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "echo 'SSH connection successful'"; then
+            echo "SSH connection failed. Check your SERVER_HOST and SSH_PRIVATE_KEY secrets."
+            exit 1
+          fi
+      
+      - name: Prepare target directory
+        run: |
+          TARGET_DIR="/home/${{ env.SERVER_USER }}/dev-upgrade-fe/${{ env.PROJECT_NAME }}"
+          if [ "${{ env.SERVER_USER }}" = "root" ]; then
+            TARGET_DIR="/dev-upgrade-fe/root/${{ env.PROJECT_NAME }}"
+          fi
+          ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "mkdir -p $TARGET_DIR"
+      
+      - name: Upload project with rsync
+        env:
+          RSYNC_RSH: "ssh -i ~/.ssh/deploy_key"
+        run: |
+          TARGET_DIR="/home/${{ env.SERVER_USER }}/dev-upgrade-fe/${{ env.PROJECT_NAME }}"
+          if [ "${{ env.SERVER_USER }}" = "root" ]; then
+            TARGET_DIR="/root/dev-upgrade-fe/${{ env.PROJECT_NAME }}"
+          fi
+          rsync -avz --delete \
+            --exclude=".git" \
+            --exclude="node_modules" \
+            --exclude=".github" \
+            --exclude=".next/cache" \
+            --exclude="README.md" \
+            --exclude=".env.example" \
+            --exclude=".gitignore" \
+            --exclude="tests" \
+            --exclude="docs" \
+            ./ \
+            ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:$TARGET_DIR
+      
+      - name: Deploy and restart using PM2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            PROJECT_PATH="/home/${{ secrets.SERVER_USERNAME }}/${{ github.event.repository.name }}"
+            if [ "${{ secrets.SERVER_USERNAME }}" = "root" ]; then
+              PROJECT_PATH="/root/${{ github.event.repository.name }}"
+            fi
+            cd $PROJECT_PATH
+            
+            # Create backup of previous deployment
+            timestamp=$(date +%Y%m%d_%H%M%S)
+            if [ -f "package.json" ]; then
+              mkdir -p ~/.deploy_backups/dev-upgrade-fe
+              tar -czf ~/.deploy_backups/dev-upgrade-fe/${PROJECT_NAME}_${timestamp}.tar.gz .env.local package.json
+            fi
+            
+            # Copy .env.local if it doesn't exist
+            if [ ! -f ".env.local" ]; then
+              echo "${{ secrets.ENV_FILE_CONTENT }}" > .env.local
+            fi
+            
+            # Source profile to ensure PATH is set correctly
+            source ~/.profile
+            # Load NVM
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            
+            # Check if PM2 is available, install if necessary
+            if ! command -v pm2 &> /dev/null; then
+              echo "PM2 not found, installing..."
+              npm install -g pm2
+            fi
+            
+            # Use specific Node version if available
+            nvm use ${{ env.NODE_VERSION }} 2>/dev/null || echo "Node ${{ env.NODE_VERSION }} not installed, using default"
+            
+            # Install production dependencies
+            npm ci --production --no-audit --prefer-offline
+            
+            # Start or reload the app via PM2
+            if pm2 list | grep -q dev-upgrade-frontend; then
+              echo "Reloading existing PM2 process"
+              pm2 reload dev-upgrade-frontend --update-env
+            else
+              echo "Starting new PM2 process"
+              pm2 start npm --name dev-upgrade-frontend -- run start
+            fi
+            
+            # Save PM2 configuration
+            pm2 save
+            
+            # Output app status
+            pm2 status "${{ github.event.repository.name }}"
+      
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            PROJECT_PATH="/home/${{ secrets.SERVER_USERNAME }}/dev-upgrade-fe/${{ github.event.repository.name }}"
+            if [ "${{ secrets.SERVER_USERNAME }}" = "root" ]; then
+              PROJECT_PATH="/root/dev-upgrade-fe/${{ github.event.repository.name }}"
+            fi
+            cd $PROJECT_PATH
+            
+            # Source profile to ensure PATH is set correctly
+            source ~/.profile
+            # Load NVM if it exists
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            
+            # Check if PM2 is available, install if necessary
+            if ! command -v pm2 &> /dev/null; then
+              echo "PM2 not found, installing..."
+              npm install -g pm2
+            fi
+            
+            # Check if the process is running
+            if ! pm2 status dev-upgrade-fe | grep -q "online"; then
+              echo "Deployment verification failed: App is not running!"
+              exit 1
+            fi
+            echo "Deployment verification successful: App is running"
+      
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/deploy_key 

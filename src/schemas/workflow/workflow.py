@@ -46,6 +46,16 @@ class Node(BaseModel):
     position: Position = Field(default_factory=Position)
     data: NodeData = Field(default_factory=NodeData)
 
+    @property
+    def resolved_type(self) -> str:
+        """Gets the resolved backend node type."""
+        if (self.type == "custom" or self.type == "customNode") and self.data:
+            extra = getattr(self.data, "model_extra", None) or {}
+            data_type = extra.get("type")
+            if data_type:
+                return data_type
+        return self.type
+
     @field_validator("id")
     @classmethod
     def validate_id(cls, v: str) -> str:
@@ -255,7 +265,7 @@ class WorkflowGraph(BaseModel):
 
     def get_start_nodes(self) -> List[Node]:
         """Gets all start nodes."""
-        return [n for n in self.nodes if n.type == "startNode"]
+        return [n for n in self.nodes if n.resolved_type == "startNode"]
 
     def get_node_by_id(self, node_id: str) -> Optional[Node]:
         """Gets node by ID."""

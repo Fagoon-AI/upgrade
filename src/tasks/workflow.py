@@ -13,6 +13,8 @@ from src.models.sql.workflow.workflow import Workflow
 from src.models.sql.workflow.execution import WorkflowExecution, ExecutionStatus, NodeExecutionTrace
 
 
+from src.api.v1.routers.workflow.streams import emit_trace
+
 # ============================================================
 # PURE WORKFLOW LOGIC (CELERY-FREE)
 # ============================================================
@@ -21,7 +23,8 @@ async def execute_workflow_logic(
         execution_id: str,
         workflow_id: str,
         initial_input: Dict[str, Any],
-        resume_node_id: Optional[str] = None
+        resume_node_id: Optional[str] = None,
+        single_node_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Async workflow execution implementation.
@@ -37,7 +40,7 @@ async def execute_workflow_logic(
         Execution result
     """
     db_manager = get_database_manager()
-    async with db_manager.get_worker_session() as db:
+    async with db_manager.get_session() as db:
         try:
             # 1. Load workflow
             dao = WorkflowDAO(db)
@@ -66,13 +69,18 @@ async def execute_workflow_logic(
             # 5. Execute workflow
             logger.info(f"Executing workflow {workflow_id}")
 
+            async def trace_cb(data: Dict[str, Any]) -> None:
+                await emit_trace(execution_id, data)
+
             result = await executor.run(
                 execution_id=UUID(execution_id),
                 initial_input=initial_input,
                 db=db,
                 user_id=workflow.user_id,
                 workflow_id=UUID(workflow_id),
-                resume_node_id=resume_node_id
+                resume_node_id=resume_node_id,
+                trace_callback=trace_cb,
+                single_node_id=single_node_id
             )
 
             # Update execution record with success status and results
@@ -100,6 +108,13 @@ async def execute_workflow_logic(
 
                 await db.commit()
 
+                # Emit workflow_end trace to notify frontend
+                await emit_trace(execution_id, {
+                    "type": "workflow_end",
+                    "status": "completed",
+                    "execution_id": execution_id
+                })
+
             logger.info(
                 f"Execution {execution_id} completed",
                 extra={
@@ -123,6 +138,15 @@ async def execute_workflow_logic(
                     "traceback": traceback.format_exc()
                 }
             )
+            try:
+                await emit_trace(execution_id, {
+                    "type": "workflow_end",
+                    "status": "failed",
+                    "execution_id": execution_id,
+                    "error": str(e)
+                })
+            except Exception:
+                pass
             raise
 
 
@@ -132,7 +156,7 @@ async def _mark_execution_failed(
 ) -> None:
     """Marks an execution as failed in the database."""
     db_manager = get_database_manager()
-    async with db_manager.get_worker_session() as db:
+    async with db_manager.get_session() as db:
         try:
             execution = await db.get(WorkflowExecution, UUID(execution_id))
 
@@ -145,6 +169,17 @@ async def _mark_execution_failed(
                 execution.context_data["error"] = error_message
 
                 await db.commit()
+
+                # Emit workflow_end trace to notify frontend
+                try:
+                    await emit_trace(execution_id, {
+                        "type": "workflow_end",
+                        "status": "failed",
+                        "execution_id": execution_id,
+                        "error": error_message
+                    })
+                except Exception:
+                    pass
 
                 logger.info(f"Marked execution {execution_id} as FAILED")
 
@@ -173,7 +208,7 @@ async def cancel_execution_logic(
     logger.info(f"Cancelling execution {execution_id}: {reason}")
 
     db_manager = get_database_manager()
-    async with db_manager.get_worker_session() as db:
+    async with db_manager.get_session() as db:
         execution = await db.get(WorkflowExecution, UUID(execution_id))
 
         if not execution:
@@ -216,7 +251,7 @@ async def cleanup_stale_executions_logic(
     logger.info(f"Cleaning up stale executions older than {max_age_hours} hours")
 
     db_manager = get_database_manager()
-    async with db_manager.get_worker_session() as db:
+    async with db_manager.get_session() as db:
         cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
 
         stmt = (
