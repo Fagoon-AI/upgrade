@@ -448,7 +448,12 @@ export const useWorkflowStore = create<WorkflowState>()(
               console.log("DEBUG: Telemetry event received from backend:", data);
 
               set((state) => {
-                const nextExecution = state.currentExecution ? { ...state.currentExecution } : null;
+                const nextExecution = state.currentExecution
+                  ? {
+                      ...state.currentExecution,
+                      nodes: { ...(state.currentExecution.nodes || {}) }
+                    }
+                  : null;
                 if (!nextExecution) return state;
 
                 // Backend telemetry payload handles node state updates:
@@ -456,29 +461,30 @@ export const useWorkflowStore = create<WorkflowState>()(
                 // or data = { type: 'node_end', node_id: 'node-1', status: 'completed', output: ... }
                 // or data = { type: 'workflow_end', status: 'completed' }
 
-                const isNodeStart = data.type === 'node_start' || (data.status === 'RUNNING' && data.node_id);
-                const isNodeEnd = data.type === 'node_end' || ((data.status === 'SUCCESS' || data.status === 'FAILED') && data.node_id);
+                const nodeId = data.node_id || data.nodeId;
+                const isNodeStart = data.type === 'node_start' || (data.status === 'RUNNING' && nodeId);
+                const isNodeEnd = data.type === 'node_end' || ((data.status === 'SUCCESS' || data.status === 'FAILED' || data.status === 'COMPLETED') && nodeId);
                 const isWorkflowEnd = data.type === 'workflow_end';
 
-                if (isNodeStart) {
-                  nextExecution.nodes[data.node_id] = {
-                    id: data.node_id,
+                if (isNodeStart && nodeId) {
+                  nextExecution.nodes[nodeId] = {
+                    id: nodeId,
                     status: 'running',
                     input: data.input || {}
                   };
-                } else if (isNodeEnd) {
+                } else if (isNodeEnd && nodeId) {
                   const nodeStatus = data.status === 'SUCCESS' || data.status === 'COMPLETED' ? 'completed' : 'error';
-                  if (nextExecution.nodes[data.node_id]) {
-                    nextExecution.nodes[data.node_id].status = nodeStatus;
-                    nextExecution.nodes[data.node_id].output = data.output;
-                    nextExecution.nodes[data.node_id].error = data.error;
+                  if (nextExecution.nodes[nodeId]) {
+                    nextExecution.nodes[nodeId].status = nodeStatus;
+                    nextExecution.nodes[nodeId].output = data.outputs || data.output || data.result;
+                    nextExecution.nodes[nodeId].error = data.error_message || data.error || data.errorMessage;
                   } else {
-                    nextExecution.nodes[data.node_id] = {
-                      id: data.node_id,
+                    nextExecution.nodes[nodeId] = {
+                      id: nodeId,
                       status: nodeStatus,
-                      output: data.output,
-                      error: data.error,
-                      input: {}
+                      output: data.outputs || data.output || data.result,
+                      error: data.error_message || data.error || data.errorMessage,
+                      input: data.inputs || data.input || {}
                     };
                   }
                 } else if (isWorkflowEnd) {
@@ -515,18 +521,23 @@ export const useWorkflowStore = create<WorkflowState>()(
                 eventSource.close();
                 const detailRes = await axiosInstance.get(`/api/v1/executions/${executionId}/timeline`);
                 const detailData = detailRes.data;
-                const traces = detailData?.data?.traces || detailData?.traces || [];
+const traces = Array.isArray(detailData)
+  ? detailData
+  : Array.isArray(detailData?.data)
+    ? detailData.data
+    : detailData?.data?.traces || detailData?.traces || [];
                 set((state) => {
                   const next = state.currentExecution ? { ...state.currentExecution, nodes: { ...(state.currentExecution.nodes || {}) } } : null;
                   if (!next) return { isRunning: false };
                   for (const t of traces) {
-                    if (t.node_id) {
-                      next.nodes[t.node_id] = {
-                        id: t.node_id,
-                        status: (t.status === 'SUCCESS' || t.status === 'COMPLETED') ? 'completed' : 'error',
-                        output: t.outputs || t.output,
-                        error: t.error_message,
-                        input: t.inputs || {}
+                    const nodeId = t.node_id || t.nodeId;
+                    if (nodeId) {
+                      next.nodes[nodeId] = {
+                        id: nodeId,
+                        status: (t.status === 'SUCCESS' || t.status === 'COMPLETED' || t.status === 'completed') ? 'completed' : 'error',
+                        output: t.outputs || t.output || t.result,
+                        error: t.error_message || t.error || t.errorMessage,
+                        input: t.inputs || t.input || {}
                       };
                     }
                   }
@@ -595,32 +606,38 @@ export const useWorkflowStore = create<WorkflowState>()(
               console.log("DEBUG: Telemetry event received from backend:", data);
 
               set((state) => {
-                const nextExecution = state.currentExecution ? { ...state.currentExecution } : null;
+                const nextExecution = state.currentExecution
+                  ? {
+                      ...state.currentExecution,
+                      nodes: { ...(state.currentExecution.nodes || {}) }
+                    }
+                  : null;
                 if (!nextExecution) return state;
 
-                const isNodeStart = data.type === 'node_start' || (data.status === 'RUNNING' && data.node_id);
-                const isNodeEnd = data.type === 'node_end' || ((data.status === 'SUCCESS' || data.status === 'FAILED' || data.status === 'COMPLETED') && data.node_id);
+                const nodeId = data.node_id || data.nodeId;
+                const isNodeStart = data.type === 'node_start' || (data.status === 'RUNNING' && nodeId);
+                const isNodeEnd = data.type === 'node_end' || ((data.status === 'SUCCESS' || data.status === 'FAILED' || data.status === 'COMPLETED') && nodeId);
                 const isWorkflowEnd = data.type === 'workflow_end';
 
-                if (isNodeStart) {
-                  nextExecution.nodes[data.node_id] = {
-                    id: data.node_id,
+                if (isNodeStart && nodeId) {
+                  nextExecution.nodes[nodeId] = {
+                    id: nodeId,
                     status: 'running',
                     input: data.input || {}
                   };
-                } else if (isNodeEnd) {
+                } else if (isNodeEnd && nodeId) {
                   const nodeStatus = data.status === 'SUCCESS' || data.status === 'COMPLETED' ? 'completed' : 'error';
-                  if (nextExecution.nodes[data.node_id]) {
-                    nextExecution.nodes[data.node_id].status = nodeStatus;
-                    nextExecution.nodes[data.node_id].output = data.output;
-                    nextExecution.nodes[data.node_id].error = data.error;
+                  if (nextExecution.nodes[nodeId]) {
+                    nextExecution.nodes[nodeId].status = nodeStatus;
+                    nextExecution.nodes[nodeId].output = data.outputs || data.output || data.result;
+                    nextExecution.nodes[nodeId].error = data.error_message || data.error || data.errorMessage;
                   } else {
-                    nextExecution.nodes[data.node_id] = {
-                      id: data.node_id,
+                    nextExecution.nodes[nodeId] = {
+                      id: nodeId,
                       status: nodeStatus,
-                      output: data.output,
-                      error: data.error,
-                      input: {}
+                      output: data.outputs || data.output || data.result,
+                      error: data.error_message || data.error || data.errorMessage,
+                      input: data.inputs || data.input || {}
                     };
                   }
                 } else if (isWorkflowEnd) {
@@ -657,18 +674,23 @@ export const useWorkflowStore = create<WorkflowState>()(
                 eventSource.close();
                 const detailRes = await axiosInstance.get(`/api/v1/executions/${executionId}/timeline`);
                 const detailData = detailRes.data;
-                const traces = detailData?.data?.traces || detailData?.traces || [];
+const traces = Array.isArray(detailData)
+  ? detailData
+  : Array.isArray(detailData?.data)
+    ? detailData.data
+    : detailData?.data?.traces || detailData?.traces || [];
                 set((state) => {
                   const next = state.currentExecution ? { ...state.currentExecution, nodes: { ...(state.currentExecution.nodes || {}) } } : null;
                   if (!next) return { isRunning: false };
                   for (const t of traces) {
-                    if (t.node_id) {
-                      next.nodes[t.node_id] = {
-                        id: t.node_id,
-                        status: (t.status === 'SUCCESS' || t.status === 'COMPLETED') ? 'completed' : 'error',
-                        output: t.outputs || t.output,
-                        error: t.error_message,
-                        input: t.inputs || {}
+                    const nodeId = t.node_id || t.nodeId;
+                    if (nodeId) {
+                      next.nodes[nodeId] = {
+                        id: nodeId,
+                        status: (t.status === 'SUCCESS' || t.status === 'COMPLETED' || t.status === 'completed') ? 'completed' : 'error',
+                        output: t.outputs || t.output || t.result,
+                        error: t.error_message || t.error || t.errorMessage,
+                        input: t.inputs || t.input || {}
                       };
                     }
                   }
@@ -763,7 +785,7 @@ export const useWorkflowStore = create<WorkflowState>()(
           const savedId = response.data?.id || response.data?.data?.id || id;
           set({ isCurrentExecutionSavedId: savedId, currentWorkflowName: name });
           if (typeof window !== 'undefined' && savedId && !window.location.href.includes(savedId)) {
-              window.history.pushState({}, '', `/workflow/app/${savedId}`);
+            window.history.pushState({}, '', `/workflow/app/${savedId}`);
           }
         } catch (error) {
           showErrorToast('Error saving workflow');
@@ -828,9 +850,9 @@ export const useWorkflowStore = create<WorkflowState>()(
               const targetNode = rawNodes.find((n: any) => n.id === edge.target);
               if (targetNode) {
                 const nodeData = targetNode.data as any;
-                const hasPromptField = Array.isArray(nodeData?.fields) && 
+                const hasPromptField = Array.isArray(nodeData?.fields) &&
                   nodeData.fields.some((f: any) => f.name === 'prompt');
-                
+
                 if (hasPromptField && edge.targetHandle === 'input') {
                   return { ...edge, targetHandle: 'prompt' };
                 }
