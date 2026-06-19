@@ -1,10 +1,10 @@
-import { Duration } from '@/lib/lib/duration'
-import { getModelClient, getDefaultMode } from '@/lib/lib/models'
-import { LLMModel, LLMModelConfig } from '@/lib/lib/models'
-import { toPrompt } from '@/lib/lib/prompt'
-import ratelimit from '@/lib/lib/ratelimit'
-import { fragmentSchema as schema } from '@/lib/lib/schema'
-import { Templates } from '@/lib/lib/templates'
+import { Duration } from '@/lib/libs/duration'
+import { getModelClient, getDefaultMode } from '@/lib/libs/models'
+import { LLMModel, LLMModelConfig } from '@/lib/libs/models'
+import { toPrompt } from '@/lib/libs/prompt'
+import ratelimit from '@/lib/libs/ratelimit'
+import { fragmentSchema as schema } from '@/lib/libs/schema'
+import { Templates } from '@/lib/libs/templates'
 import { streamObject, LanguageModel, CoreMessage } from 'ai'
 
 export const maxDuration = 60
