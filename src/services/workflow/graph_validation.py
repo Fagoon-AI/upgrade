@@ -283,6 +283,20 @@ class GraphValidationService:
                 except Exception:
                     continue
 
+                # Check if this node has a pinned output and is set to use it
+                is_pinned = False
+                if node.data:
+                    data_dict = getattr(node.data, 'model_extra', {}) or {}
+                    if not isinstance(data_dict, dict):
+                        data_dict = {}
+                    raw_dict = node.data.__dict__ if hasattr(node.data, '__dict__') else {}
+                    
+                    if (data_dict.get("use_pinned") or raw_dict.get("use_pinned")) and ("pinned_output" in data_dict or "pinned_output" in raw_dict):
+                        is_pinned = True
+
+                if is_pinned:
+                    continue
+
                 # Get user inputs
                 user_inputs = {}
                 if node.data:
