@@ -34,9 +34,6 @@ const ChatPage = () => {
         })) ?? [];
     }, [data?.data?.messages]);
 
-    // const { data: chatTitle = "New Chat..." } =
-    //     useChatTitle(historyId);
-
     const isLoading = sendMessage.isPending || contextIsLoading;
     const isThinking = isLoading || isWaitingForResponse;
     const [dotCount, setDotCount] = useState(1);
