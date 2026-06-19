@@ -1,4 +1,4 @@
-import { Templates, templatesToPrompt } from '@/lib/lib/templates'
+import { Templates, templatesToPrompt } from '@/lib/libs/templates'
 
 export function toPrompt(template: Templates) {
   return `
