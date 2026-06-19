@@ -69,10 +69,14 @@ export const useSendMessage = () => {
             conversationId,
             message,
             generate_audio = false,
+            file_data = null,
+            file_name = null,
         }: {
             conversationId: string;
             message: string;
             generate_audio?: boolean,
+            file_data?: string | null,
+            file_name?: string | null,
         }) => {
             setIsLoading(true);
             setActiveStatus(null);
@@ -83,6 +87,8 @@ export const useSendMessage = () => {
                 selected_model: selectedModel,
                 web_search_enabled: browserMode,
                 generate_audio,
+                file_data,
+                file_name,
             });
 
             if (!res.ok) {
@@ -182,7 +188,7 @@ export const useSendMessage = () => {
         onSettled: () => {
             setIsLoading(false);
         },
-        onMutate: async ({ conversationId, message }) => {
+        onMutate: async ({ conversationId, message, file_data }) => {
             await queryClient.cancelQueries({
                 queryKey: ["conversation", conversationId],
             });
@@ -206,6 +212,7 @@ export const useSendMessage = () => {
                                 {
                                     role: "user",
                                     content: message,
+                                    image: file_data, // Optimistically render base64 file with my message!
                                 },
                                 {
                                     role: "assistant",

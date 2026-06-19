@@ -139,7 +139,7 @@ const Sidebar = () => {
   if (!isMounted) return null;
 
   const userName = user?.name || user?.nickname || "User";
-  const userPhoto = user?.photo || "/upgrade-profile-default.jpg";
+  const userPhoto = "https://placehold.net/avatar-4.png";
 
   return (
     <>
