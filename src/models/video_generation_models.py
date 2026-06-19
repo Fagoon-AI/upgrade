@@ -23,10 +23,11 @@ class JobStatus(str, Enum):
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
     ENHANCING = "ENHANCING_PROMPT"
-
+    
 
 class VideoJobBase(BaseModel):
     original_prompt: str
+    user_id: Optional[str] = None
     enhanced_prompt: Optional[str] = None
     status: JobStatus = JobStatus.PENDING
     progress: int = 0

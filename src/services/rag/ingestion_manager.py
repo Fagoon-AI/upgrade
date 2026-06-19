@@ -47,7 +47,26 @@ class IngestionManager:
                         result = await session.execute(stmt)
                         file_ref_id = result.scalar_one_or_none()
                         if file_ref_id:
-                            logger.info(f"File '{file_ref}' has already been directly ingested and has chunks in PgVector. Skipping background ingestion.")
+                            logger.info(f"File '{file_ref}' has already been directly ingested. Cloning chunks for agent {agent_id}.")
+                            from src.models.sql.models import DocumentChunk
+                            chunk_stmt = select(DocumentChunk).where(DocumentChunk.file_ref_id == file_ref_id)
+                            existing_chunks = await session.execute(chunk_stmt)
+                            new_chunks = []
+                            for chunk in existing_chunks.scalars():
+                                new_meta = dict(chunk.extra_metadata)
+                                new_meta["agent_id"] = agent_id
+                                new_meta["collection"] = collection_name
+                                new_chunks.append(DocumentChunk(
+                                    id=uuid.uuid4(),
+                                    file_ref_id=file_ref_id,
+                                    content=chunk.content,
+                                    embedding=chunk.embedding,
+                                    extra_metadata=new_meta
+                                ))
+                            if new_chunks:
+                                session.add_all(new_chunks)
+                                await session.commit()
+                                logger.success(f"Cloned {len(new_chunks)} existing chunks for agent {agent_id}.")
                             continue
 
                 # 1. Download file bytes from Google Cloud Storage into memory
@@ -78,7 +97,7 @@ class IngestionManager:
             return
 
         # 4. Resolve API Key and Setup LLM Service for Embeddings
-        # We need the user_id for the resolver. Since we don't have user_id directly here, 
+        # We need the user_id for the resolver. Since we don't have user_id directly here,
         # we can extract it from the agent model via PostgresManager.
         try:
             from src.services.nosql.postgres_services import PostgresServices
@@ -87,25 +106,12 @@ class IngestionManager:
                 agent = await pg_services.get_agent_by_id(uuid.UUID(agent_id))
                 user_id = str(agent.user_id) if agent else None
 
-            from src.services.api_key_resolver import resolve_api_key
-            api_key = None
-            if user_id:
-                resolved = await resolve_api_key(
-                    user_id=uuid.UUID(user_id),
-                    provider="gemini",
-                    feature="agents",
-                    specific_id=agent_id
-                )
-                if resolved:
-                    api_key = resolved
+            if not user_id:
+                raise ValueError("Could not find user_id for the given agent_id to resolve embedding service.")
 
-            llm_config = BaseLLMConfig(
-                provider="gemini",
-                model="gemini-embedding-2", # Gemini embedding model string
-                api_key=api_key
-            )
-            embedding_service = LLMService(config=llm_config)
-            
+            from src.services.embeddings import get_embedding_service
+            embedding_service = await get_embedding_service(user_id=user_id, agent_id=agent_id)
+
             # Embed and Add
             vector_documents = []
             for chunk in all_chunks:

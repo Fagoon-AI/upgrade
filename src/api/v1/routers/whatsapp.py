@@ -139,13 +139,20 @@ async def process_whatsapp_message(agent_id: str, remote_jid: str, text: str, ap
         webhook_gateway = WebhookGatewayService(agent_manager, chat_service, queue=app_state.queue)
         history_id = await webhook_gateway._get_or_create_history_id("whatsapp", agent_id, remote_jid)
         
+        agent = await agent_manager.get_agent(agent_id)
+        if not agent:
+            logger.error(f"Agent {agent_id} not found.")
+            return
+            
+        owner_user_id = str(agent.user_id) if hasattr(agent, "user_id") else str(agent.get("user_id"))
+
         # Now run ChatOrchestrator
         orchestrator = ChatOrchestrator(agent_manager, vector_store, chat_service)
         
         response_text = ""
         # stream_chat yields string chunks.
         async for chunk in orchestrator.stream_chat(
-            user_id="whatsapp_user",
+            user_id=owner_user_id,
             agent_id=agent_id,
             history_id=history_id,
             message=text
@@ -153,9 +160,8 @@ async def process_whatsapp_message(agent_id: str, remote_jid: str, text: str, ap
             response_text += chunk
             
         if response_text:
-            # Evolution API v1.8.7 silently drops messages to @lid virtual numbers sometimes.
-            # We use the actual sender phone number from the webhook payload if available.
-            target_number = sender.split("@")[0] if sender else remote_jid
+            # We MUST reply to the remote_jid (the person who sent the message).
+            target_number = remote_jid
             await evolution_service.send_message(agent_id, target_number, response_text)
             
     except Exception as e:

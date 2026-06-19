@@ -59,23 +59,12 @@ class FileService:
 
         if vector_store:
             try:
-                api_key = await resolve_api_key(
-                    user_id=uuid.UUID(user_id),
-                    provider="gemini",
-                    feature="agents",
-                    specific_id=agent_id
-                )
+                from src.services.embeddings import get_embedding_service
+                embedding_service = await get_embedding_service(user_id=user_id, agent_id=agent_id)
+                doc_processor = DocumentProcessor()
             except Exception as e:
-                logger.error(f"Failed to resolve API key: {e}")
-                api_key = None
-
-            llm_config = BaseLLMConfig(
-                provider="gemini",
-                model="gemini-embedding-2",
-                api_key=api_key
-            )
-            embedding_service = LLMService(config=llm_config)
-            doc_processor = DocumentProcessor()
+                logger.error(f"Failed to initialize embedding service: {e}")
+                raise ValueError("Could not initialize embedding service for vector storage.")
 
         for file in files:
             try:
@@ -167,6 +156,24 @@ class FileService:
             finally:
                 # Ensure file stream is closed
                 await file.close()
+
+        if pg_services and agent_id != "general":
+            try:
+                agent_uuid = uuid.UUID(agent_id)
+                agent = await pg_services.get_agent_by_id(agent_uuid)
+                if agent:
+                    kb = agent.config.get("knowledge_base") or {}
+                    existing_files = set(kb.get("uploaded_files") or [])
+                    for meta in uploaded_files_metadata:
+                        if not meta.get("error"):
+                            existing_files.add(meta["file_name"])
+                    
+                    kb["uploaded_files"] = list(existing_files)
+                    new_config = {**agent.config, "knowledge_base": kb}
+                    await pg_services.update_agent(agent_uuid, {"config": new_config})
+                    logger.info(f"Updated agent {agent_id} config with new knowledge_base files.")
+            except Exception as e:
+                logger.error(f"Failed to update agent config with new knowledge_base: {e}")
 
         return uploaded_files_metadata
 
