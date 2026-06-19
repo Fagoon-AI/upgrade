@@ -193,16 +193,20 @@ app = FastAPI(
 )
 
 
+app.add_middleware(AuthMiddleware)
+app.add_middleware(LoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=system_setting.ALLOWED_CORS_ORIGIN,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "https://unrecompensable-pedro-nonpreferably.ngrok-free.dev",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
+    allow_headers=["*"],
 )
-
-app.add_middleware(LoggingMiddleware)
-app.add_middleware(AuthMiddleware)
 
 try:
     from fastapi import APIRouter

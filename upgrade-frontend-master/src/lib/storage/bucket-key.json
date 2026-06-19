@@ -1,0 +1,13 @@
+{
+    "type": "service_account",
+    "project_id": "fagoon-ai",
+    "private_key_id": "c6afe620453985e4b553456fc049db806a382dfb",
+    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDtHH/T2PBUwlst\nWeIos6WMJajRRdyKRGom0ggDTekSIC0yMqT+7pYWvnPes/cdjnTBnlFdbh7fBADx\nFMFW3UZqJ+NBEV2qVMrX431qhssFBooVfCB0cogbHOyYG3cIn8/7eaUrhs1qwUuO\nYt4RwGUaQCXvzAPui3UDuVb8jH9beDjOfMChQTsO/5W/t4z12lEOH6Tg5/nxCZWR\nlyhhUVWFDOs5Po9DEc2fBsaWArWmjpSLHDeVTevF8EBnGx3jCZrHOpUXaXIdAccs\nJS7He6DkfDrMOcopcisTDvvp4etI63I5D3SsZnPRYbkhPAMuwNj4GRwNSHfSpc/z\ntYRI2dAHAgMBAAECggEAEXMSeS2y6hnvidPej+5AlaLD3LrOcyJ7yWWVj2CxcVMK\n4HHXsKcwRnY3osENw5ATSZh0FnMfNHxf8V38qH7aSr+qusQjZ4Cb+O1V8nv+/tyv\nVstuvAMdvxkO1FbZGLpiHPijziM6hMu62ryt6RKGnjrwT8hs1aZPszl1jFpumPWI\nvV6NyyAGGaYY6KQROECE5E4MAC2kkZftYFnMd9nD5+5GIGTFwGdH0004bhguQ0C2\nagavBbfSJKulmJyP1sdYzwJYvNaCJmjoki41JowEsZRs2gCM3qdjda1C8A21kxfM\nVspNGU/YydesR0WmIKkyYyUox+P+EtA29oScrX4dcQKBgQD2hQoJfUAsh136rgxK\nECOLWf8w/bUgiJXdxntGNk/eb3M3IAbsz/N0ENidZTKtVrR4p42qxf1mad7QdJ/S\nt8xzc+ose3KCYrt6m4HTLGGiXpeDYkDlXJSQPo9QnOhu/q0nfGD3bL+cLxjnMG/s\nRzQQ2TRN6dHnb0LMgd91q8qn/wKBgQD2OtX259J+mNGBqHe6oGgaAJ3qS3b2iSzp\ng3791zwTyipk0O3Y2KgvD7DNdBWZnoQxFM8XbkthL8+2GpnX3P2WPdyoIo9TrgKf\n11nhAaQlZe79qvkBt6xlAScnYfWhZxk4SZKFwwZuqQBBMnW1b1yi8n2fo4BwSSaD\n6PfOEFuX+QKBgGJm2IrRJDyiDDF0KBOoPYfydJrpqtNBshDEmZB9PYRcmHD4p8r/\ndv5tewnYy1HFumQu/a2dOnkW6YnsA5/pHgM30dHPtPW2038tc7UHkjFt8KzRG3Zy\nbhrl3e8fsugbYKLSUyJwlkuRwS8HdqWqBm5zRR2Up+Tp1JAthzVBTbOhAoGBAIKi\ngHY4U/MafLy/dpYrGFADV8TAOONfr9ZMD4n5MUSGk6tdNXNAryoYtwKpvfP8p8Gq\nepzBxXhQd3Dz9/8QnfGh7Hm/rC8HORk4ldTMnBvDUuJ+XRHOMsZ7sBwy2rDBFB5K\n2lPhPn5jZ2EvtkeGR62j3YZepnvsM2T0qtRG1XFxAoGAUa63RJSm+1x57Q3l+OVU\nmJm7UHnb91m0DBPkqSauQUn+lQSDQYLUIkU7N6NE8YnXP0JQCzbxpqp2N+MruUUJ\nvT0kLePcBbAGU30tLpFRDoe5Aob7TIMSzHkR9S+es77f/Gftv+ojIlzK31Pw8xbL\nRlMICI6VpWq9QdJ8djrrnSE=\n-----END PRIVATE KEY-----\n",
+    "client_email": "storageservice@fagoon-ai.iam.gserviceaccount.com",
+    "client_id": "113127369951670491609",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/storageservice%40fagoon-ai.iam.gserviceaccount.com",
+    "universe_domain": "googleapis.com"
+}
