@@ -15,13 +15,20 @@ export async function POST(req: Request) {
       body: JSON.stringify(body)
     });
 
-    const data = await res.json();
-    
     if (!res.ok) {
-      return NextResponse.json(data, { status: res.status });
+      const errorData = await res.json().catch(() => ({}));
+      return NextResponse.json(errorData, { status: res.status });
     }
 
-    return NextResponse.json(data);
+    // Stream the backend response back to the client directly
+    return new Response(res.body, {
+      status: res.status,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      }
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
