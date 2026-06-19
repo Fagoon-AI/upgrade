@@ -19,4 +19,6 @@ class ChatCompletionInputRequest(BaseModel):
     web_search_enabled: bool = False
     generate_audio: bool = Field(False, description="Flag to generate audio for the assistant's response.")
     file_ids: Optional[List[str]] = Field(default=None, description="List of file IDs to be used as context.")
+    file_data: Optional[str] = Field(default=None, description="Base64 encoded file content")
+    file_name: Optional[str] = Field(default=None, description="Name of the uploaded file")
 

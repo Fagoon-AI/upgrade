@@ -78,9 +78,10 @@ async def authenticate_websocket(
 
     try:
         # Validate JWT
+        secret_key = settings.SECRET_KEY.get_secret_value() if hasattr(settings.SECRET_KEY, "get_secret_value") else settings.SECRET_KEY
         payload = jwt.decode(
             auth_token,
-            settings.SECRET_KEY.get_secret_value(),
+            secret_key,
             algorithms=[ALGORITHM]
         )
 
