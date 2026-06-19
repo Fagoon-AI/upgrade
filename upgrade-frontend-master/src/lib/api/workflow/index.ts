@@ -3,12 +3,12 @@ import { GetWorkflowsResponse } from "@/lib/types/workflow";
 import axiosInstance from "../axios";
 
 export const createWorkflow = async (workflowData: CreateWorkflowPayload) => {
-  const response = await axiosInstance.post(`/api/v1/workflows/`, workflowData);
+  const response = await axiosInstance.post(`/api/v1/workflows`, workflowData);
   return response.data;
 };
 
 export const getWorkflows = async (): Promise<GetWorkflowsResponse> => {
-  const response = await axiosInstance.get(`/api/v1/workflows/`);
+  const response = await axiosInstance.get(`/api/v1/workflows`);
   return response.data;
 };
 
@@ -21,6 +21,65 @@ export const updateWorkflowById = async (id: string, data: any) => {
   const response = await axiosInstance.put(`/api/v1/workflows/${id}`, data);
   return response.data;
 };
+
+export const getWorkflowVersion = async (id: string) => {
+  const response = await axiosInstance.get(`/api/v1/workflows/${id}/versions`);
+  return response.data;
+};
+
+export const RestoreWorkflowVersion = async (id: string, version_id: string) => {
+  const response = await axiosInstance.get(`/api/v1/workflows/${id}/versions/${version_id}/restore`);
+  return response.data;
+};
+
+//* Workflow API
+
+export const publishWorkflowApi = async (id: string) => {
+  const response = await axiosInstance.post(
+    `/api/v1/workflows/${id}/publish-api`
+  );
+  return response.data;
+};
+
+export const getWorkflowApiInfo = async (id: string) => {
+  const response = await axiosInstance.get(
+    `/api/v1/workflows/${id}/api-info`
+  );
+  return response.data;
+};
+
+export const updateWorkflowApi = async (
+  id: string,
+  data: {
+    rate_limit?: number;
+    timeout?: number;
+    is_active?: boolean;
+  }
+) => {
+  const response = await axiosInstance.patch(
+    `/api/v1/workflows/${id}/api`,
+    data
+  );
+  return response.data;
+};
+
+export const revokeWorkflowApi = async (id: string) => {
+  const response = await axiosInstance.delete(`/api/v1/workflows/${id}/api`);
+  return response.data;
+};
+
+
+export const executeWorkflowApi = async (
+  slug: string,
+  payload: Record<string, any>
+) => {
+  const response = await axiosInstance.post(
+    `/api/v1/workflow-api/${slug}/execute`,
+    payload
+  );
+  return response.data;
+};
+
 
 //* Exections
 
@@ -83,7 +142,7 @@ export const getNodeTraceDetail = async (traceId: string) => {
 };
 
 export const getExecutions = async () => {
-  const response = await axiosInstance.get(`/api/v1/executions/`);
+  const response = await axiosInstance.get(`/api/v1/executions`);
   return response.data;
 };
 
