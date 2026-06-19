@@ -83,13 +83,15 @@ const ChatPage = () => {
         }
     }, [messages]);
 
-    const handleSubmitInput = async (text: string) => {
+    const handleSubmitInput = async (text: string, fileData?: string | null, fileName?: string | null) => {
         if (!text || !historyId) return;
 
         setIsWaitingForResponse(true);
         await sendMessage.mutateAsync({
             conversationId: historyId,
             message: text,
+            file_data: fileData,
+            file_name: fileName,
         });
         scrollToBottom();
     };

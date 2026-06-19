@@ -41,7 +41,9 @@ export function AddModelModal({ isOpen, onClose, editingModelId }: AddModelModal
   const queryClient = useQueryClient();
 
   // Form states
+  const [name, setName] = useState("");
   const [provider, setProvider] = useState<string>("");
+  const [modelId, setModelId] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [useForChat, setUseForChat] = useState(false);
@@ -77,6 +79,8 @@ export function AddModelModal({ isOpen, onClose, editingModelId }: AddModelModal
     if (editingModelId && editModel) {
       const model = (editModel as any).data || editModel;
       setProvider(model.provider || "");
+      setName(model.name || "");
+      setModelId(model.model_id || "");
       setApiKey("");
       setBaseUrl(model.base_url || "");
       setUseForChat(model.features?.includes(Feature.CHAT) || false);
@@ -86,6 +90,8 @@ export function AddModelModal({ isOpen, onClose, editingModelId }: AddModelModal
     } else if (!editingModelId) {
       // Clear form when opening for fresh creation
       setProvider("");
+      setName("");
+      setModelId("");
       setApiKey("");
       setBaseUrl("");
       setUseForChat(false);
@@ -122,8 +128,18 @@ export function AddModelModal({ isOpen, onClose, editingModelId }: AddModelModal
   });
 
   const handleSave = async () => {
+    if (!name.trim()) {
+      showErrorToast("Please enter a configuration name.");
+      return;
+    }
+
     if (!provider) {
       showErrorToast("Please select a provider.")
+      return;
+    }
+
+    if (!modelId.trim()) {
+      showErrorToast("Please enter a Model ID.");
       return;
     }
 
@@ -138,12 +154,10 @@ export function AddModelModal({ isOpen, onClose, editingModelId }: AddModelModal
     if (selectedAgents.length > 0) activeFeatures.push(Feature.AGENTS);
     if (useForVibeCoder) activeFeatures.push(Feature.VIBE_CODER);
 
-    const providerName = PROVIDERS.find((p) => p.id === provider)?.name || "Custom Model";
-
     const payload: ModelConfig = {
-      name: `${providerName} Configuration`,
+      name: name,
       provider: provider as Provider,
-      model_id: provider,
+      model_id: modelId,
       api_key: apiKey ? apiKey : undefined,
       features: activeFeatures,
       agent_ids: selectedAgents,
@@ -198,6 +212,16 @@ export function AddModelModal({ isOpen, onClose, editingModelId }: AddModelModal
             <div className="space-y-4">
               <h2 className="text-lg font-semibold border-b border-slate-100 dark:border-gray-800 pb-2">1. Provider Settings</h2>
 
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-gray-300">Configuration Name</label>
+                <Input
+                  placeholder="e.g. GPT-4o Standard, Gemini Pro Production"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="bg-slate-50 dark:bg-[#1e1e1e] border-slate-200 dark:border-gray-700 text-slate-850 dark:text-gray-200 focus-visible:ring-slate-300 dark:focus-visible:ring-gray-600"
+                />
+              </div>
+
               <div className="space-y-2 pt-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-gray-300">Select Provider</label>
                 <Select value={provider} onValueChange={setProvider}>
@@ -210,6 +234,16 @@ export function AddModelModal({ isOpen, onClose, editingModelId }: AddModelModal
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-gray-300">Model ID</label>
+                <Input
+                  placeholder="e.g. gpt-4o, gemini-1.5-pro, deepseek-coder"
+                  value={modelId}
+                  onChange={(e) => setModelId(e.target.value)}
+                  className="bg-slate-50 dark:bg-[#1e1e1e] border-slate-200 dark:border-gray-700 text-slate-850 dark:text-gray-200 focus-visible:ring-slate-300 dark:focus-visible:ring-gray-600"
+                />
               </div>
 
               {provider === "custom" && (

@@ -32,7 +32,7 @@ export default function Home() {
   ]);
   const logEndRef = useRef<HTMLDivElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [manualSelectionMade, setManualSelectionMade] = useState(false);
+  const [history, setHistory] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   
   const { selectedModel, setSelectedModel } = useSelectedModelContext();
 
@@ -46,7 +46,7 @@ export default function Home() {
     const rawList = allModels?.data || allModels || [];
     return Array.isArray(rawList)
       ? rawList.map((model: any) => ({
-          id: model.model_id || model.id,
+          id: model.id,
           name: model.name,
           provider: model.provider,
           icon: PROVIDER_ICONS[model.provider] || "/Icon.svg",
@@ -54,63 +54,124 @@ export default function Home() {
       : [];
   }, [allModels]);
 
+  useEffect(() => {
+    if (fetchedModelsList.length > 0) {
+      const isSelectedModelValid = fetchedModelsList.some(m => m.id === selectedModel);
+      if (!isSelectedModelValid) {
+        setSelectedModel(fetchedModelsList[0].id);
+      }
+    }
+  }, [fetchedModelsList, selectedModel, setSelectedModel]);
+
   // TanStack Query Mutation for code generation
   const codeMutation = useMutation({
-    mutationFn: generateCode,
+    mutationFn: ({ prompt, history, model }: { prompt: string; history: any[]; model: string }) => 
+      generateCode(prompt, history, model),
   });
 
   const simulateWork = async (cmd: string) => {
-    let delay = 0;
-    const addLog = (text: string, type = "info") => {
-      delay += 400 + Math.random() * 800;
-      setTimeout(() => {
-        setLogs((prev) => [...prev, { text, type }]);
-      }, delay);
-    };
-
+    setActiveCode("");
     setIsProcessing(true);
-    addLog(
-      `[⚡ Fagoon Code Intercept]: Routing natural language to AI Backend...`,
-      "warning"
-    );
+    setLogs((prev) => [...prev, { text: `[⚡ Fagoon Code Intercept]: Routing natural language prompt to AI Backend...`, type: "warning" }]);
 
     try {
       const currentModel = fetchedModelsList.find(m => m.id === selectedModel);
       if (!currentModel) throw new Error("No model selected");
 
-      // Execute via TanStack Mutation
-      const data = await codeMutation.mutateAsync({
+      // Execute via TanStack Mutation to fetch the SSE Response
+      const response = await codeMutation.mutateAsync({
         prompt: cmd,
-        llm_config: {
-          model_id: currentModel.id,
-          provider: currentModel.provider,
-          model_name: currentModel.name
-        }
+        history: history,
+        model: currentModel.id
       });
 
-      const steps = data.steps || [];
-      steps.forEach((step: string) => {
-        let type = "info";
-        if (step.includes("[✓")) type = "success";
-        else if (step.includes("[✍️")) type = "warning";
-        else if (step.includes("[✗")) type = "error";
-        else if (step.includes("[⚡")) type = "info";
-        addLog(step, type);
-      });
-
-      if (data.code) {
-        setTimeout(() => setActiveCode(data.code), delay + 300);
+      if (!response.ok) {
+        throw new Error(`API failed: ${response.statusText}`);
       }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("Response body is not readable.");
+
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+      let accumulatedCode = "";
+      let finished = false;
+
+      setLogs((prev) => [...prev, { text: `[⚡ Fagoon Code Intercept]: Connection established. Streaming code chunks...`, type: "info" }]);
+
+      let cleanCodeResult = "";
+
+      while (!finished) {
+        const { value, done } = await reader.read();
+        if (done) {
+          finished = true;
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || ""; // Keep partial line for next chunk
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+
+          if (trimmed === "data: [DONE]") {
+            finished = true;
+            break;
+          }
+
+          if (trimmed.startsWith("data: ")) {
+            try {
+              const payloadStr = trimmed.slice(6);
+              const payload = JSON.parse(payloadStr);
+              if (payload.token) {
+                accumulatedCode += payload.token;
+
+                // Strip leading/trailing codeblock wrappers dynamically for clean code editor/preview rendering
+                let cleanCode = accumulatedCode;
+                if (cleanCode.startsWith("```")) {
+                  cleanCode = cleanCode.replace(/^```[a-zA-Z]*\n/, "");
+                }
+                if (cleanCode.endsWith("```")) {
+                  cleanCode = cleanCode.replace(/```$/, "");
+                }
+
+                cleanCodeResult = cleanCode;
+                setActiveCode(cleanCode);
+              }
+            } catch (err) {
+              console.debug("Partial JSON stream chunk parsing skipped", err);
+            }
+          }
+        }
+      }
+
+      // Update history state so the next request remembers what happened
+      setHistory((prev) => [
+        ...prev,
+        { role: "user", content: cmd },
+        { role: "assistant", content: cleanCodeResult }
+      ]);
+
+      setLogs((prev) => [
+        ...prev,
+        { text: `[✓ System]: Code generated and compiled successfully!`, type: "success" }
+      ]);
+
     } catch (err: any) {
-      addLog(`[✗ System]: ${err.message || "AI Backend Unreachable."}`, "error");
+      setLogs((prev) => [
+        ...prev,
+        { text: `[✗ System]: ${err.message || "AI Backend Unreachable."}`, type: "error" }
+      ]);
     } finally {
-      setTimeout(() => setIsProcessing(false), delay + 500);
+      setIsProcessing(false);
     }
   };
 
   const handleCommand = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!command.trim() || isProcessing || fetchedModelsList.length === 0 || !manualSelectionMade) return;
+    if (!command.trim() || isProcessing || fetchedModelsList.length === 0 || !selectedModel) return;
 
     setLogs((prev) => [...prev, { text: `> ${command}`, type: "command" }]);
     simulateWork(command);
@@ -144,13 +205,12 @@ export default function Home() {
           logEndRef={logEndRef}
           isProcessing={isProcessing}
           disabled={fetchedModelsList.length === 0}
-          noModelSelected={fetchedModelsList.length > 0 && !manualSelectionMade}
+          noModelSelected={fetchedModelsList.length > 0 && !selectedModel}
           models={fetchedModelsList}
           selectedModel={selectedModel}
           onSelectModel={(modelId) => {
             console.log("Selected model in Coder:", modelId);
             setSelectedModel(modelId);
-            setManualSelectionMade(true);
           }}
         />
 

@@ -19,6 +19,16 @@ export const axiosServer = axios.create({
   },
 });
 
+export const axiosStream = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_BASE_URL || process.env.API_BASE_URL || "https://fagoon.tech",
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    "ngrok-skip-browser-warning": "true",
+  },
+  withCredentials: true,
+});
+
 
 
 // Response interceptor for global error handling
