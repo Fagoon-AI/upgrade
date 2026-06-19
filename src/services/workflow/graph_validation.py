@@ -286,16 +286,51 @@ class GraphValidationService:
                 # Get user inputs
                 user_inputs = {}
                 if node.data:
-                    user_inputs = getattr(node.data, 'inputs', {}) or {}
+                    # 1. Get from 'inputs' attribute if present
+                    inputs_val = getattr(node.data, 'inputs', {}) or {}
                     if hasattr(node.data, '__dict__'):
-                        user_inputs = node.data.__dict__.get('inputs', {}) or {}
+                        inputs_val = node.data.__dict__.get('inputs', {}) or {}
+                    
+                    if isinstance(inputs_val, dict):
+                        user_inputs = inputs_val.copy()
+                    else:
+                        user_inputs = {}
+
+                    # 2. Merge top-level extra fields / attributes
+                    # Exclude fields that are structural / internal UI metadata
+                    ignore_keys = {"inputs", "fields", "outputs", "type", "display_name", "icon", "category", "description", "label", "outputs_schema", "version", "tags"}
+                    
+                    # Merge Pydantic v2 model_extra fields
+                    model_extra = getattr(node.data, 'model_extra', None)
+                    if isinstance(model_extra, dict):
+                        for k, v in model_extra.items():
+                            if k not in ignore_keys and k not in user_inputs:
+                                user_inputs[k] = v
+                                
+                    # Merge from raw dictionary
+                    if hasattr(node.data, '__dict__'):
+                        for k, v in node.data.__dict__.items():
+                            if k not in ignore_keys and k not in user_inputs and not k.startswith('_'):
+                                user_inputs[k] = v
+
+                # Find connected inputs for this node
+                connected_inputs = set()
+                for edge in graph.edges:
+                    if edge.target == node.id:
+                        if edge.targetHandle:
+                            connected_inputs.add(edge.targetHandle)
+                        else:
+                            connected_inputs.add("input")
 
                 # Check required fields
                 for field in manifest.get("fields", []):
                     field_name = field.get("name")
                     is_required = field.get("required", False)
 
-                    if is_required and field_name not in user_inputs:
+                    # A required field is satisfied if configured statically or connected dynamically
+                    is_satisfied = (field_name in user_inputs and user_inputs[field_name] not in (None, "")) or (field_name in connected_inputs) or ("input" in connected_inputs)
+
+                    if is_required and not is_satisfied:
                         # Check if there's a default
                         if "default" not in field:
                             result.add_error(
