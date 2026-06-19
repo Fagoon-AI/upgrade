@@ -499,10 +499,8 @@ export const useWorkflowStore = create<WorkflowState>()(
           };
 
           eventSource.onerror = (err) => {
-            console.error("EventSource failed:", err);
-            // isRunning handled by poll
+            console.warn("EventSource disconnected (polling will handle updates):", err);
             eventSource.close();
-            showErrorToast("Lost telemetry stream connection.");
           };
 
           // Polling fallback for executeWorkflow (SSE may be buffered by Next.js proxy)
@@ -643,8 +641,7 @@ export const useWorkflowStore = create<WorkflowState>()(
           };
 
           eventSource.onerror = (err) => {
-            console.error("EventSource failed:", err);
-            set({ isRunning: false });
+            console.warn("EventSource disconnected (polling will handle updates):", err);
             eventSource.close();
           };
 
