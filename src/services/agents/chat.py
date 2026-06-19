@@ -83,6 +83,13 @@ class AgentChatService:
                 return True
         return False
 
+    async def get_chat_history_metadata(self, history_id: str) -> Optional[AgentChatHistory]:
+        """Fetch the AgentChatHistory object for metadata access."""
+        async with self.postgres_manager.get_session() as session:
+            stmt = select(AgentChatHistory).where(AgentChatHistory.id == uuid.UUID(history_id))
+            result = await session.execute(stmt)
+            return result.scalar_one_or_none()
+
     # --- ADDED: TITLE UPDATE METHOD ---
     async def update_chat_title(self, history_id: str, title: str) -> bool:
         """

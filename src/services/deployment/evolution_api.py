@@ -75,13 +75,25 @@ class EvolutionAPIService:
         payload = {
             'instanceName': instance_name,
             'qrcode': True,
-            'webhook': f"{base_webhook_url}/api/v1/whatsapp-session/webhook/{instance_name}",
-            'events': ['QRCODE_UPDATED', 'CONNECTION_UPDATE', 'MESSAGES_UPSERT']
+            'integration': 'WHATSAPP-BAILEYS'
         }
         
         await self._make_request('POST', create_endpoint, payload=payload)
         
-        await asyncio.sleep(3.5)
+        # Set Webhook in v2 (separate endpoint)
+        webhook_endpoint = f"/webhook/set/{instance_name}"
+        webhook_payload = {
+            "webhook": {
+                "enabled": True,
+                "url": f"{base_webhook_url}/api/v1/whatsapp-session/webhook/{instance_name}",
+                "byEvents": False,
+                "base64": False,
+                "events": ['QRCODE_UPDATED', 'CONNECTION_UPDATE', 'MESSAGES_UPSERT']
+            }
+        }
+        await self._make_request('POST', webhook_endpoint, payload=webhook_payload)
+        
+        await asyncio.sleep(2.0)
         
         connect_endpoint = f"/instance/connect/{instance_name}?qr=true"
         connect_response = await self._make_request('GET', connect_endpoint)
@@ -101,14 +113,11 @@ class EvolutionAPIService:
         
         payload = {
             'number': phone_number,
+            'text': text,
             'options': {
                 'delay': 0,
                 'presence': 'composing',
-                'linkPreview': False,
-                'checkNumber': False
-            },
-            'textMessage': {
-                'text': text
+                'linkPreview': False
             }
         }
         
