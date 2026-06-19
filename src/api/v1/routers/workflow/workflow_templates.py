@@ -98,7 +98,7 @@ async def get_template_or_404(
 # ============================================================
 
 @router.get(
-    "/",
+    "",
     response_model=APIResponse[List[TemplateListResponse]],
     summary="List templates",
     description="Get all available workflow templates with filtering"

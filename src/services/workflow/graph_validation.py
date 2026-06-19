@@ -227,7 +227,7 @@ class GraphValidationService:
             result: ValidationResult
     ) -> List[Node]:
         """Validates workflow entry points."""
-        start_nodes = [n for n in graph.nodes if n.type == "startNode"]
+        start_nodes = [n for n in graph.nodes if n.resolved_type == "startNode"]
 
         if len(start_nodes) == 0:
             result.add_error(
@@ -255,12 +255,12 @@ class GraphValidationService:
 
             for node in graph.nodes:
                 try:
-                    NodeRegistry.get_node(node.type)
+                    NodeRegistry.get_node(node.resolved_type)
                 except ValueError:
                     result.add_error(
-                        f"Unknown node type '{node.type}'",
+                        f"Unknown node type '{node.resolved_type}'",
                         node_id=node.id,
-                        suggestion=f"Check if '{node.type}' is registered"
+                        suggestion=f"Check if '{node.resolved_type}' is registered"
                     )
         except ImportError:
             # Registry not available, skip validation
@@ -278,7 +278,7 @@ class GraphValidationService:
 
             for node in graph.nodes:
                 try:
-                    node_class = NodeRegistry.get_node(node.type)
+                    node_class = NodeRegistry.get_node(node.resolved_type)
                     manifest = node_class.get_manifest()
                 except Exception:
                     continue
@@ -389,7 +389,7 @@ class GraphValidationService:
 
             for node in graph.nodes:
                 try:
-                    node_class = NodeRegistry.get_node(node.type)
+                    node_class = NodeRegistry.get_node(node.resolved_type)
                     manifest = node_class.get_manifest()
                 except Exception:
                     continue
@@ -409,7 +409,7 @@ class GraphValidationService:
                             )
 
                 # Router-specific validation
-                if node.type == "routerNode":
+                if node.resolved_type == "routerNode":
                     cls._validate_router_branches(node, out_edges, result)
 
         except ImportError:
@@ -463,7 +463,7 @@ class GraphValidationService:
                 elif neighbor in rec_stack:
                     # Check if cycle is allowed
                     node = nodes_map.get(node_id)
-                    if node and node.type not in cls.LOOP_ALLOWED_TYPES:
+                    if node and node.resolved_type not in cls.LOOP_ALLOWED_TYPES:
                         # Find cycle
                         cycle_start = cycle_path.index(neighbor)
                         cycle_nodes = cycle_path[cycle_start:]
@@ -490,7 +490,7 @@ class GraphValidationService:
     ) -> None:
         """Detects orphan nodes."""
         for node in graph.nodes:
-            if node.type == "startNode":
+            if node.resolved_type == "startNode":
                 continue
 
             # Check if node has no incoming edges
@@ -502,10 +502,10 @@ class GraphValidationService:
                 )
 
             # Check if non-terminal node has no outgoing edges
-            if node.type in cls.MUST_HAVE_OUTPUT:
+            if node.resolved_type in cls.MUST_HAVE_OUTPUT:
                 if not adjacency.get(node.id):
                     result.add_warning(
-                        f"Node '{node.id}' ({node.type}) has no outgoing connections",
+                        f"Node '{node.id}' ({node.resolved_type}) has no outgoing connections",
                         node_id=node.id,
                         suggestion="Connect this node to downstream nodes"
                     )
@@ -568,11 +568,11 @@ class GraphValidationService:
         """Computes graph statistics."""
         node_types = {}
         for node in graph.nodes:
-            node_types[node.type] = node_types.get(node.type, 0) + 1
+            node_types[node.resolved_type] = node_types.get(node.resolved_type, 0) + 1
 
         # Find max depth (longest path from start)
         max_depth = 0
-        start_nodes = [n for n in graph.nodes if n.type == "startNode"]
+        start_nodes = [n for n in graph.nodes if n.resolved_type == "startNode"]
 
         if start_nodes:
             visited = {}
@@ -593,6 +593,6 @@ class GraphValidationService:
             "edge_count": len(graph.edges),
             "node_types": node_types,
             "max_depth": max_depth,
-            "has_start_node": any(n.type == "startNode" for n in graph.nodes),
+            "has_start_node": any(n.resolved_type == "startNode" for n in graph.nodes),
             "is_connected": max_depth > 0 or len(graph.nodes) <= 1
         }

@@ -149,7 +149,8 @@ class InputResolver:
     def _build_alias_map(self, nodes: Dict[str, Any]) -> None:
         """Builds mapping from node labels to node IDs."""
         for node_id, node_def in nodes.items():
-            label = node_def.get("data", {}).get("label", node_id)
+            label = node_def.get("data", {}).get("label") or node_id
+            label = str(label)
             # Clean label: remove spaces, make it a valid identifier
             clean_label = label.replace(" ", "").replace("-", "_")
             self._alias_map[clean_label] = node_id
@@ -423,15 +424,26 @@ class DataMappingResolver:
                     if edge_merge_strategy:
                         merge_strategies[target_field] = edge_merge_strategy
             else:
-                # Default: Use sourceHandle as field path
+                # Default behavior (often triggered by "auto_map" edges)
+                # If target_handle is just 'input', we might need to map it to a specific field.
+                # React Flow often sends 'input' for the target handle if it's a generic connection.
+                # However, if target_handle is 'input' and it's an auto_map connection, we usually 
+                # want to pass the data exactly as extracted from the source_handle. 
+                # For nodes like GeminiNode that expect a 'prompt', the frontend should ideally 
+                # specify targetHandle='prompt'. If it doesn't, we map 'input' -> 'prompt' for common LLMs.
                 value = self._extract_field(source_output, source_handle)
+                
+                # Dynamic auto-mapping for generic LLM inputs
+                final_target = target_handle
+                if target_handle == "input":
+                    final_target = "prompt"
 
-                if target_handle not in connected_inputs:
-                    connected_inputs[target_handle] = []
-                connected_inputs[target_handle].append(value)
+                if final_target not in connected_inputs:
+                    connected_inputs[final_target] = []
+                connected_inputs[final_target].append(value)
 
                 if edge_merge_strategy:
-                    merge_strategies[target_handle] = edge_merge_strategy
+                    merge_strategies[final_target] = edge_merge_strategy
 
         # Merge multiple inputs to same handle
         result = {}
@@ -616,7 +628,8 @@ class WorkflowExecutor:
             workflow_id: UUID,
             resume_node_id: Optional[str] = None,
             checkpoint_data: Optional[Dict[str, Any]] = None,
-            trace_callback: Optional[Callable[[Dict[str, Any]], Awaitable[None]]] = None
+            trace_callback: Optional[Callable[[Dict[str, Any]], Awaitable[None]]] = None,
+            single_node_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Execute the workflow graph."""
         logger.info(f"Starting execution: {execution_id}")
@@ -640,6 +653,25 @@ class WorkflowExecutor:
         )
 
         self._trace_callback = trace_callback
+
+        # Single-node isolation run bypass
+        if single_node_id:
+            node_def = self.nodes.get(single_node_id)
+            if not node_def:
+                raise ValueError(f"Target node {single_node_id} not found in graph")
+            
+            output = await self._execute_node(
+                node_id=single_node_id,
+                node_def=node_def,
+                dynamic_input=initial_input,
+                loop_item=None,
+                db=db,
+                context=context
+            )
+            self._execution_order.append(single_node_id)
+            await context.transition_state(ContextState.FINALIZING)
+            await context.transition_state(ContextState.COMPLETED)
+            return self._build_result(context)
 
         try:
             # Determine entry point
@@ -774,9 +806,17 @@ class WorkflowExecutor:
         }
 
     def _find_start_node(self) -> Optional[str]:
+        # First try to find explicit startNode
         for node_id, node in self.nodes.items():
-            if node.get("type") == "startNode":
+            node_type = node.get("type") or node.get("data", {}).get("type")
+            if node_type == "startNode":
                 return node_id
+        
+        # Fallback: Find nodes with no incoming edges
+        for node_id in self.nodes.keys():
+            if self.in_degree.get(node_id, 0) == 0:
+                return node_id
+                
         return None
 
     async def _execute_node(
@@ -789,7 +829,23 @@ class WorkflowExecutor:
             context: ExecutionContext
     ) -> Dict[str, Any]:
         """Execute a single node with enhanced input resolution."""
-        node_type = node_def.get("type", "unknown")
+        # Frontend custom nodes store the actual backend node type in data.type
+        node_type = node_def.get("data", {}).get("type")
+        if not node_type or node_type == "custom":
+            node_type = node_def.get("type", "unknown")
+
+        # Check if the node is configured to use its pinned output
+        node_data = node_def.get("data", {})
+        if node_data.get("use_pinned") and "pinned_output" in node_data:
+            output = node_data.get("pinned_output")
+            
+            await self._emit_trace({
+                "node_id": node_id,
+                "status": "SUCCESS",
+                "duration_ms": 0,
+                "output": output
+            })
+            return output
 
         # Circuit breaker check
         if not await self._circuit_breaker.can_execute(node_type):
@@ -808,7 +864,19 @@ class WorkflowExecutor:
         )
 
         # STEP 2: Resolve inputs from STATIC CONFIG (with Jinja2)
-        static_config = node_def.get("data", {}).get("inputs", {})
+        node_data = node_def.get("data", {})
+        static_config = node_data.get("inputs", {}).copy()
+        
+        # Merge top-level data fields that are not structural metadata
+        ignore_keys = {"inputs", "fields", "outputs", "type", "display_name", "icon", "category", "description", "label", "outputs_schema", "version", "tags", "connection_id"}
+        for k, v in node_data.items():
+            if k not in ignore_keys and k not in static_config:
+                static_config[k] = v
+                
+        # Handle connection_id explicitly if not in inputs but in data
+        if "connection_id" in node_data and "connection_id" not in static_config:
+            static_config["connection_id"] = node_data["connection_id"]
+
         resolved_config = self.resolver.resolve(
             config=static_config,
             context_data=context.node_outputs,

@@ -63,7 +63,7 @@ def parse_cors(v: Any) -> list[str] | str:
 # ==============================================================================
 class Settings(BaseSettings):
     # --- dual mode ---
-    lite_mode: bool = False
+    lite_mode: bool = True
     data_dir: str = "/data"
     web_concurrency: int = 1
     database_url_default: str = ""  # bundled DSN injected by compose in lite mode
