@@ -32,6 +32,7 @@ import { useRouter } from "next/navigation";
 import { useWorkflowStore } from "@/lib/store/workflow";
 import { searchNode } from "@/lib/api/workflow";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { PoweredBy } from "../common/PoweredBy";
 
 interface NodeSidebarProps {
   onNodeSelect: (nodeId: string) => void;
