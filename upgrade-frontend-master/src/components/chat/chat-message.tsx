@@ -1,6 +1,6 @@
 "use client"
 import React, { useEffect, useRef } from 'react'
-import { Message } from '@/lib/lib/messages';
+import { Message } from '@/lib/libs/messages';
 import ReactMarkdown from 'react-markdown';
 import Image from 'next/image';
 import axios from '@/lib/api/axios';

@@ -28,6 +28,7 @@ import { EdgeSettingsPanel } from '@/components/workflow/edge-settings-panel';
 import { ExecutionPanel } from '@/components/workflow/execution-panel';
 import { SaveWorkflowDialog } from '@/components/workflow/save-workflow-dialog';
 import { LoadWorkflowDialog } from '@/components/workflow/load-workflow-dialog';
+import { ApiSettingsDialog } from '@/components/workflow/api-settings-dialog';
 import { CustomNode } from '@/components/workflow/custom-node';
 import { useWorkflowStore } from '@/lib/store/workflow';
 import { NODE_DEFINITIONS } from '@/lib/types/nodes/nodes';
@@ -407,6 +408,9 @@ export default function WorkflowPage() {
                         <div className="flex flex-wrap items-center justify-center gap-2 w-full md:w-auto">
                             <LoadWorkflowDialog />
                             <SaveWorkflowDialog />
+                            {isCurrentExecutionSavedId && !isCurrentExecutionSavedId.startsWith('workflow-') && (
+                                <ApiSettingsDialog workflowId={isCurrentExecutionSavedId} />
+                            )}
                             <Button
                                 onClick={runWorkflow}
                                 disabled={isRunning}
