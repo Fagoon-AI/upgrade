@@ -66,7 +66,7 @@ async def _process_due_schedules_async() -> Dict[str, Any]:
         Processing summary
     """
     db_manager = get_database_manager()
-    async with db_manager.get_worker_session() as db:
+    async with db_manager.get_session() as db:
         now = datetime.now(timezone.utc)
         cutoff = now + timedelta(seconds=SCHEDULE_LOOKAHEAD_SECONDS)
 
@@ -294,7 +294,7 @@ async def _create_schedule_from_workflow_async(
     )
 
     db_manager = get_database_manager()
-    async with db_manager.get_worker_session() as db:
+    async with db_manager.get_session() as db:
         # Load workflow
         workflow = await db.get(Workflow, UUID(workflow_id))
         if not workflow:
@@ -441,7 +441,7 @@ def disable_workflow_schedules_task(
 async def _disable_workflow_schedules_async(workflow_id: str) -> Dict[str, Any]:
     """Async implementation of schedule disabling."""
     db_manager = get_database_manager()
-    async with db_manager.get_worker_session() as db:
+    async with db_manager.get_session() as db:
         result = await db.execute(
             select(WorkflowSchedule).where(
                 and_(

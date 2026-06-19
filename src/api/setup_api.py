@@ -162,8 +162,10 @@ def setup_and_combine_all_routers() -> APIRouter:
     )
 
     # Upgrade Auth Routes
+    from src.api.v1.routers.authentication import preferences_router
     router.include_router(auth_router.router, prefix="/auth", tags=["Upgrade Authentication"])
     router.include_router(user_router.router, prefix="/users", tags=["User Management"])
+    router.include_router(preferences_router.router, prefix="/userPreferences", tags=["User Preferences"])
     # WhatsApp Deployment Routes
     router.include_router(whatsapp_router, prefix="/whatsapp-session", tags=["WhatsApp Deployment"])
     # Database Switch Routes

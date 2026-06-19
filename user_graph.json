@@ -1,0 +1,17 @@
+{
+                    "id": "geminiNode-1781793073713",
+                    "type": "custom",
+                    "data": {
+                        "label": null,
+                        "inputs": {},
+                        "type": "geminiNode",
+                        "display_name": "Google Gemini",
+                        "icon": "Sparkles",
+                        "category": "AI & Data",
+                        "description": "Powerful reasoning with automatic model fallback.",
+                        "fields": [],
+                        "outputs": [],
+                        "connection_id": "AIzaSyCdhW0wcIlBHlQaNQghtU0zHMLeR4cjaKk",
+                        "prompt": "Generate me a prompt to create a good business model"
+                    }
+}

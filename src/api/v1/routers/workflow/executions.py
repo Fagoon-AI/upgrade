@@ -44,6 +44,10 @@ class ExecutionRunRequest(BaseModel):
         default=True,
         description="Run asynchronously (recommended)"
     )
+    single_node_id: Optional[str] = Field(
+        default=None,
+        description="Optional specific node to execute in isolation (Play Button)"
+    )
 
 
 class ExecutionResumeRequest(BaseModel):
@@ -180,7 +184,8 @@ async def run_workflow(
             "execute_workflow_task",
             execution_id=str(new_execution.id),
             workflow_id=str(workflow.id),
-            initial_input=body.initial_input
+            initial_input=body.initial_input,
+            single_node_id=body.single_node_id
         )
 
         return APIResponse(
@@ -198,7 +203,8 @@ async def run_workflow(
             "execute_workflow_task",
             execution_id=str(new_execution.id),
             workflow_id=str(workflow.id),
-            initial_input=body.initial_input
+            initial_input=body.initial_input,
+            single_node_id=body.single_node_id
         )
 
         return APIResponse(
@@ -591,7 +597,7 @@ async def get_node_trace_detail(
 # ============================================================
 
 @router.get(
-    "/",
+    "",
     response_model=APIResponse[List[ExecutionResponse]],
     summary="List all executions",
     description="List executions across all workflows with filtering"

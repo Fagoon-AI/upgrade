@@ -264,13 +264,6 @@ class AgentNode(BaseNode):
         connection_id = input_data.get("connection_id")
         max_output_tokens = int(input_data.get("max_output_tokens", 4096))
 
-        if not connection_id:
-            raise NodeExecutionError(
-                message="Agent Node requires a 'connection_id'",
-                node_type=self.node_type,
-                retryable=False
-            )
-
         if not user_input:
             raise NodeExecutionError(
                 message="Agent Node requires 'user_content' (prompt)",
@@ -311,6 +304,7 @@ class AgentNode(BaseNode):
             # 5. Call LLM with usage tracking
             result, usage = await self._call_gemini_with_usage(
                 db=db,
+                context=context,
                 connection_id=connection_id,
                 model=model_name,
                 system=system,
@@ -344,7 +338,8 @@ class AgentNode(BaseNode):
     async def _call_gemini_with_usage(
             self,
             db: AsyncSession,
-            connection_id: str,
+            context: ExecutionContext,
+            connection_id: Optional[str],
             model: str,
             system: str,
             prompt: str,
@@ -364,31 +359,40 @@ class AgentNode(BaseNode):
                 retryable=False
             )
 
-        # 1. Fetch connection credentials
-        stmt = select(Connection).where(Connection.id == connection_id)
-        result = await db.execute(stmt)
-        conn = result.scalars().first()
+        api_key = None
+        if connection_id:
+            import uuid
+            try:
+                # 1. Try to fetch connection credentials
+                uid = uuid.UUID(connection_id)
+                stmt = select(Connection).where(Connection.id == str(uid))
+                result = await db.execute(stmt)
+                conn = result.scalars().first()
 
-        if not conn:
-            raise ConnectionError(
-                message=f"Connection {connection_id} not found",
-                node_type=self.node_type,
-                provider="google"
-            )
+                if conn:
+                    try:
+                        creds = json.loads(crypto.decrypt(conn.encrypted_credentials))
+                        api_key = creds.get("api_key")
+                    except Exception as e:
+                        logger.warning(f"Failed to decrypt connection credentials: {e}")
+            except ValueError:
+                # If connection_id is not a valid UUID, treat it as a raw API key
+                api_key = connection_id
 
-        try:
-            creds = json.loads(crypto.decrypt(conn.encrypted_credentials))
-            api_key = creds.get("api_key")
-        except Exception as e:
-            raise ConnectionError(
-                message="Failed to decrypt connection credentials",
-                node_type=self.node_type,
-                provider="google"
-            )
+        if not api_key:
+            from src.services.api_key_resolver import resolve_api_key
+            try:
+                api_key = await resolve_api_key(
+                    user_id=context.user_id,
+                    provider="gemini",
+                    feature="workflow"
+                )
+            except Exception as e:
+                logger.error(f"Failed to resolve API key for provider 'gemini': {e}")
 
         if not api_key:
             raise ConnectionError(
-                message="Connection missing API key",
+                message="Failed to resolve Agent API key from connection, custom model config, or system-wide .env setting.",
                 node_type=self.node_type,
                 provider="google"
             )

@@ -351,7 +351,7 @@ class PerplexityNode(BaseNode):
     ) -> Dict[str, Any]:
         """Executes Perplexity search with cost tracking."""
         # Get API key
-        api_key = await self._get_api_key(db, input_data)
+        api_key = await self._get_api_key(db, input_data, context)
 
         if not api_key:
             return {"status": "error", "error": "API key is required"}
@@ -426,22 +426,45 @@ class PerplexityNode(BaseNode):
     async def _get_api_key(
             self,
             db: AsyncSession,
-            input_data: Dict[str, Any]
+            input_data: Dict[str, Any],
+            context: ExecutionContext
     ) -> Optional[str]:
-        """Gets API key from connection or direct input."""
+        """Gets API key from connection, direct input, or resolved fallback."""
         connection_id = input_data.get("connection_id")
+        api_key = None
 
         if connection_id:
-            result = await db.execute(
-                select(Connection).where(Connection.id == connection_id)
-            )
-            conn = result.scalars().first()
+            import uuid
+            try:
+                # Try to parse as UUID to fetch from Connection table
+                uid = uuid.UUID(connection_id)
+                result = await db.execute(
+                    select(Connection).where(Connection.id == str(uid))
+                )
+                conn = result.scalars().first()
 
-            if conn:
-                try:
-                    creds = json.loads(crypto.decrypt(conn.encrypted_credentials))
-                    return creds.get("api_key")
-                except Exception as e:
-                    logger.error(f"Failed to decrypt connection: {e}")
+                if conn:
+                    try:
+                        creds = json.loads(crypto.decrypt(conn.encrypted_credentials))
+                        api_key = creds.get("api_key")
+                    except Exception as e:
+                        logger.error(f"Failed to decrypt connection: {e}")
+            except ValueError:
+                # If connection_id is not a valid UUID, treat it as a raw API key
+                api_key = connection_id
 
-        return input_data.get("api_key")
+        if not api_key:
+            api_key = input_data.get("api_key")
+
+        if not api_key:
+            from src.services.api_key_resolver import resolve_api_key
+            try:
+                api_key = await resolve_api_key(
+                    user_id=context.user_id,
+                    provider="perplexity",
+                    feature="workflow"
+                )
+            except Exception as e:
+                logger.error(f"Failed to resolve API key for provider 'perplexity': {e}")
+
+        return api_key
