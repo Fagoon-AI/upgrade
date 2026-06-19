@@ -3,6 +3,7 @@
 import React from "react";
 import { Terminal, Cpu, ArrowRight, SendHorizontal, Sparkles } from "lucide-react";
 import ModelSelector from "@/components/chat/modalSelector";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface LogEntry {
   text: string;
@@ -40,7 +41,7 @@ export function TerminalInput({
 
   return (
     <div className={`flex-1 flex flex-col rounded-2xl bg-white/80 dark:bg-[#0f0f13]/90 border transition-all duration-500 shadow-2xl overflow-hidden relative backdrop-blur-xl
-      ${isFocused ? "border-indigo-500/50 ring-1 ring-indigo-500/20" : "border-slate-200 dark:border-gray-800/80"}
+      ${isFocused ? "border-[#FB923C]/50 ring-1 ring-[#FB923C]/20" : "border-slate-200 dark:border-gray-800/80"}
     `}>
       {/* Mac-style window controls */}
       <div className="bg-slate-50/50 dark:bg-[#18181c]/50 px-5 py-4 flex items-center justify-between border-b border-slate-200 dark:border-gray-800/80 shrink-0">
@@ -48,57 +49,55 @@ export function TerminalInput({
           <div className="w-3 h-3 rounded-full bg-red-500/80 hover:bg-red-500 transition-colors cursor-pointer" />
           <div className="w-3 h-3 rounded-full bg-yellow-500/80 hover:bg-yellow-500 transition-colors cursor-pointer" />
           <div className="w-3 h-3 rounded-full bg-green-500/80 hover:bg-green-500 transition-colors cursor-pointer" />
-          <span className="ml-4 text-xs font-medium text-slate-400 dark:text-gray-500 uppercase tracking-widest">Fagoon Terminal</span>
+          <span className="ml-4 text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-widest font-mono">Fagoon Terminal</span>
         </div>
         {isProcessing && (
-          <div className="flex items-center gap-2 text-[10px] text-indigo-500 font-bold animate-pulse">
+          <div className="flex items-center gap-2 text-[10px] text-[#FB923C] font-bold animate-pulse font-mono">
             <Sparkles className="w-3 h-3" />
             COMPILING...
           </div>
         )}
       </div>
 
-      {/* Logs Area */}
-      <div className="flex-1 p-6 overflow-y-auto space-y-3 text-[13px] leading-relaxed max-h-[400px] xl:max-h-none custom-scrollbar">
-        {logs.map((log, i) => {
-          let colorClass = "text-slate-600 dark:text-gray-400";
-          let bgClass = "";
-          
-          if (log.type === "command") {
-            colorClass = "text-indigo-600 dark:text-indigo-300 font-bold mt-6 mb-2";
-            bgClass = "bg-indigo-50 dark:bg-indigo-500/5 px-3 py-1 rounded-md w-fit";
-          }
-          if (log.type === "success") colorClass = "text-emerald-600 dark:text-emerald-400 font-medium";
-          if (log.type === "warning") colorClass = "text-amber-600 dark:text-amber-400";
-          if (log.type === "error") colorClass = "text-rose-600 dark:text-rose-400 font-medium bg-rose-50 dark:bg-rose-500/5 px-2 py-1 rounded";
+      {/* Logs Area with Styled Custom ScrollArea & Responsive Sizing */}
+      <div className="flex-1 overflow-hidden bg-transparent relative min-h-[250px] flex flex-col">
+        <ScrollArea className="flex-1 w-full h-[380px] lg:h-[calc(100vh-270px)]">
+          <div className="p-6 space-y-3 text-[13px] leading-relaxed">
+            {logs.map((log, i) => {
+              let colorClass = "text-slate-600 dark:text-gray-400";
+              let bgClass = "";
+              
+              if (log.type === "command") {
+                colorClass = "text-[#FB923C] dark:text-[#FB923C] font-bold mt-6 mb-2";
+                bgClass = "bg-orange-50/50 dark:bg-orange-500/5 px-3 py-1 rounded-md w-fit";
+              }
+              if (log.type === "success") colorClass = "text-emerald-600 dark:text-emerald-400 font-medium";
+              if (log.type === "warning") colorClass = "text-amber-600 dark:text-amber-400";
+              if (log.type === "error") colorClass = "text-rose-600 dark:text-rose-400 font-medium bg-rose-50 dark:bg-rose-500/5 px-2 py-1 rounded";
 
-          return (
-            <div key={i} className={`flex items-start gap-4 transition-all duration-300 animate-in fade-in slide-in-from-left-2 ${bgClass}`}>
-              <span className="text-[10px] text-slate-300 dark:text-gray-700 select-none font-mono mt-0.5" suppressHydrationWarning>
-                [{new Date().toLocaleTimeString([], { hour12: false })}]
-              </span>
-              <span className={`break-all whitespace-pre-wrap font-mono ${colorClass}`}>{log.text}</span>
-            </div>
-          );
-        })}
-        <div ref={logEndRef} />
+              return (
+                <div key={i} className={`flex items-start gap-4 transition-all duration-300 animate-in fade-in slide-in-from-left-2 ${bgClass}`}>
+                  <span className="text-[10px] text-slate-300 dark:text-gray-700 select-none font-mono mt-0.5" suppressHydrationWarning>
+                    [{new Date().toLocaleTimeString([], { hour12: false })}]
+                  </span>
+                  <span className={`break-all whitespace-pre-wrap font-mono ${colorClass}`}>{log.text}</span>
+                </div>
+              );
+            })}
+            <div ref={logEndRef} />
+          </div>
+        </ScrollArea>
       </div>
 
       {/* Input Area */}
       <div className="p-4 bg-white dark:bg-[#121218] border-t border-slate-100 dark:border-gray-800/80 shrink-0 relative">
-        {noModelSelected && (
-          <div className="absolute -top-14 right-6 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium flex items-center gap-3 shadow-xl animate-bounce z-20 border border-white/20">
-            Please select a model before vibe coding
-            <div className="w-2 h-2 bg-white rounded-full animate-ping" />
-          </div>
-        )}
         
         <div className={`flex items-center gap-4 px-4 py-1 rounded-2xl transition-all duration-300 border-2
           ${isFocused 
-            ? "bg-slate-50/50 dark:bg-slate-400/5 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.15)]" 
+            ? "bg-slate-50/50 dark:bg-slate-400/5 border-[#FB923C]/50 shadow-[0_0_15px_rgba(251,146,60,0.15)]" 
             : "bg-white dark:bg-black/20 border-slate-200 dark:border-gray-800"}
         `}>
-          <div className={`p-2 rounded-xl transition-colors ${isFocused ? "text-indigo-500" : "text-slate-400"}`}>
+          <div className={`p-2 rounded-xl transition-colors ${isFocused ? "text-[#FB923C]" : "text-slate-400"}`}>
             <Terminal className="w-5 h-5 shrink-0" />
           </div>
           
@@ -109,12 +108,10 @@ export function TerminalInput({
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               onChange={(e) => setCommand(e.target.value)}
-              disabled={isProcessing || disabled || noModelSelected}
+              disabled={isProcessing || disabled}
               placeholder={
                 disabled
                   ? "Configure a model in settings..."
-                  : noModelSelected
-                  ? "Select a model to unlock terminal..."
                   : isProcessing
                   ? "Compilation in progress..."
                   : "How can I help you build today?"
@@ -124,10 +121,10 @@ export function TerminalInput({
             />
             
             <div className="flex items-center gap-2 shrink-0">
-              {command.trim() && !isProcessing && !noModelSelected && (
+              {command.trim() && !isProcessing && (
                 <button
                   type="submit"
-                  className="p-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 transition-all active:scale-95 animate-in fade-in zoom-in-75 duration-300"
+                  className="p-2.5 rounded-xl bg-[#FB923C] hover:bg-[#FB923C]/90 text-white shadow-lg shadow-[#FB923C]/20 transition-all active:scale-95 animate-in fade-in zoom-in-75 duration-300"
                 >
                   <SendHorizontal className="w-4 h-4" />
                 </button>
@@ -135,13 +132,27 @@ export function TerminalInput({
               
               <div className={`h-6 w-[1px] bg-slate-200 dark:bg-gray-800 mx-1 ${noModelSelected ? "opacity-100" : "opacity-0"}`} />
               
-              <ModelSelector
-                models={models}
-                selectedModel={selectedModel}
-                onSelect={onSelectModel}
-                showCheckmark={!noModelSelected}
-                triggerIcon={<Cpu className={`w-5 h-5 transition-colors ${noModelSelected ? "text-indigo-500 animate-pulse" : "text-slate-400 hover:text-indigo-500"}`} />}
-              />
+              {(() => {
+                const selectedModelObj = models?.find((m) => m.id === selectedModel);
+                const triggerIcon = selectedModelObj ? (
+                  <div className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center bg-transparent border border-slate-200 dark:border-gray-800 hover:scale-105 active:scale-95 transition-all">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={selectedModelObj.icon} alt={selectedModelObj.name} className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <Cpu className={`w-5 h-5 transition-colors ${noModelSelected ? "text-[#FB923C] animate-pulse" : "text-slate-400 hover:text-[#FB923C]"}`} />
+                );
+
+                return (
+                  <ModelSelector
+                    models={models}
+                    selectedModel={selectedModel}
+                    onSelect={onSelectModel}
+                    showCheckmark={!noModelSelected}
+                    triggerIcon={triggerIcon}
+                  />
+                );
+              })()}
             </div>
           </form>
         </div>

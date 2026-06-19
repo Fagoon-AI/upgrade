@@ -81,6 +81,8 @@ export const streamUpgradeChat = async (payload: {
   web_search_enabled?: boolean;
   generate_audio?: boolean;
   selected_model?: string;
+  file_data?: string | null;
+  file_name?: string | null;
 }, signal?: AbortSignal) => {
   let token = "";
   if (typeof window !== "undefined") {
