@@ -171,6 +171,10 @@ def setup_and_combine_all_routers() -> APIRouter:
     router.include_router(whatsapp_router, prefix="/whatsapp-session", tags=["WhatsApp Deployment"])
     # Database Switch Routes
     router.include_router(db_switch.router)
+    
+    # Vibe Coder Routes (Option B: UI Prototyper)
+    from src.api.v1.routers.vibe_coder import execution_routes as vibe_execution_routes
+    router.include_router(vibe_execution_routes.router)
 
     # -- Workflow Engine Routes --
     router.include_router(workflows.router, prefix="/workflows", tags=["Workflows"])

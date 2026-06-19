@@ -82,6 +82,18 @@ class ChatOrchestrator:
         temperature = model_settings.get("temperature", temperature)
         top_p = model_settings.get("top_p", top_p)
         max_tokens = model_settings.get("max_tokens", max_tokens)
+        
+        # Safeguard max_tokens to prevent INT32 overflow and invalid ranges
+        if max_tokens is not None:
+            try:
+                max_tokens = int(max_tokens)
+                if max_tokens > 32768:
+                    max_tokens = 32768
+                elif max_tokens < 1:
+                    max_tokens = None
+            except (ValueError, TypeError):
+                max_tokens = None
+                
         api_key = model_settings.get("api_key")
 
         if not provider and model:
@@ -128,7 +140,9 @@ class ChatOrchestrator:
         message: str,
         llm_config: Optional[BaseLLMConfig] = None,
         http_client = None,
-        crawl_service = None
+        crawl_service = None,
+        file_data: Optional[str] = None,
+        file_name: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
         # 1. Get Agent
         agent = await self.agent_manager.get_agent(agent_id)
@@ -139,10 +153,57 @@ class ChatOrchestrator:
         # 2. Build Text Generation Service
         llm_service, model_name = await self._build_llm_service_for_agent(agent_id, agent, user_id)
         collection_name = f"agent_{agent_id}"
+        
+        # 2.5 Process File Injection (Direct Injection)
+        processed_message = message
+        vision_messages_extension = None
+        if file_data:
+            # Simple heuristic: if it's base64 starting with data:image or just an image file
+            is_image = False
+            if file_data.startswith("data:image"):
+                is_image = True
+            elif file_name and any(file_name.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp", ".gif"]):
+                is_image = True
+                
+            if is_image:
+                # Store the image for the LLM to process visually later in the pipeline
+                vision_messages_extension = {
+                    "type": "image_url",
+                    "image_url": {"url": file_data if file_data.startswith("data:") else f"data:image/jpeg;base64,{file_data}"}
+                }
+                processed_message = f"{message}\n[User attached an image: {file_name or 'image'}]"
+            else:
+                # Treat as text extraction
+                import base64
+                try:
+                    # Strip data URI prefix if present
+                    b64_content = file_data.split(",")[-1] if "," in file_data else file_data
+                    decoded_bytes = base64.b64decode(b64_content)
+                    
+                    extracted_text = ""
+                    # Use DocumentProcessor for PDFs
+                    if file_name and file_name.lower().endswith('.pdf'):
+                        from src.services.document_processor import DocumentProcessor
+                        doc_processor = DocumentProcessor()
+                        # Need to await this
+                        processed_doc = await doc_processor.process_single_file(file_name, decoded_bytes)
+                        if processed_doc.status == "success" and processed_doc.data:
+                            extracted_text = "\n\n".join([page.content for page in processed_doc.data])
+                        else:
+                            logger.error(f"Failed to process PDF {file_name}: {processed_doc.error}")
+                            extracted_text = "[Failed to extract PDF text]"
+                    else:
+                        # Fallback for plain text, csv, etc.
+                        extracted_text = decoded_bytes.decode('utf-8', errors='ignore')
+                        
+                    processed_message = f"{message}\n\n--- Attached File ({file_name or 'document'}) ---\n{extracted_text}\n--- End of File ---"
+                except Exception as e:
+                    logger.error(f"Failed to decode uploaded file {file_name}: {e}")
+                    processed_message = f"{message}\n[User attached a file, but it could not be read]"
 
         # 3. Analyze Query Intent
         db_history = await self.chat_service.get_history(history_id)
-        temp_history = list(db_history) + [{"role": "user", "content": message}]
+        temp_history = list(db_history) + [{"role": "user", "content": processed_message}]
 
         agent_tools = agent.get("tools", []) if isinstance(agent, dict) else getattr(agent, "tools", [])
         web_search_enabled = "web_search" in agent_tools or "webSearch" in agent_tools or "websearch" in agent_tools
@@ -152,7 +213,7 @@ class ChatOrchestrator:
         logger.info(f"Query Analyzer decided to route to: {selected_tool}")
 
         # 4. Save User Message
-        await self.chat_service.add_message(history_id, "user", message)
+        await self.chat_service.add_message(history_id, "user", processed_message)
         db_history = await self.chat_service.get_history(history_id)
 
         base_instructions = agent.instructions if hasattr(agent, "instructions") else agent.get("instructions", "You are a helpful assistant.")
@@ -253,6 +314,14 @@ class ChatOrchestrator:
             for msg in db_history:
                 messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
 
+            if vision_messages_extension:
+                # The last message is the current user message, convert it to a list of blocks
+                last_msg = messages[-1]["content"]
+                messages[-1]["content"] = [
+                    {"type": "text", "text": last_msg},
+                    vision_messages_extension
+                ]
+
             try:
                 async for token in generate_general_response(messages=messages, llm_config=llm_service.config):
                     full_response += token
@@ -301,6 +370,13 @@ class ChatOrchestrator:
             messages = [{"role": "system", "content": system_prompt}]
             for msg in db_history:
                 messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+
+            if vision_messages_extension:
+                last_msg = messages[-1]["content"]
+                messages[-1]["content"] = [
+                    {"type": "text", "text": last_msg},
+                    vision_messages_extension
+                ]
 
             # Stream from LLM Task Layer for RAG
             try:

@@ -220,3 +220,6 @@ class WhatsAppSession(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     user = relationship("User", back_populates="whatsapp_sessions")
+
+# Import vibe coder models so Alembic can find them via Base metadata
+from src.models.sql.vibe_coder_models import VibeCodeExecution, UserLLMConfigDB
