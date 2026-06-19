@@ -13,7 +13,7 @@ Secrets are auto-generated; the database URL and config live in `~/.fagoon`.
 
 ## Contributors (clone + run)
 ```bash
-git clone https://github.com/you/fagoon
+git clone https://github.com/Fagoon-AI/upgrade.git
 cp .env.example .env      # fill minimal values
 docker compose -f deploy/docker-compose.full.yml up --build
 ```
