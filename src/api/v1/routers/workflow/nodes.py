@@ -72,7 +72,7 @@ def discover_node_manifests(force_refresh: bool = False) -> List[Dict[str, Any]]
 
     try:
         # Import nodes package
-        import app.services.workflow_engine.nodes as nodes_package
+        import src.services.workflow_engine.nodes as nodes_package
 
         package_path = nodes_package.__path__
         prefix = nodes_package.__name__ + "."

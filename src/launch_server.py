@@ -103,8 +103,10 @@ async def lifespan(app: FastAPI):
 
     # Initialize PostgresManager
     if settings.DATABASE_URL:
+        from src.core.database import set_manager
         postgres_manager_instance_local = PostgresManager(settings.DATABASE_URL)
         app.state.postgres_manager = postgres_manager_instance_local
+        set_manager(postgres_manager_instance_local)
         logger.info("PostgresManager initialized and connected via lifespan.")
     else:
         logger.critical("DATABASE_URL is not set! PostgreSQL is required for this application.")
