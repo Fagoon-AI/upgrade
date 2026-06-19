@@ -274,13 +274,6 @@ class GeminiNode(BaseNode):
         json_mode = input_data.get("json_mode", False)
 
         # Validate inputs
-        if not connection_id:
-            raise NodeExecutionError(
-                message="Gemini Node requires a 'connection_id'",
-                node_type=self.node_type,
-                retryable=False
-            )
-
         if not user_prompt:
             raise NodeExecutionError(
                 message="Gemini Node requires a 'prompt'",
@@ -289,7 +282,7 @@ class GeminiNode(BaseNode):
             )
 
         # 2. Fetch credentials
-        api_key = await self._get_api_key(db, connection_id)
+        api_key = await self._get_api_key(db, connection_id, context)
 
         # 3. Build model chain
         models_to_try = self._build_model_chain(preferred_model, enable_fallback)
@@ -362,34 +355,46 @@ class GeminiNode(BaseNode):
             }
         )
 
-    async def _get_api_key(self, db: AsyncSession, connection_id: str) -> str:
-        """Fetches and decrypts API key from connection."""
-        result = await db.execute(
-            select(Connection).where(Connection.id == connection_id)
-        )
-        connection = result.scalars().first()
+    async def _get_api_key(self, db: AsyncSession, connection_id: Optional[str], context: ExecutionContext) -> str:
+        """Fetches and decrypts API key from connection or falls back to resolved user config / system-wide setting."""
+        api_key = None
 
-        if not connection:
-            raise ConnectionError(
-                message=f"Connection {connection_id} not found",
-                node_type=self.node_type,
-                provider="google"
-            )
+        if connection_id:
+            import uuid
+            try:
+                # Try to parse as UUID to fetch from Connection table
+                uid = uuid.UUID(connection_id)
+                result = await db.execute(
+                    select(Connection).where(Connection.id == str(uid))
+                )
+                connection = result.scalars().first()
 
-        try:
-            decrypted_json = crypto.decrypt(connection.encrypted_credentials)
-            creds = json.loads(decrypted_json)
-            api_key = creds.get("api_key")
-        except Exception as e:
-            raise ConnectionError(
-                message="Failed to decrypt connection credentials",
-                node_type=self.node_type,
-                provider="google"
-            )
+                if connection:
+                    try:
+                        decrypted_json = crypto.decrypt(connection.encrypted_credentials)
+                        creds = json.loads(decrypted_json)
+                        api_key = creds.get("api_key")
+                    except Exception as e:
+                        logger.warning(f"Failed to decrypt connection credentials: {e}")
+            except ValueError:
+                # If connection_id is not a valid UUID, treat it as a raw API key
+                api_key = connection_id
+
+        # Fallback to resolved key if no connection or decryption failed
+        if not api_key:
+            from src.services.api_key_resolver import resolve_api_key
+            try:
+                api_key = await resolve_api_key(
+                    user_id=context.user_id,
+                    provider="gemini",
+                    feature="workflow"
+                )
+            except Exception as e:
+                logger.error(f"Failed to resolve API key for provider 'gemini': {e}")
 
         if not api_key:
             raise ConnectionError(
-                message="Connection missing API key",
+                message="Failed to resolve Gemini API key from connection, custom model config, or system-wide .env setting.",
                 node_type=self.node_type,
                 provider="google"
             )

@@ -157,7 +157,8 @@ async def execute_workflow_lite(
         execution_id: str,
         workflow_id: str,
         initial_input: dict,
-        resume_node_id: str | None = None
+        resume_node_id: str | None = None,
+        single_node_id: str | None = None
 ) -> dict:
     log.info("Lite execute_workflow_lite started for execution_id: %s", execution_id)
     try:
@@ -166,6 +167,7 @@ async def execute_workflow_lite(
             workflow_id=workflow_id,
             initial_input=initial_input,
             resume_node_id=resume_node_id,
+            single_node_id=single_node_id,
         )
     except Exception as e:
         log.error("Execution failed in Lite Mode: %s", e, exc_info=True)

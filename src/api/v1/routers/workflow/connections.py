@@ -221,7 +221,7 @@ async def get_connection_or_404(
 # ============================================================
 
 @router.post(
-    "/",
+    "",
     response_model=APIResponse[ConnectionResponse],
     status_code=status.HTTP_201_CREATED,
     summary="Create connection",
@@ -283,7 +283,7 @@ async def create_connection(
 
 
 @router.get(
-    "/",
+    "",
     response_model=APIResponse[List[ConnectionResponse]],
     summary="List connections",
     description="List all connections for current user"

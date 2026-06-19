@@ -295,13 +295,6 @@ class OpenAINode(BaseNode):
         response_schema = input_data.get("response_schema")
 
         # Validate required inputs
-        if not connection_id:
-            raise NodeExecutionError(
-                message="OpenAI Node requires a 'connection_id'",
-                node_type=self.node_type,
-                retryable=False
-            )
-
         if not prompt:
             raise NodeExecutionError(
                 message="OpenAI Node requires a 'prompt'",
@@ -324,7 +317,7 @@ class OpenAINode(BaseNode):
         effective_max_tokens = min(max_tokens, model_config.max_output_tokens)
 
         # 2. Fetch API key
-        api_key = await self._get_api_key(db, connection_id)
+        api_key = await self._get_api_key(db, connection_id, context)
 
         # 3. Build messages
         messages = self._build_messages(prompt, system_prompt)
@@ -357,34 +350,45 @@ class OpenAINode(BaseNode):
             "usage": usage.to_dict()
         }
 
-    async def _get_api_key(self, db: AsyncSession, connection_id: str) -> str:
-        """Fetches and decrypts API key from connection."""
-        result = await db.execute(
-            select(Connection).where(Connection.id == connection_id)
-        )
-        connection = result.scalars().first()
+    async def _get_api_key(self, db: AsyncSession, connection_id: Optional[str], context: ExecutionContext) -> str:
+        """Fetches API key from connection or falls back to resolved user config / system-wide setting."""
+        api_key = None
 
-        if not connection:
-            raise ConnectionError(
-                message=f"Connection {connection_id} not found",
-                node_type=self.node_type,
-                provider="openai"
-            )
+        if connection_id:
+            import uuid
+            try:
+                # Try to parse as UUID to fetch from Connection table
+                uid = uuid.UUID(connection_id)
+                result = await db.execute(
+                    select(Connection).where(Connection.id == str(uid))
+                )
+                connection = result.scalars().first()
+                if connection:
+                    try:
+                        decrypted_json = crypto.decrypt(connection.encrypted_credentials)
+                        creds = json.loads(decrypted_json)
+                        api_key = creds.get("api_key")
+                    except Exception as e:
+                        logger.warning(f"Failed to decrypt connection credentials: {e}")
+            except ValueError:
+                # If connection_id is not a valid UUID, treat it as a raw API key
+                api_key = connection_id
 
-        try:
-            decrypted_json = crypto.decrypt(connection.encrypted_credentials)
-            creds = json.loads(decrypted_json)
-            api_key = creds.get("api_key")
-        except Exception as e:
-            raise ConnectionError(
-                message="Failed to decrypt connection credentials",
-                node_type=self.node_type,
-                provider="openai"
-            )
+        # If no connection_id was provided or decryption/lookup failed, use api_key_resolver
+        if not api_key:
+            from src.services.api_key_resolver import resolve_api_key
+            try:
+                api_key = await resolve_api_key(
+                    user_id=context.user_id,
+                    provider="openai",
+                    feature="workflow"
+                )
+            except Exception as e:
+                logger.error(f"Failed to resolve API key for provider 'openai': {e}")
 
         if not api_key:
             raise ConnectionError(
-                message="Connection missing API key",
+                message="Failed to resolve OpenAI API key from connection, custom model config, or system-wide .env setting.",
                 node_type=self.node_type,
                 provider="openai"
             )

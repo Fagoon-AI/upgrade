@@ -1,3 +1,4 @@
+# ... (Keep all the imports and token extractors at the top the same) ...
 from typing import Optional, Annotated, Literal
 from uuid import UUID
 from datetime import datetime, timezone
@@ -32,40 +33,25 @@ class TokenType:
 class TokenExtractor:
     """
     Extracts JWT tokens from requests.
-
-    Checks in order:
-    1. Authorization header (Bearer token)
-    2. access_token cookie
-
-    Security:
-    - Validates Bearer prefix
-    - Handles malformed tokens gracefully
     """
 
     async def __call__(self, request: Request) -> Optional[str]:
         """
         Extract token from request.
-
-        Returns:
-            Token string if found, None otherwise
         """
         token = None
 
-        # 1. Check Authorization header first (preferred for API clients)
         auth_header = request.headers.get("Authorization")
         if auth_header:
             parts = auth_header.split()
             if len(parts) == 2 and parts[0].lower() == "bearer":
                 token = parts[1]
             elif len(parts) == 1:
-                # Token without Bearer prefix (legacy support)
                 token = parts[0]
 
-        # 2. Fallback to cookie (for browser clients)
         if not token:
-            cookie_token = request.cookies.get("access_token")
+            cookie_token = request.cookies.get("access_token") or request.cookies.get("jwt")
             if cookie_token:
-                # Cookie might have "Bearer " prefix
                 if cookie_token.startswith("Bearer "):
                     token = cookie_token[7:]
                 else:
@@ -82,133 +68,8 @@ class RefreshTokenExtractor:
         return request.cookies.get("refresh_token")
 
 
-# Create singleton extractors
 extract_token = TokenExtractor()
 extract_refresh_token = RefreshTokenExtractor()
-
-
-# ============================================================
-# TOKEN VALIDATION
-# ============================================================
-
-class TokenPayload:
-    """Validated token payload."""
-
-    def __init__(
-            self,
-            user_id: UUID,
-            token_type: str,
-            exp: datetime,
-            iat: Optional[datetime] = None
-    ):
-        self.user_id = user_id
-        self.token_type = token_type
-        self.exp = exp
-        self.iat = iat
-
-    @property
-    def is_expired(self) -> bool:
-        """Check if token is expired."""
-        return datetime.now(timezone.utc) > self.exp
-
-
-def validate_token(
-        token: str,
-        expected_type: str = TokenType.ACCESS
-) -> TokenPayload:
-    """
-    Validates a JWT token and extracts payload.
-
-    Security checks:
-    1. Signature verification
-    2. Expiration check
-    3. Token type validation (CRITICAL - SEC-004 fix)
-    4. Required claims presence
-
-    Args:
-        token: JWT token string
-        expected_type: Expected token type ("access" or "refresh")
-
-    Returns:
-        TokenPayload with validated claims
-
-    Raises:
-        HTTPException: On validation failure
-    """
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    expired_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Token has expired",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    invalid_type_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail=f"Invalid token type. Expected {expected_type} token.",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    try:
-        # Decode and verify signature
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY.get_secret_value(),
-            algorithms=[ALGORITHM]
-        )
-
-        # Extract required claims
-        user_id_str: str = payload.get("sub")
-        token_type: str = payload.get("type", TokenType.ACCESS)
-        exp_timestamp = payload.get("exp")
-        iat_timestamp = payload.get("iat")
-
-        # Validate required claims
-        if user_id_str is None:
-            logger.warning("Token missing 'sub' claim")
-            raise credentials_exception
-
-        # CRITICAL: Validate token type (SEC-004 fix)
-        # This prevents refresh tokens from being used as access tokens
-        if token_type != expected_type:
-            logger.warning(
-                f"Token type mismatch: got '{token_type}', expected '{expected_type}'"
-            )
-            raise invalid_type_exception
-
-        # Parse user ID
-        try:
-            user_uuid = UUID(user_id_str)
-        except ValueError:
-            logger.warning(f"Invalid user ID format in token: {user_id_str}")
-            raise credentials_exception
-
-        # Parse expiration
-        exp = datetime.fromtimestamp(exp_timestamp, tz=timezone.utc) if exp_timestamp else None
-        iat = datetime.fromtimestamp(iat_timestamp, tz=timezone.utc) if iat_timestamp else None
-
-        if exp is None:
-            logger.warning("Token missing expiration claim")
-            raise credentials_exception
-
-        return TokenPayload(
-            user_id=user_uuid,
-            token_type=token_type,
-            exp=exp,
-            iat=iat
-        )
-
-    except ExpiredSignatureError:
-        logger.debug("Token expired")
-        raise expired_exception
-
-    except JWTError as e:
-        logger.warning(f"JWT validation error: {e}")
-        raise credentials_exception
 
 
 # ============================================================
@@ -216,21 +77,12 @@ def validate_token(
 # ============================================================
 
 async def get_current_user(
-        token: Annotated[Optional[str], Depends(extract_token)],
+        request: Request,
         db: Annotated[AsyncSession, Depends(get_db)]
 ) -> User:
     """
     FastAPI dependency for getting the current authenticated user.
-
-    Security:
-    - Validates access token (not refresh token)
-    - Checks user exists and is active
-    - Returns full user object
-
-    Usage:
-        @app.get("/protected")
-        async def protected(user: User = Depends(get_current_user)):
-            return {"user_id": user.id}
+    Leverages AuthMiddleware's validation and syncs to the workflow `user` table.
     """
     unauthorized_error = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -238,29 +90,37 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    # Check token presence
-    if not token:
+    current_app_user = getattr(request.state, "user", None)
+    if not current_app_user:
         raise unauthorized_error
 
-    # Validate token (type must be "access")
+    import uuid
     try:
-        payload = validate_token(token, expected_type=TokenType.ACCESS)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected token validation error: {e}")
+        uid = uuid.UUID(current_app_user.id)
+    except Exception:
         raise unauthorized_error
 
-    # Lookup user
-    query = select(User).where(User.id == payload.user_id)
+    query = select(User).where(User.id == uid)
     result = await db.execute(query)
     user = result.scalars().first()
 
-    if user is None:
-        logger.warning(f"User not found for token: {payload.user_id}")
-        raise unauthorized_error
+    if not user:
+        user = User(
+            id=uid,
+            email=current_app_user.email,
+            hashed_password="[synced_from_users_table]",
+            full_name=current_app_user.name,
+            is_active=current_app_user.active
+        )
+        db.add(user)
+        try:
+            await db.commit()
+            await db.refresh(user)
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"Failed to sync user to workflow user table: {e}")
+            raise HTTPException(status_code=500, detail="User sync failed")
 
-    # Check user is active
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -271,40 +131,43 @@ async def get_current_user(
 
 
 async def get_current_user_optional(
-        token: Annotated[Optional[str], Depends(extract_token)],
+        request: Request,
         db: Annotated[AsyncSession, Depends(get_db)]
 ) -> Optional[User]:
     """
     Optional user dependency - returns None if not authenticated.
-
-    Useful for endpoints that work differently for authenticated users
-    but don't require authentication.
-
-    Usage:
-        @app.get("/items")
-        async def get_items(user: Optional[User] = Depends(get_current_user_optional)):
-            if user:
-                return get_user_items(user.id)
-            return get_public_items()
     """
-    if not token:
+    current_app_user = getattr(request.state, "user", None)
+    if not current_app_user:
         return None
 
+    import uuid
     try:
-        payload = validate_token(token, expected_type=TokenType.ACCESS)
-    except HTTPException:
-        return None
+        uid = uuid.UUID(current_app_user.id)
     except Exception:
         return None
 
-    query = select(User).where(User.id == payload.user_id)
+    query = select(User).where(User.id == uid)
     result = await db.execute(query)
     user = result.scalars().first()
 
-    if user and user.is_active:
-        return user
+    if not user:
+        user = User(
+            id=uid,
+            email=current_app_user.email,
+            hashed_password="[synced_from_users_table]",
+            full_name=current_app_user.name,
+            is_active=current_app_user.active
+        )
+        db.add(user)
+        try:
+            await db.commit()
+            await db.refresh(user)
+        except Exception as e:
+            await db.rollback()
+            return None
 
-    return None
+    return user
 
 
 async def get_current_superuser(
