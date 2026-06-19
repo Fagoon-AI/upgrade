@@ -72,9 +72,6 @@ class OpenAILLM(BaseLLM):
             if value is not None:
                 params[key] = value
 
-        if self.config.max_tokens:
-            params["max_tokens"] = self.config.max_tokens
-
         if response_format:
             params["response_format"] = response_format
         if tools:

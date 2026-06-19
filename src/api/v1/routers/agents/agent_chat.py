@@ -218,7 +218,9 @@ async def agent_chat_streaming(
             message=input_request.message,
             llm_config=llm_config,
             http_client=getattr(request.app.state, "httpx_client", None),
-            crawl_service=getattr(request.app.state, "crawl_service", None)
+            crawl_service=getattr(request.app.state, "crawl_service", None),
+            file_data=input_request.file_data,
+            file_name=input_request.file_name
         ):
             # Wrap token in SSE event
             yield f"data: {token}\n\n"
