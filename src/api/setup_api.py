@@ -20,6 +20,7 @@ from src.api.v1.routers.workflow import (
     variables,
     workflow_templates,
     discovery,
+    workflow_api,
 )
 from src.api.v1.routers import webhook_router
 from src.api.v1.routers.agents import (
@@ -184,5 +185,6 @@ def setup_and_combine_all_routers() -> APIRouter:
     router.include_router(variables.router, prefix="/variables", tags=["Variables"])
     router.include_router(workflow_templates.router, prefix="/workflow-templates", tags=["Workflow Presets"])
     router.include_router(discovery.router, prefix="/discovery", tags=["Discovery"])
+    router.include_router(workflow_api.router, tags=["Workflow API"])
 
     return router
