@@ -135,26 +135,23 @@ export default function Component() {
             let currentLogs = ""
             let currentToolSelection = ""
             let currentImage = ""
+            let buffer = ""
             while (reader && !done) {
                 const { value, done: streamDone } = await reader.read()
                 done = streamDone
                 if (value) {
-                    const chunkText = decoder.decode(value, { stream: true })
-                    const lines = chunkText.split('\n')
-                    for (let i = 0; i < lines.length; i++) {
-                        const line = lines[i];
-                        if (!line.trim()) continue; // Skip empty lines between SSE events
+                    buffer += decoder.decode(value, { stream: true })
+                    const lines = buffer.split('\n')
 
-                        console.log("Received chunk:", line)
-                        let payload = line;
-                        if (payload.startsWith('data: ')) {
-                            payload = payload.substring(6);
-                        } else if (payload.startsWith('data:')) {
-                            payload = payload.substring(5);
-                        }
+                    // Keep the last partial line in the buffer
+                    buffer = lines.pop() || ""
+
+                    for (const line of lines) {
+                        const cleanLine = line.replace(/^data:\s*/, "").trim();
+                        if (!cleanLine) continue;
 
                         try {
-                            const parsed = JSON.parse(payload) as {
+                            const parsed = JSON.parse(cleanLine) as {
                                 type: IAgentResponseType
                                 data: string
                             }
@@ -180,13 +177,13 @@ export default function Component() {
                                     continue
                                 }
                             } else {
-                                currentData += payload
+                                currentData += cleanLine
                             }
                         } catch (e) {
-                            if (payload === "") {
+                            if (cleanLine === "") {
                                 currentData += "\n"
                             } else {
-                                currentData += payload.replace(/\\n/g, '\n')
+                                currentData += cleanLine.replace(/\\n/g, '\n')
                             }
                         }
                     }

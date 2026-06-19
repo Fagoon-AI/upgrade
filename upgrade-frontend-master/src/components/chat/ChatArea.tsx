@@ -71,23 +71,14 @@ export const ChatArea = forwardRef<
         };
 
         return (
-            <div className="rounded-3xl bg-white dark:bg-[#2E2E2E]/90 flex-1">
+            <div className="rounded-3xl bg-white dark:bg-[#2E2E2E]/90 flex flex-col flex-1">
                 {selectedFile && (
                     <div className="px-4 pt-4">
-                        <FilePreview
-                            file={selectedFile}
-                            onRemove={onRemoveFile}
-                        />
+                        <FilePreview file={selectedFile} onRemove={onRemoveFile} />
                     </div>
                 )}
-                <div className="rounded-3xl bg-white dark:bg-[#2E2E2E]/90 flex flex-col flex-1">
-                    {selectedFile && (
-                        <div className="px-4 pt-4">
-                            <FilePreview file={selectedFile} onRemove={onRemoveFile} />
-                        </div>
-                    )}
 
-                    <div className="flex items-end gap-2 p-3">
+                <div className="flex items-end gap-2 p-3">
                         <input id="file-upload" type="file" className="hidden" onChange={onFileSelect} disabled={disabled} />
 
                         <label htmlFor="file-upload" className={`p-2 shrink-0 text-gray-500 ${disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'cursor-pointer hover:text-gray-700'}`}>
@@ -122,7 +113,6 @@ export const ChatArea = forwardRef<
                         </button>
                     </div>
                 </div>
-            </div >
         );
     }
 );

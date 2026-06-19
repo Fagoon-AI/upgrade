@@ -41,6 +41,19 @@ const ChatMessageOutput = ({ msg }: { msg: Message }) => {
     useEffect(() => {
         const getImageUrl = async (image: string) => {
             if (!image) return null;
+            
+            // If it is already a complete base64 data URL or a local blob URL, use it directly
+            if (image.startsWith('data:') || image.startsWith('blob:')) {
+                setImageUrl(image);
+                return;
+            }
+
+            // If it is a raw base64 string block (e.g., starts with normal base64 strings), format as dataURL
+            if (image.length > 100 && !image.includes(' ') && !image.includes('/')) {
+                setImageUrl(`data:image/png;base64,${image}`);
+                return;
+            }
+
             let imagePath = image;
             if (image.endsWith('\n')) {
                 console.log("Image path ends with /, removing it")
