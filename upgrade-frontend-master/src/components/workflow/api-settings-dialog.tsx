@@ -46,6 +46,7 @@ export function ApiSettingsDialog({ workflowId }: ApiSettingsDialogProps) {
   } | null>(null);
 
   const [revealKey, setRevealKey] = useState(false);
+  const [oneTimeKey, setOneTimeKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedSlug, setCopiedSlug] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
@@ -76,6 +77,7 @@ export function ApiSettingsDialog({ workflowId }: ApiSettingsDialogProps) {
     } else {
       setApiInfo(null);
       setRevealKey(false);
+      setOneTimeKey(null);
     }
   }, [open, workflowId, fetchApiInfo]);
 
@@ -87,7 +89,11 @@ export function ApiSettingsDialog({ workflowId }: ApiSettingsDialogProps) {
       const response = await publishWorkflowApi(workflowId);
       const data = response?.data || response;
       setApiInfo(data);
-      showSuccessToast("API Key and Slug generated successfully!");
+      if (data.api_key) {
+        setOneTimeKey(data.api_key);
+        setRevealKey(true);
+      }
+      showSuccessToast("API Key generated! Copy it now — it won't be shown again.");
     } catch (error) {
       console.error("Failed to generate API details:", error);
       showErrorToast("Failed to generate API details.");
@@ -116,8 +122,17 @@ export function ApiSettingsDialog({ workflowId }: ApiSettingsDialogProps) {
   };
 
   // Copy helper
-  const handleCopy = (text: string, setCopied: (v: boolean) => void) => {
-    navigator.clipboard.writeText(text);
+  const handleCopy = async (text: string, setCopied: (v: boolean) => void) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     showSuccessToast("Copied to clipboard!");
@@ -127,6 +142,7 @@ export function ApiSettingsDialog({ workflowId }: ApiSettingsDialogProps) {
   const getExecutionUrl = () => {
     if (typeof window === 'undefined' || !apiInfo?.slug) return '';
     return `${window.location.origin}/api/v1/workflow-api/${apiInfo.slug}/execute`;
+    // Note: In production, replace with your backend URL if different from frontend
   };
 
   // Mask Key Generator (keeps prefix visible at first)
@@ -197,7 +213,7 @@ export function ApiSettingsDialog({ workflowId }: ApiSettingsDialogProps) {
                   <Input 
                     readOnly 
                     type="text"
-                    value={revealKey ? (apiInfo.api_key || '') : getMaskedKey()} 
+                    value={revealKey ? (oneTimeKey || apiInfo.api_key || getMaskedKey()) : getMaskedKey()} 
                     className="bg-black/40 border-zinc-800 text-zinc-300 focus-visible:ring-0 font-mono text-xs h-9 tracking-wider"
                   />
                   <Button 
@@ -213,7 +229,14 @@ export function ApiSettingsDialog({ workflowId }: ApiSettingsDialogProps) {
                     size="icon" 
                     variant="outline" 
                     className="border-zinc-800 bg-zinc-900 hover:bg-zinc-800 h-9 w-9 text-zinc-400 hover:text-zinc-200"
-                    onClick={() => handleCopy(apiInfo.api_key || '', setCopiedKey)}
+                    onClick={() => {
+                      const keyToCopy = oneTimeKey || apiInfo.api_key || '';
+                      if (!keyToCopy || keyToCopy === getMaskedKey()) {
+                        showErrorToast("Full API key is no longer available. Revoke and regenerate to get a new one.");
+                        return;
+                      }
+                      handleCopy(keyToCopy, setCopiedKey);
+                    }}
                   >
                     {copiedKey ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
                   </Button>
