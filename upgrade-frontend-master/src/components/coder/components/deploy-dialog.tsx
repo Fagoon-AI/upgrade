@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { Duration } from '@/lib/lib/duration'
+import { Duration } from '@/lib/libs/duration'
 import { usePostHog } from 'posthog-js/react'
 import { useEffect, useState } from 'react'
 

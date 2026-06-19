@@ -1,5 +1,5 @@
 import Logo from './logo'
-import { AuthViewType } from '@/lib/lib/auth'
+import { AuthViewType } from '@/lib/libs/auth'
 
 import { Auth } from '@supabase/auth-ui-react'
 import { ThemeSupa } from '@supabase/auth-ui-shared'
