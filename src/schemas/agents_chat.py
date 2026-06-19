@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import Enum
 from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional
 
 
 class CreateAgentChatInputRequest(BaseModel):
@@ -35,6 +36,8 @@ class AgentChatInputRequest(BaseModel):
     conversation_id: str
     agent_id: str
     message: str
+    file_data: Optional[str] = Field(default=None, description="Base64 encoded file content")
+    file_name: Optional[str] = Field(default=None, description="Name of the uploaded file")
 
 
 # class AgentChatInputRequest1(BaseModel):

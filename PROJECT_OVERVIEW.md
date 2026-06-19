@@ -1,6 +1,6 @@
 # Fagoon AI Agents Workflow — Project Overview & Flow
 
-Welcome to the **Fagoon AI Agents Workflow** codebase. This document outlines the project's high-level architectural design, detailed folder structure, dual-mode system flow (Lite & Full modes), and the precise lifecycles of core operations.
+Welcome to the **Fagoon AI Agents Workflow** codebase. This document outlines the project's high-level architectural design, detailed folder structure, dual-mode system flow (Lite & Full modes), the advanced workflow engine, and the precise lifecycles of core operations.
 
 ---
 
@@ -28,16 +28,18 @@ d:\upgrade-fagoon\agents-workflow\
 │   ├── api/                       # API Layer
 │   │   ├── custom_middleware.py   # Auth and CORS middlewares
 │   │   └── v1/
-│   │       ├── routers/           # FastAPI Domain routers (agents, auth, video_gen, workspace, etc.)
+│   │       ├── routers/           # FastAPI Domain routers (agents, auth, video_gen, workflow, etc.)
 │   │       └── setup_api.py       # API setup, CORS configuration, and router aggregation
 │   ├── core/                      # Application Bootstrap, Globals, and Settings
 │   │   ├── bootstrap.py           # First-boot secret generator (JWT, Encryption key)
 │   │   ├── globals.py             # Singletons and application globals
 │   │   ├── runtime.py             # Runtime Factory choosing backends based on LITE_MODE
-│   │   └── settings.py            # Layered Settings Resolver (.env, config.json, environment)
+│   │   ├── settings.py            # Layered Settings Resolver (.env, config.json, environment)
+│   │   └── sandbox.py             # Sandbox execution engines (Docker vs Subprocess fallback)
 │   ├── models/                    # Data models and base objects
 │   │   └── sql/
-│   │       └── models.py          # SQLAlchemy SQL models mapping to PostgreSQL
+│   │       ├── models.py          # SQLAlchemy SQL models mapping to PostgreSQL
+│   │       └── workflow/          # Workflow database models (Workflows, Executions, Connections, Webhooks, Schedules)
 │   ├── providers/                 # Direct client wrappers for 3rd-party services (OpenAI, Gemini, etc.)
 │   ├── schemas/                   # Pydantic Schemas for strict request/response validation
 │   ├── services/                  # Business Logic Layer
@@ -48,7 +50,13 @@ d:\upgrade-fagoon\agents-workflow\
 │   │   ├── nosql/                 # DB wrapper services (e.g., PostgresServices)
 │   │   ├── rag/                   # Document ingestion, text chunking, and embedding
 │   │   ├── taskqueue/             # Asynchronous task dispatchers (Celery vs. Inline Asyncio)
-│   │   └── tool_handlers/         # Execution handlers for Agent tools (Search, Mermaid, etc.)
+│   │   ├── tool_handlers/         # Execution handlers for Agent tools (Search, Mermaid, etc.)
+│   │   ├── workflow/              # Workflow CRUD, versioning, publishing, and archiving services
+│   │   └── workflow_engine/       # Core Graph DAG Execution engine and node definitions
+│   │       ├── nodes/             # Fully typed Logic and Tool node implementations (Gemini, Openai, Slack, notion, etc.)
+│   │       ├── context.py         # Thread-safe execution context and dynamic input variables
+│   │       ├── executor.py        # Adjacency-based DAG executor with concurrent semaphore logic
+│   │       └── registry.py        # Thread-safe node registration and manifest discovery
 │   ├── launch_server.py           # Application Entry Point & Lifespan/Teardown registry
 │   └── constants.py               # Shared global constants
 ├── tests/                         # Full automated test suite (Unit, Integration, and Guardrails)
@@ -69,12 +77,12 @@ d:\upgrade-fagoon\agents-workflow\
    - **Responsibility:** Handles request parsing, Pydantic model validation, HTTP response statuses, and endpoint definitions.
    - **Rules:** No business logic resides here. All routers must delegate heavy computational or orchestration work to **Services**.
 2. **The Service Layer (`src/services/`):**
-   - **Responsibility:** Houses all core business logic (e.g., orchestrating LLM steps, handling task processing, managing chat flows, and executing database lookups).
-   - **Boundary Constraints:** Service classes should remain independent of specific deployment modes. Instead, they interact with runtime abstractions (`app.state.queue`, `app.state.limiter`, etc.).
-3. **The Providers Layer (`src/providers/` & `src/llms/`):**
-   - **Responsibility:** Wrappers around external SDKs (OpenAI, Anthropic, Google GenAI, ElevenLabs). They normalize payloads, handle API retries, and translate responses into standard internal objects.
+   - **Responsibility:** Houses all core business logic (e.g., orchestrating LLM steps, handling task processing, managing chat flows, executing database lookups, and running workflow visual logic).
+   - **Boundary Constraints:** Service classes should remain independent of specific deployment modes. Instead, they interact with runtime abstractions (`app.state.queue`, `app.state.limiter`, etc.) and delegating graph execution to the `WorkflowExecutor`.
+3. **The Providers & Integrations Layer (`src/providers/`, `src/llms/`, & `src/services/workflow_engine/nodes/`):**
+   - **Responsibility:** Wrappers around external SDKs (OpenAI, Anthropic, Google GenAI, ElevenLabs, Notion, Twilio, Slack, Sheets). They normalize payloads, handle API retries, and translate responses into standard internal objects or node outputs.
 4. **The Core Layer (`src/core/`):**
-   - **Responsibility:** App bootstrapping, configuration resolution, database connection pooling (`PostgresManager`), and lifespan management.
+   - **Responsibility:** App bootstrapping, configuration resolution, database connection pooling (`PostgresManager`), isolated execution sandboxing (`DockerSandboxExecutor`), and lifespan management.
 
 ---
 
@@ -187,7 +195,87 @@ Handles authorization flow and token-delegated requests securely.
 
 ---
 
-## 5. Development Invariants & Quality Standards
+### Flow D: Visual DAG Workflow Execution (Real-time WebSocket Streaming)
+Handles the invocation, execution mapping, and real-time trace logging of a multi-node workflow graph.
+
+```text
+[ Trigger Source ]          [ Workflow Router ]         [ WorkflowExecutor ]        [ Node Registry ]         [ Client (UI) ]
+(Schedules / Hooks / API)           │                            │                         │                         │
+        │                           │                            │                         │                         │
+        │── Trigger Execution ─────>│                            │                         │                         │
+        │                           │── Instantiate Executor ───>│                         │                         │
+        │                           │   with Graph definition    │                         │                         │
+        │                           │                            │── Resolve & Load Node ──>│                         │
+        │                           │                            │   from Manifest/Registry│                         │
+        │                           │                            │<─ Node Class Instance ──│                         │
+        │                           │                            │                                                   │
+        │                           │                            │── Start Execution Loop ─── [PostgreSQL (PENDING)] │
+        │                           │                            │                                                   │
+        │                           │                            │── Dynamic Data Mapping & Input Validation         │
+        │                           │                            │                                                   │
+        │                           │                            │── Execute Node Logic (LLM / Tool / Sandbox)       │
+        │                           │                            │                                                   │
+        │                           │                            │── Stream Node Trace Update ──────────────────────>│
+        │                           │                            │   (Via Websockets / streams.py)                   │
+        │                           │                            │                                                   │
+        │                           │                            │── Increment Cost, Usage, & Token Counts           │
+        │                           │                            │                                                   │
+        │                           │                            │── Mark Node Executed ────> [PostgreSQL (SUCCESS)] │
+        │                           │                            │                                                   │
+        │                           │<─ Return Execution Stats ──│                                                   │
+        │                           │   (Status, Trace, Costs)   │                                                   │
+        │                           │                                                                                │
+        │                           │── Save Results & Costs ───> [PostgreSQL (UsageRecord & MonthlySummary)]        │
+```
+
+---
+
+## 5. The Advanced Workflow Engine & Nodes Registry
+
+Fagoon includes a state-of-the-art Visual Workflow DAG (Directed Acyclic Graph) engine that empowers users to create, schedule, version, and execute automated pipelines with conditional routing, secure custom code execution, and deep third-party integrations.
+
+### A. Graph Execution Engine (`WorkflowExecutor`)
+The core orchestrator of graph evaluations:
+- **Visual Data Flow:** Edges represent both control transitions and detailed data mappings (`data_mappings`) that extract fields from one node's output to inject into a downstream node's inputs.
+- **Lock-Guarded Concurrency:** Employs an asynchronous lock-based semaphore pattern to evaluate parallel node paths safely without race conditions.
+- **Advanced Control Logic:** Evaluates loops (`LoopNode`), multi-choice routers (`RouterNode`), conditionals (`FilterNode`), wait states (`WaitNode`), and concurrent branch joins (`ParallelNode`).
+- **Dynamic Input Resolution:** Supports `@node_alias` and `@previous` syntactic variables. Input structures resolve templates dynamically on edge connections.
+- **Circuit Breaker:** Integrates a built-in `CircuitBreaker` pattern to prevent cascading API crashes and isolate run failures.
+- **Checkpoints & Resume:** Allows pausing graph executions (e.g., waiting for external input or human verification) and resuming from specified node checkpoints.
+
+### B. Secure Sandbox Execution (`DockerSandboxExecutor`)
+When a workflow node contains custom code scripts (Python, JS, HTML), security constraints are enforced strictly:
+- **Docker Sandbox:** Runs user code inside lightweight, temporary, unprivileged Docker containers with **zero network access**, a read-only filesystem (with locked tmpfs for `/tmp`), dropped kernel capabilities, strictly restricted memory and CPU quotas via cgroups, and PID limits.
+- **Subprocess Fallback:** Houses a secure fallback sandbox utilizing constrained subprocess execution environments with resource bounds, ensuring the system boots successfully in local or lightweight Docker setups.
+
+### C. Comprehensive Nodes Registry & Discovery
+All logical components and third-party tools are defined as modular, self-contained `BaseNode` extensions:
+- **Thread-Safe NodeRegistry:** Manages dynamic discovery and class registration with hot-reload capabilities.
+- **Structured Manifests:** Each node class exposes a declarative JSON-schema `NodeManifest` (display names, categories, fields, defaults, validations, documentation URLs, and expected outputs).
+- **Core Node Categories:**
+  - *Triggers:* Webhook triggers, manual API routes, and Scheduler Triggers.
+  - *Logic & Flow:* Filter, Loop, Router, Wait, Parallel, and Start nodes.
+  - *AI & Data:* Gemini, OpenAI, Anthropic, AgentManager, RAG, Perplexity, and Mistral Parse.
+  - *Communication:* Slack, Twilio, Discord, and Gmail.
+  - *Integrations:* Notion, YouTube, Google Sheets, and Supabase.
+  - *Utilities:* Code Execution Sandboxes.
+
+### D. Secure Connection & Credential Management
+Users can link authenticated accounts (e.g., Salesforce, Slack, Notion, GitHub, and Shopify) directly in the UI:
+- **Encrypted Storage:** Integrations map to a dedicated `Connection` model, storing credentials securely using multi-layered AES-256 encryption.
+- **Environment Context Resolution:** During node evaluation, the `WorkflowExecutor` transparently retrieves the connection's credentials, decrypts them in-memory, and injects them safely into the tool API clients.
+
+### E. Scheduler & Webhook Trigger Engine
+- **High-Performance Scheduling:** Manages cron-based, interval, and one-off scheduled pipelines through database-backed `WorkflowSchedule` records. Runs asynchronous background execution loops that check schedule state and enqueue tasks directly to Celery or the Inline Task Queue.
+- **Dynamic Webhooks (Hooks):** Exposes customizable webhook URL routes (`/hooks/{slug}`) that maps payloads to matching workflow trigger nodes instantly.
+
+### F. Granular Usage Tracking & Quotas
+- **Cost Accumulation:** Tracks detailed input/output tokens and financial costs associated with LLM calls and third-party API executions during a run.
+- **User Quotas:** Monitors monthly quotas, active executions, and record summaries, checking execution boundaries dynamically at start-time to prevent platform abuse.
+
+---
+
+## 6. Development Invariants & Quality Standards
 
 - **Never bypass Pydantic:** Request payloads and database-bound structures must always go through strict validation models.
 - **Do not lock connections:** DB lookups must run asynchronously (`await session.execute()`), and heavy blocking operations must be offloaded to thread executors using `asyncio.to_thread`.
