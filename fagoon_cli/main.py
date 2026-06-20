@@ -1,10 +1,10 @@
 """Fagoon CLI - Self-hosted AI platform control.
 
-Install:   pipx install fagoon
+Install:   pipx install fagoon-upgrade
 Usage:
     fagoon up                       Start the stack (lite mode by default)
     fagoon up --full                Start with Redis + Celery worker
-    fagoon up --ollama              Start with Ollama local LLM
+    fagoon up --ollama              Start with local Ollama LLM
     fagoon down                     Stop the stack
     fagoon logs [-f]                Tail logs
     fagoon config set KEY=VALUE     Write to <DATA_DIR>/config.json
@@ -75,7 +75,6 @@ def up(
     """Start the Fagoon platform."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-    # First-time setup: check if config exists
     cfg = _load_config()
     is_first_run = not cfg.get("_setup_done")
 
@@ -84,8 +83,6 @@ def up(
         typer.secho("  Welcome to Fagoon!", fg="green", bold=True)
         typer.secho("  Let's set up your AI platform.", fg="cyan")
         typer.secho("")
-
-        # Ask about LLM provider
         typer.secho("  How would you like to power your AI?", fg="white", bold=True)
         typer.secho("  1) I have an API key (OpenAI, Gemini, Groq, etc.)", fg="white")
         typer.secho("  2) Use local Ollama model (free, runs on your machine)", fg="white")
@@ -112,8 +109,29 @@ def up(
 
         elif choice == "2":
             ollama = True
-            typer.secho("  Ollama will start alongside Fagoon.", fg="green")
-            typer.secho("  The Gemma 2B model will be pulled on first use.", fg="cyan")
+            cfg["OLLAMA_BASE_URL"] = "http://ollama:11434"
+            cfg["FALLBACK_MODEL_PROVIDER"] = "ollama"
+            typer.secho("")
+            typer.secho("  Which model size? (smaller = faster download, less RAM)", fg="white", bold=True)
+            typer.secho("  a) Tiny   (~1.5GB) - qwen2.5:1.5b    - basic tasks", fg="white")
+            typer.secho("  b) Small  (~2GB)   - llama3.2:latest  - recommended", fg="white")
+            typer.secho("  c) Medium (~4GB)   - gemma2:2b        - better quality", fg="white")
+            typer.secho("  d) Custom - enter your own model name", fg="white")
+            model_choice = typer.prompt("  Choose [a/b/c/d]", default="b")
+
+            model_map = {
+                "a": "qwen2.5:1.5b",
+                "b": "llama3.2:latest",
+                "c": "gemma2:2b",
+            }
+            if model_choice == "d":
+                custom_model = typer.prompt("  Enter model name (e.g. mistral:latest)")
+                cfg["FALLBACK_MODEL_NAME"] = custom_model.strip()
+            else:
+                cfg["FALLBACK_MODEL_NAME"] = model_map.get(model_choice, "llama3.2:latest")
+
+            typer.secho(f"  Model: {cfg['FALLBACK_MODEL_NAME']}", fg="green")
+            typer.secho("  Will be pulled automatically on first startup.", fg="cyan")
 
         else:
             typer.secho("  No worries! Configure your LLM provider in the UI after login.", fg="yellow")
@@ -127,6 +145,7 @@ def up(
     if ollama:
         args += ["--profile", "ollama"]
     args += ["up", "-d"]
+
     env = os.environ.copy()
     env["FAGOON_DATA_DIR"] = str(DATA_DIR)
 
@@ -136,6 +155,7 @@ def up(
                 "JWT_SECRET", "ENCRYPTION_KEY", "OLLAMA_BASE_URL"]:
         if cfg.get(key):
             env[key] = cfg[key]
+
     mode = "full" if full else "lite"
     typer.secho(f"Starting Fagoon ({mode} mode)...", fg="green")
     _run(args)

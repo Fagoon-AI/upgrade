@@ -10,6 +10,7 @@ services:
       DATA_DIR: /data
       DATABASE_URL: postgresql+asyncpg://fagoon:fagoon@db:5432/fagoon
       WEB_CONCURRENCY: "1"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-}"
     volumes:
       - ${FAGOON_DATA_DIR:-~/.fagoon}:/data
     depends_on:
