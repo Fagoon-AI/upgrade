@@ -1,19 +1,25 @@
-# LITE MODE - single user, no Redis, no Celery. References the PUBLISHED image.
 services:
   app:
-    image: ghcr.io/you/fagoon:1.2.0       # PINNED, not :latest
+    container_name: fagoon-upgrade
+    build: { context: .., dockerfile: deploy/Dockerfile }
     restart: unless-stopped
-    ports: ["8000:8000"]
+    ports:
+      - "8000:8000"
+      - "3000:3000"
     environment:
       LITE_MODE: "true"
       DATA_DIR: /data
-      DATABASE_URL_DEFAULT: postgresql+asyncpg://fagoon:fagoon@db:5432/fagoon
+      DATABASE_URL: postgresql+asyncpg://fagoon:fagoon@db:5432/fagoon
       WEB_CONCURRENCY: "1"
-    command: >
-      uvicorn src.launch_server:app --host 0.0.0.0 --port 8000 --workers 1
-    volumes: ["fagoon_data:/data"]
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-}"
+      JWT_SECRET: "fagoon-default-secret-change-in-production"
+      JWT_ALGORITHM: "HS256"
+      NEXT_PUBLIC_BASE_URL: "http://localhost:8000"
+    volumes:
+      - ${FAGOON_DATA_DIR:-~/.fagoon}:/data
     depends_on:
-      db: { condition: service_healthy }
+      db:
+        condition: service_healthy
 
   db:
     image: pgvector/pgvector:pg16
@@ -22,7 +28,8 @@ services:
       POSTGRES_USER: fagoon
       POSTGRES_PASSWORD: fagoon
       POSTGRES_DB: fagoon
-    volumes: ["fagoon_db:/var/lib/postgresql/data"]
+    volumes:
+      - fagoon_db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U fagoon"]
       interval: 5s
@@ -34,7 +41,8 @@ services:
     profiles: ["ollama"]
     restart: unless-stopped
     ports: ["11434:11434"]
-    volumes: ["fagoon_ollama:/root/.ollama"]
+    volumes:
+      - fagoon_ollama:/root/.ollama
 
 volumes:
   fagoon_data:

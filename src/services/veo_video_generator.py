@@ -1,10 +1,10 @@
+import os
 import time
 import uuid
 from typing import Any, Optional
 from google import genai
 from google.genai import types
 from google.genai.errors import ClientError
-from src.cloud.google_storage import GCSFileStorageManager
 from src.core.settings import system_setting
 from src.video_generation.base import BaseVideoGenerator, BaseVideoGeneratorConfig
 
@@ -22,7 +22,6 @@ class VeoVideoGenerator(BaseVideoGenerator):
     def __init__(self, config: VeoVideoGeneratorConfig):
         super().__init__(config)
         self._client = None
-        self._gcs_manager = GCSFileStorageManager()
 
 
     def _initialize_gemini_client(self):
@@ -48,33 +47,28 @@ class VeoVideoGenerator(BaseVideoGenerator):
             **kwargs: Any,
     ) -> str:
         """
-        Generates a video using the Veo API and uploads it to GCS at the specified video_path.
-        Returns the video_path (GCS URL) upon successful upload.
+        Generates a video using the Veo API and saves it locally.
+        Returns the local file path upon successful download.
         """
         self.logger.info(
-            "Veo Integration: Starting live video generation for job {} with prompt: '{}'. Target GCS path: {}",
-            job_id, prompt, video_path
+            "Veo Integration: Starting video generation for job {} with prompt: '{}'.",
+            job_id, prompt
         )
 
         if not system_setting.ENABLE_VEO_GENERATION:
             if system_setting.MOCK_VEO_API_IF_DISABLED:
                 self.logger.warning(
                     "Veo generation is disabled (ENABLE_VEO_GENERATION=False). "
-                    "Generating mock video for job {} instead of live API call.",
+                    "Generating mock video locally for job {} instead of live API call.",
                     job_id
                 )
-                # In a mock scenario, you'd still want to "upload" a mock video to GCS
-                # and return the designated video_path.
-                # For demonstration, let's create dummy bytes and upload them.
                 mock_video_bytes = b"This is a mock video content for " + prompt.encode('utf-8')
-                self._gcs_manager.video_upload_from_bytes(
-                    destination_blob_name=video_path,
-                    file_bytes=mock_video_bytes,
-                    job_id=job_id,
-                    content_type="video/mp4"
-                )
-                self.logger.info("Mock video uploaded to GCS at: {}", video_path)
-                return video_path
+                os.makedirs("outputs", exist_ok=True)
+                local_path = f"outputs/{job_id}.mp4"
+                with open(local_path, "wb") as f:
+                    f.write(mock_video_bytes)
+                self.logger.info("Mock video saved locally at: {}", local_path)
+                return local_path
             else:
                 self.logger.error(
                     "Veo generation is disabled and not mocked. "
@@ -90,7 +84,7 @@ class VeoVideoGenerator(BaseVideoGenerator):
             num_videos_to_request = min(system_setting.MAX_VEO_GENERATIONS_PER_JOB, 1)
 
             video_config = types.GenerateVideosConfig(
-                person_generation="dont_allow",
+                person_generation="allow_adult",
                 aspect_ratio="16:9",
                 duration_seconds=duration_to_request,
                 number_of_videos=num_videos_to_request,
@@ -141,21 +135,27 @@ class VeoVideoGenerator(BaseVideoGenerator):
                     raise VideoGenerationError(f"CRITICAL: Unexpected error during polling for job {job_id}: {pe}. Failing job as this might indicate a corrupted operation state.")
 
             if operation.error:
+                error_msg = operation.error.get("message") if isinstance(operation.error, dict) else getattr(operation.error, "message", str(operation.error))
+                error_code = operation.error.get("code") if isinstance(operation.error, dict) else getattr(operation.error, "code", "Unknown")
                 self.logger.error(
                     "Veo video generation failed with final error: {} (Code: {}). Job: {}",
-                    operation.error.message, operation.error.code, job_id
+                    error_msg, error_code, job_id
                 )
-                raise VideoGenerationError(f"Veo video generation failed with final error: {operation.error.message} (Code: {operation.error.code}). Job: {job_id}")
+                raise VideoGenerationError(f"Veo video generation failed with final error: {error_msg} (Code: {error_code}). Job: {job_id}")
 
             if not operation.response or not operation.response.generated_videos:
-                self.logger.error("Veo video generation completed but no video was returned in the response for job {}.", job_id)
-                raise VideoGenerationError(f"Veo video generation completed but no video was returned in the response for job {job_id}.")
+                self.logger.error("Veo video generation completed but no video was returned in the response for job {}. Full response: {}", job_id, getattr(operation, 'response', None))
+                raise VideoGenerationError(
+                    "Veo video generation completed, but no video was returned. "
+                    "This usually occurs if the prompt was filtered or blocked by Google's strict safety, copyright, or person-generation policy filters "
+                    "(e.g. requesting real people, copyrighted characters like Spiderman, or other policy-restricted content)."
+                )
 
             generated_video_details = operation.response.generated_videos[0]
 
-            self._download_and_save_video(video_path, job_id, generated_video_details.video)
+            local_path = self._download_and_save_video(job_id, generated_video_details.video)
 
-            return video_path
+            return local_path
 
         except ClientError as e:
             self.logger.error("Google Veo API ClientError for job {}: {} (Code: {})", job_id, e.message, e.code, exc_info=True)
@@ -170,10 +170,10 @@ class VeoVideoGenerator(BaseVideoGenerator):
             raise VideoGenerationError(f"Unexpected general error in Veo generation: {e}")
 
 
-    def _download_and_save_video(self, destination_gcs_path: str, job_id: str, video_source: Any) -> None:
+    def _download_and_save_video(self, job_id: str, video_source: Any) -> str:
         """
-        Downloads the video bytes from the Veo API and uploads them directly to GCS.
-        This function does NOT return the path, as it's provided as an argument.
+        Downloads the video bytes from the Veo API and saves them locally.
+        Returns the local file path.
         """
         self.logger.info("Veo Integration: Downloading video from API for job {}", job_id)
 
@@ -198,23 +198,14 @@ class VeoVideoGenerator(BaseVideoGenerator):
             if video_bytes is None:
                 raise ValueError(f"Failed to extract video bytes from downloaded object for job {job_id}.")
 
-            self.logger.info("Veo Integration: Uploading video from memory to GCS for job {} to path: {}", job_id, destination_gcs_path)
+            os.makedirs("outputs", exist_ok=True)
+            local_path = f"outputs/{job_id}.mp4"
+            with open(local_path, "wb") as f:
+                f.write(video_bytes)
 
-            gcs_url = self._gcs_manager.video_upload_from_bytes(
-                destination_blob_name=destination_gcs_path,
-                file_bytes=video_bytes,
-                job_id=job_id,
-                content_type="video/mp4"
-            )
+            self.logger.info("Veo Integration: Video successfully saved locally to {}", local_path)
+            return local_path
 
-            if gcs_url != destination_gcs_path:
-                self.logger.warning(
-                    "GCSManager returned a different URL ({}) than expected ({}) for job {}. This might indicate a configuration issue.",
-                    gcs_url, destination_gcs_path, job_id
-                )
-            self.logger.info("Veo Integration: Video successfully uploaded to GCS: {}", gcs_url)
-            return
-
-        except Exception as upload_e:
-            self.logger.error("Failed to download/upload video from memory for job {}: {}", job_id, upload_e, exc_info=True)
-            raise VideoGenerationError(f"Failed to stream video from Veo API to GCS: {upload_e}")
+        except Exception as e:
+            self.logger.error("Failed to download and save video locally for job {}: {}", job_id, e, exc_info=True)
+            raise VideoGenerationError(f"Failed to download and save video locally: {e}")

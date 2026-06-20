@@ -73,7 +73,7 @@ async def get_workflow_or_404(
 # ============================================================
 
 @router.post(
-    "/",
+    "",
     response_model=APIResponse[WorkflowResponse],
     status_code=status.HTTP_201_CREATED,
     summary="Create workflow",
@@ -104,7 +104,7 @@ async def create_workflow(
 
 
 @router.get(
-    "/",
+    "",
     response_model=APIResponse[List[WorkflowResponse]],
     summary="List workflows",
     description="Get all workflows for current user with pagination and filtering"

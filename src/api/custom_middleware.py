@@ -216,7 +216,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
     def _is_public_path(self, path: str) -> bool:
 
-        if "/webhook/" in path or "/file/image/" in path:
+        if "/webhook/" in path or "/file/image/" in path or "/workflow-api/" in path:
             return True
         # Normalize path: remove trailing slash for comparison
         path_to_check = path.rstrip("/") if path != "/" else path
@@ -289,6 +289,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        if request.method == "OPTIONS":
+            return await call_next(request)
         log_parts = [f"Incoming request: {request.method} {request.url}"]
         query_params = dict(request.query_params)
         if query_params: log_parts.append(f"Params: {query_params}")

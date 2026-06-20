@@ -63,7 +63,7 @@ def parse_cors(v: Any) -> list[str] | str:
 # ==============================================================================
 class Settings(BaseSettings):
     # --- dual mode ---
-    lite_mode: bool = False
+    lite_mode: bool = True
     data_dir: str = "/data"
     web_concurrency: int = 1
     database_url_default: str = ""  # bundled DSN injected by compose in lite mode
@@ -204,6 +204,9 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
     ALLOWED_HOSTS: List[str] = ["*"]
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
+
+    # ==================== VIBE CODE MODE ====================
+    VIBE_MAX_CODE_LENGTH: int = 50000
 
     # ==================== WORKFLOW: REDIS (individual fields) ====================
     REDIS_HOST: str = "localhost"

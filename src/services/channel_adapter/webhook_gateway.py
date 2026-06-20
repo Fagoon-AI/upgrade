@@ -153,15 +153,15 @@ class WebhookGatewayService:
         if not message_id:
             return False
         key = f"webhook:dedup:{channel}:{agent_id}:{message_id}"
-        if await self.cache.exists(key):
+        if await self.cache.get(key) is not None:
             logger.info("Duplicate webhook event skipped: {}", key)
             return True
-        await self.cache.set(key, "1", ex=86400)
+        await self.cache.set(key, "1", ttl_s=86400)
         return False
 
     async def _get_or_create_history_id(self, channel: str, agent_id: str, sender_id: str) -> str:
         session_key = f"webhook:session:{channel}:{agent_id}:{sender_id}"
-        session_data = await self.cache.get_json(session_key)
+        session_data = await self.cache.get(session_key)
         if session_data and session_data.get("history_id"):
             return session_data["history_id"]
 
@@ -185,7 +185,7 @@ class WebhookGatewayService:
             agent_id,
             title=f"{channel.title()} Conversation",
         )
-        await self.cache.set_json(session_key, {"history_id": history_id}, ex=86400)
+        await self.cache.set(session_key, {"history_id": history_id}, ttl_s=86400)
         return history_id
 
     async def _enqueue_event(self, event: Dict[str, Any], background_tasks: BackgroundTasks) -> None:

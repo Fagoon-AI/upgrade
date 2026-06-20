@@ -20,6 +20,7 @@ from src.api.v1.routers.workflow import (
     variables,
     workflow_templates,
     discovery,
+    workflow_api,
 )
 from src.api.v1.routers import webhook_router
 from src.api.v1.routers.agents import (
@@ -162,12 +163,18 @@ def setup_and_combine_all_routers() -> APIRouter:
     )
 
     # Upgrade Auth Routes
+    from src.api.v1.routers.authentication import preferences_router
     router.include_router(auth_router.router, prefix="/auth", tags=["Upgrade Authentication"])
     router.include_router(user_router.router, prefix="/users", tags=["User Management"])
+    router.include_router(preferences_router.router, prefix="/userPreferences", tags=["User Preferences"])
     # WhatsApp Deployment Routes
     router.include_router(whatsapp_router, prefix="/whatsapp-session", tags=["WhatsApp Deployment"])
     # Database Switch Routes
     router.include_router(db_switch.router)
+    
+    # Vibe Coder Routes (Option B: UI Prototyper)
+    from src.api.v1.routers.vibe_coder import execution_routes as vibe_execution_routes
+    router.include_router(vibe_execution_routes.router)
 
     # -- Workflow Engine Routes --
     router.include_router(workflows.router, prefix="/workflows", tags=["Workflows"])
@@ -182,5 +189,6 @@ def setup_and_combine_all_routers() -> APIRouter:
     router.include_router(variables.router, prefix="/variables", tags=["Variables"])
     router.include_router(workflow_templates.router, prefix="/workflow-templates", tags=["Workflow Presets"])
     router.include_router(discovery.router, prefix="/discovery", tags=["Discovery"])
+    router.include_router(workflow_api.router, tags=["Workflow API"])
 
     return router

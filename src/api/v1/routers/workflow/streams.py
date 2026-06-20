@@ -21,7 +21,8 @@ from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from uuid import UUID
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Request, status
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Request, status, HTTPException
+from fastapi.responses import StreamingResponse
 from jose import jwt, JWTError
 from loguru import logger
 
@@ -77,9 +78,10 @@ async def authenticate_websocket(
 
     try:
         # Validate JWT
+        secret_key = settings.SECRET_KEY.get_secret_value() if hasattr(settings.SECRET_KEY, "get_secret_value") else settings.SECRET_KEY
         payload = jwt.decode(
             auth_token,
-            settings.SECRET_KEY.get_secret_value(),
+            secret_key,
             algorithms=[ALGORITHM]
         )
 
@@ -430,6 +432,49 @@ async def multi_execution_stream(
         await asyncio.gather(*listener_tasks, return_exceptions=True)
 
 
+@router.get("")
+async def sse_execution_stream(
+        request: Request,
+        channel: str = Query(..., description="PubSub channel to subscribe to"),
+        token: Optional[str] = Query(None),
+        access_token: Optional[str] = Query(None)
+):
+    """
+    Server-Sent Events (SSE) endpoint for real-time execution traces.
+    
+    This endpoint supports EventSource connections from the frontend.
+    Authentication is handled by AuthMiddleware intercepting the token query parameters.
+    """
+    current_user = getattr(request.state, "user", None)
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Authentication required for SSE stream"
+        )
+        
+    async def event_generator():
+        try:
+            pubsub = request.app.state.pubsub
+            async for message in pubsub.subscribe(channel, timeout=30.0):
+                # Ensure the message is formatted properly for SSE (data: <payload>\n\n)
+                yield f"data: {message}\n\n"
+        except asyncio.CancelledError:
+            logger.debug(f"SSE listener cancelled for channel: {channel}")
+        except Exception as e:
+            logger.error(f"SSE listener error on {channel}: {e}")
+            yield f"data: {{\"type\": \"error\", \"message\": \"{str(e)}\"}}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
 @router.get("/stats")
 async def get_stream_stats(request: Request):
     """
@@ -469,13 +514,15 @@ async def emit_trace(execution_id: str, data: Dict[str, Any]) -> bool:
     try:
         from src.core.runtime import get_runtime
         runtime = get_runtime()
-        if runtime:
-            await runtime.pubsub.publish(channel, message)
+        logger.info(f"EMIT_TRACE: channel={channel}, runtime={runtime}, has_pubsub={hasattr(runtime, 'pubsub') if runtime else False}")
+        if runtime and runtime.pubsub:
+            count = await runtime.pubsub.publish(channel, message)
+            logger.info(f"EMIT_TRACE: published OK to {channel}, delivered_to={count} subscribers")
             return True
-        logger.warning("Active runtime not registered, trace event skipped")
+        logger.warning(f"EMIT_TRACE: SKIPPED - runtime={runtime}, pubsub={getattr(runtime, 'pubsub', 'MISSING')}")
         return False
     except Exception as e:
-        logger.error(f"Failed to emit trace: {e}")
+        logger.error(f"EMIT_TRACE FAILED: {e}", exc_info=True)
         return False
 
 

@@ -106,7 +106,12 @@ async def download_video(job_id: str, pg_services: PostgresServices = Depends(ge
         return RedirectResponse(url=job.video_url)
 
     if job.file_path and os.path.exists(job.file_path):
-        return FileResponse(path=job.file_path, filename=os.path.basename(job.file_path), media_type="video/mp4")
+        return FileResponse(
+            path=job.file_path, 
+            filename=os.path.basename(job.file_path), 
+            media_type="video/mp4",
+            content_disposition_type="inline"
+        )
     
     raise HTTPException(status_code=404, detail="Video file not found.")
 
