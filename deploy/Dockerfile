@@ -25,9 +25,12 @@ COPY . .
 
 # Build frontend
 WORKDIR /app/frontend
+<<<<<<< HEAD
 ENV NEXT_PUBLIC_BASE_URL=http://localhost:8000
 ENV NEXT_PUBLIC_WEBSOCKET_URL=ws://localhost:8000/ws-api
 ENV NEXT_PUBLIC_DISABLE_AUTH=false
+=======
+>>>>>>> f928398 (feat: v2.0.0 - workflow API, dual-mode runtime, frontend bundled, CLI setup wizard)
 RUN npm ci --production=false && npm run build
 WORKDIR /app
 

@@ -11,7 +11,10 @@ services:
       DATA_DIR: /data
       DATABASE_URL: postgresql+asyncpg://fagoon:fagoon@db:5432/fagoon
       WEB_CONCURRENCY: "1"
+<<<<<<< HEAD
       OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-}"
+=======
+>>>>>>> f928398 (feat: v2.0.0 - workflow API, dual-mode runtime, frontend bundled, CLI setup wizard)
       JWT_SECRET: "fagoon-default-secret-change-in-production"
       JWT_ALGORITHM: "HS256"
       NEXT_PUBLIC_BASE_URL: "http://localhost:8000"
