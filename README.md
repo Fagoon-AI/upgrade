@@ -4,7 +4,7 @@ Self-hostable AI agents + workflow platform. Two ways to run:
 
 ## Package users (one command)
 ```bash
-pipx install fagoon
+pipx install fagoon-upgrade
 fagoon up                 # lite mode: no Redis, no Celery, zero env required
 fagoon up --ollama        # add the local Gemma fallback LLM
 ```
