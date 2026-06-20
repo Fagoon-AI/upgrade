@@ -374,6 +374,6 @@ MIT
 
 ## Links
 
-- **Website:** [fagoon.com](https://fagoon.com)
+- **Website:** [fagoonai.com](https://fagoonai.com)
 - **GitHub:** [github.com/Fagoon-AI/upgrade](https://github.com/Fagoon-AI/upgrade)
 - **PyPI:** [pypi.org/project/fagoon-upgrade](https://pypi.org/project/fagoon-upgrade)
