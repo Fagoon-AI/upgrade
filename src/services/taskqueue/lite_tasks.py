@@ -94,7 +94,7 @@ async def generate_video_lite(
                 update_data = {
                     "status": "COMPLETED",
                     "progress": 100,
-                    "video_url": f"/api/v1/videos/{job_id}/download",
+                    "video_url": f"/api/v1/video-generation/videos/{job_id}/download",
                     "file_path": video_output_path_or_url
                 }
 
@@ -157,7 +157,8 @@ async def execute_workflow_lite(
         execution_id: str,
         workflow_id: str,
         initial_input: dict,
-        resume_node_id: str | None = None
+        resume_node_id: str | None = None,
+        single_node_id: str | None = None
 ) -> dict:
     log.info("Lite execute_workflow_lite started for execution_id: %s", execution_id)
     try:
@@ -166,6 +167,7 @@ async def execute_workflow_lite(
             workflow_id=workflow_id,
             initial_input=initial_input,
             resume_node_id=resume_node_id,
+            single_node_id=single_node_id,
         )
     except Exception as e:
         log.error("Execution failed in Lite Mode: %s", e, exc_info=True)

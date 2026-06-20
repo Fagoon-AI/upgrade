@@ -103,8 +103,10 @@ async def lifespan(app: FastAPI):
 
     # Initialize PostgresManager
     if settings.DATABASE_URL:
+        from src.core.database import set_manager
         postgres_manager_instance_local = PostgresManager(settings.DATABASE_URL)
         app.state.postgres_manager = postgres_manager_instance_local
+        set_manager(postgres_manager_instance_local)
         logger.info("PostgresManager initialized and connected via lifespan.")
     else:
         logger.critical("DATABASE_URL is not set! PostgreSQL is required for this application.")
@@ -169,7 +171,8 @@ app = FastAPI(
     title=system_setting.PROJECT_NAME,
     lifespan=lifespan,
     redoc_url=None,
-    docs_url=(f"/{system_setting.API_SWAGGER_PATH.lstrip('/')}" if system_setting.API_SWAGGER_PATH else None),
+    docs_url=None,
+    openapi_url=None,
     exception_handlers={
             AppError: app_error_handler,
             RequestValidationError: validation_exception_handler,
@@ -191,16 +194,20 @@ app = FastAPI(
 )
 
 
+app.add_middleware(AuthMiddleware)
+app.add_middleware(LoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=system_setting.ALLOWED_CORS_ORIGIN,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "https://unrecompensable-pedro-nonpreferably.ngrok-free.dev",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
+    allow_headers=["*"],
 )
-
-app.add_middleware(LoggingMiddleware)
-app.add_middleware(AuthMiddleware)
 
 try:
     from fastapi import APIRouter

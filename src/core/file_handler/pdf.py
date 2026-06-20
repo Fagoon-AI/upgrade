@@ -64,6 +64,7 @@ class PDFDocumentExtractor:
 
     def _extract_single_page(self, page_number: int, page) -> PageData:
         text = page.extract_text() or ""
+        text = text.replace("\x00", "")
         rotation = page.get("/Rotate") or 0
         media_box = page.mediabox
 

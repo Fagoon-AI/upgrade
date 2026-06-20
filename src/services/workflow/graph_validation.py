@@ -227,7 +227,7 @@ class GraphValidationService:
             result: ValidationResult
     ) -> List[Node]:
         """Validates workflow entry points."""
-        start_nodes = [n for n in graph.nodes if n.type == "startNode"]
+        start_nodes = [n for n in graph.nodes if n.resolved_type == "startNode"]
 
         if len(start_nodes) == 0:
             result.add_error(
@@ -255,12 +255,12 @@ class GraphValidationService:
 
             for node in graph.nodes:
                 try:
-                    NodeRegistry.get_node(node.type)
+                    NodeRegistry.get_node(node.resolved_type)
                 except ValueError:
                     result.add_error(
-                        f"Unknown node type '{node.type}'",
+                        f"Unknown node type '{node.resolved_type}'",
                         node_id=node.id,
-                        suggestion=f"Check if '{node.type}' is registered"
+                        suggestion=f"Check if '{node.resolved_type}' is registered"
                     )
         except ImportError:
             # Registry not available, skip validation
@@ -278,24 +278,73 @@ class GraphValidationService:
 
             for node in graph.nodes:
                 try:
-                    node_class = NodeRegistry.get_node(node.type)
+                    node_class = NodeRegistry.get_node(node.resolved_type)
                     manifest = node_class.get_manifest()
                 except Exception:
+                    continue
+
+                # Check if this node has a pinned output and is set to use it
+                is_pinned = False
+                if node.data:
+                    data_dict = getattr(node.data, 'model_extra', {}) or {}
+                    if not isinstance(data_dict, dict):
+                        data_dict = {}
+                    raw_dict = node.data.__dict__ if hasattr(node.data, '__dict__') else {}
+                    
+                    if (data_dict.get("use_pinned") or raw_dict.get("use_pinned")) and ("pinned_output" in data_dict or "pinned_output" in raw_dict):
+                        is_pinned = True
+
+                if is_pinned:
                     continue
 
                 # Get user inputs
                 user_inputs = {}
                 if node.data:
-                    user_inputs = getattr(node.data, 'inputs', {}) or {}
+                    # 1. Get from 'inputs' attribute if present
+                    inputs_val = getattr(node.data, 'inputs', {}) or {}
                     if hasattr(node.data, '__dict__'):
-                        user_inputs = node.data.__dict__.get('inputs', {}) or {}
+                        inputs_val = node.data.__dict__.get('inputs', {}) or {}
+                    
+                    if isinstance(inputs_val, dict):
+                        user_inputs = inputs_val.copy()
+                    else:
+                        user_inputs = {}
+
+                    # 2. Merge top-level extra fields / attributes
+                    # Exclude fields that are structural / internal UI metadata
+                    ignore_keys = {"inputs", "fields", "outputs", "type", "display_name", "icon", "category", "description", "label", "outputs_schema", "version", "tags"}
+                    
+                    # Merge Pydantic v2 model_extra fields
+                    model_extra = getattr(node.data, 'model_extra', None)
+                    if isinstance(model_extra, dict):
+                        for k, v in model_extra.items():
+                            if k not in ignore_keys and k not in user_inputs:
+                                user_inputs[k] = v
+                                
+                    # Merge from raw dictionary
+                    if hasattr(node.data, '__dict__'):
+                        for k, v in node.data.__dict__.items():
+                            if k not in ignore_keys and k not in user_inputs and not k.startswith('_'):
+                                user_inputs[k] = v
+
+                # Find connected inputs for this node
+                connected_inputs = set()
+                for edge in graph.edges:
+                    if edge.target == node.id:
+                        if edge.targetHandle:
+                            connected_inputs.add(edge.targetHandle)
+                        else:
+                            connected_inputs.add("input")
 
                 # Check required fields
                 for field in manifest.get("fields", []):
                     field_name = field.get("name")
                     is_required = field.get("required", False)
 
-                    if is_required and field_name not in user_inputs:
+                    # A required field is satisfied if configured statically or connected dynamically
+                    is_satisfied = (field_name in user_inputs and user_inputs[field_name] not in (None, "")) or (field_name in connected_inputs) or ("input" in connected_inputs)
+
+                    if is_required and not is_satisfied:
                         # Check if there's a default
                         if "default" not in field:
                             result.add_error(
@@ -389,7 +438,7 @@ class GraphValidationService:
 
             for node in graph.nodes:
                 try:
-                    node_class = NodeRegistry.get_node(node.type)
+                    node_class = NodeRegistry.get_node(node.resolved_type)
                     manifest = node_class.get_manifest()
                 except Exception:
                     continue
@@ -409,7 +458,7 @@ class GraphValidationService:
                             )
 
                 # Router-specific validation
-                if node.type == "routerNode":
+                if node.resolved_type == "routerNode":
                     cls._validate_router_branches(node, out_edges, result)
 
         except ImportError:
@@ -463,7 +512,7 @@ class GraphValidationService:
                 elif neighbor in rec_stack:
                     # Check if cycle is allowed
                     node = nodes_map.get(node_id)
-                    if node and node.type not in cls.LOOP_ALLOWED_TYPES:
+                    if node and node.resolved_type not in cls.LOOP_ALLOWED_TYPES:
                         # Find cycle
                         cycle_start = cycle_path.index(neighbor)
                         cycle_nodes = cycle_path[cycle_start:]
@@ -490,7 +539,7 @@ class GraphValidationService:
     ) -> None:
         """Detects orphan nodes."""
         for node in graph.nodes:
-            if node.type == "startNode":
+            if node.resolved_type == "startNode":
                 continue
 
             # Check if node has no incoming edges
@@ -502,10 +551,10 @@ class GraphValidationService:
                 )
 
             # Check if non-terminal node has no outgoing edges
-            if node.type in cls.MUST_HAVE_OUTPUT:
+            if node.resolved_type in cls.MUST_HAVE_OUTPUT:
                 if not adjacency.get(node.id):
                     result.add_warning(
-                        f"Node '{node.id}' ({node.type}) has no outgoing connections",
+                        f"Node '{node.id}' ({node.resolved_type}) has no outgoing connections",
                         node_id=node.id,
                         suggestion="Connect this node to downstream nodes"
                     )
@@ -568,11 +617,11 @@ class GraphValidationService:
         """Computes graph statistics."""
         node_types = {}
         for node in graph.nodes:
-            node_types[node.type] = node_types.get(node.type, 0) + 1
+            node_types[node.resolved_type] = node_types.get(node.resolved_type, 0) + 1
 
         # Find max depth (longest path from start)
         max_depth = 0
-        start_nodes = [n for n in graph.nodes if n.type == "startNode"]
+        start_nodes = [n for n in graph.nodes if n.resolved_type == "startNode"]
 
         if start_nodes:
             visited = {}
@@ -593,6 +642,6 @@ class GraphValidationService:
             "edge_count": len(graph.edges),
             "node_types": node_types,
             "max_depth": max_depth,
-            "has_start_node": any(n.type == "startNode" for n in graph.nodes),
+            "has_start_node": any(n.resolved_type == "startNode" for n in graph.nodes),
             "is_connected": max_depth > 0 or len(graph.nodes) <= 1
         }

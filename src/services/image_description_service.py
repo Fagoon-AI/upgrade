@@ -44,8 +44,12 @@ class ImageDescriptionService:
             )
 
         summary = await llm_service.chat_completion(
-            user_query="Describe this image.",
-            image_url=image_url,
-            system_prompt=system_prompt,
+            conversations=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": [
+                    {"type": "text", "text": "Describe this image."},
+                    {"type": "image_url", "image_url": {"url": image_url}}
+                ]}
+            ]
         )
         return summary

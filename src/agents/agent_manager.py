@@ -67,6 +67,61 @@ class AgentManager:
                 }
                 # Remove redundant fields from the config that are now top-level
                 agent_dict.pop("agent_id", None)
+
+                # Query all uploaded files and urls dynamically from DocumentChunk to populate knowledge_base
+                from src.models.sql.models import DocumentChunk
+                from sqlalchemy import text
+                
+                try:
+                    stmt = select(DocumentChunk.extra_metadata).where(
+                        text("(extra_metadata->>'agent_id' = :agent_id) OR (extra_metadata->>'collection' = :collection_name)").bindparams(
+                            agent_id=agent_id,
+                            collection_name=f"agent_{agent_id}"
+                        )
+                    )
+                    chunks_result = await session.execute(stmt)
+                    
+                    uploaded_files = set()
+                    urls = set()
+                    for meta in chunks_result.scalars():
+                        if not meta:
+                            continue
+                        if meta.get("file_name"):
+                            uploaded_files.add(meta["file_name"])
+                        elif meta.get("file_id"):
+                            val = meta["file_id"]
+                            if val.startswith("http"):
+                                urls.add(val)
+                            else:
+                                uploaded_files.add(val.split("/")[-1])
+                                
+                        if meta.get("url"):
+                            urls.add(meta["url"])
+                        elif meta.get("source"):
+                            source = meta["source"]
+                            if isinstance(source, str) and source.startswith("http"):
+                                urls.add(source)
+                    
+                    # Merge existing knowledge_base config if any
+                    kb_config = agent_dict.get("knowledge_base") or {}
+                    if isinstance(kb_config, list):
+                        kb_config = {"uploaded_files": kb_config}
+                    elif not isinstance(kb_config, dict):
+                        kb_config = {}
+                    
+                    existing_uploaded = set(kb_config.get("uploaded_files") or [])
+                    existing_urls = set(kb_config.get("urls") or [])
+                    
+                    all_uploaded_files = list(existing_uploaded | uploaded_files)
+                    all_urls = list(existing_urls | urls)
+                    
+                    agent_dict["knowledge_base"] = {
+                        "uploaded_files": all_uploaded_files,
+                        "urls": all_urls
+                    }
+                except Exception as ex:
+                    logger.error(f"Failed to fetch dynamically associated files for agent {agent_id}: {ex}")
+
                 return agent_dict
         return None
 

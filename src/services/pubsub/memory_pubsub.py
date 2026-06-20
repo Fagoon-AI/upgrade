@@ -1,12 +1,13 @@
 """In-memory PubSub (LITE MODE).
-
 Correct ONLY in a single process (WEB_CONCURRENCY=1 is enforced in lite mode).
 """
 from __future__ import annotations
-
 import asyncio
+import logging
 from typing import AsyncIterator, Optional
 from datetime import datetime, timezone
+
+log = logging.getLogger(__name__)
 
 
 class MemoryPubSub:
@@ -31,6 +32,7 @@ class MemoryPubSub:
             if channel not in self._subscribers:
                 self._subscribers[channel] = set()
             self._subscribers[channel].add(q)
+        log.info(f"PUBSUB SUBSCRIBE: {channel}, total_subscribers={len(self._subscribers[channel])}")
         try:
             while True:
                 try:
@@ -49,6 +51,10 @@ class MemoryPubSub:
                     self._subscribers[channel].discard(q)
                     if not self._subscribers[channel]:
                         del self._subscribers[channel]
+
+    async def connect(self):
+        """No-op compatibility with redis_manager API."""
+        pass
 
     async def health_check(self) -> dict:
         return {

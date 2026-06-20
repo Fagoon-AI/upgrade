@@ -37,7 +37,8 @@ class Runtime:
     queue: Any
     cache: Any
     pubsub: Any
-    redis: Any | None  # None in lite mode
+    redis: Any | None = None  # None in lite mode
+    pubsub: Any | None = None  # pub/sub for real-time streaming
 
     async def shutdown(self) -> None:
         if hasattr(self.queue, "shutdown"):

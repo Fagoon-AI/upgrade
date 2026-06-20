@@ -122,6 +122,10 @@ class AgentUpdateModel(BaseModel):
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
     model_settings: Optional[AIModelSetting] = None
+    knowledge_base: Optional[KnowledgeBase] = None
+    tools: Optional[List[str]] = None
+    profile: Optional[AgentProfile] = None
+    system_prompt: Optional[str] = None
     
     
 class ChatTitleRequest(BaseModel):

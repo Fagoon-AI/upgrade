@@ -11,7 +11,7 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 async def enhance_prompt_text_async(original_prompt: str, user_id: Optional[uuid.UUID] = None) -> str:
     """
-    Enhances the given prompt using Groq LLM.
+    Enhances the given prompt using Groq or Gemini LLM.
     """
     api_key = None
     if user_id:
@@ -39,7 +39,7 @@ async def enhance_prompt_text_async(original_prompt: str, user_id: Optional[uuid
         "Content-Type": "application/json",
     }
     payload = {
-        "model": "llama3-8b-8192",
+        "model": model_name,
         "messages": [
             {
                 "role": "system",
@@ -47,7 +47,11 @@ async def enhance_prompt_text_async(original_prompt: str, user_id: Optional[uuid
                     "You are a creative assistant that enhances user prompts for an AI video "
                     "generator. Make the prompts more vivid, descriptive, and cinematic. "
                     "Add details about art style, camera angles, lighting, and mood if appropriate. "
-                    "Keep the enhanced prompt concise yet impactful, focusing on visual elements."
+                    "Keep the enhanced prompt concise yet impactful, focusing on visual elements. "
+                    "CRITICAL: Output ONLY the raw enhanced prompt. Do NOT include any conversational filler, "
+                    "preambles, introductions, or lists of choices (e.g., do NOT start with 'Sure, here is...', "
+                    "'Here are a few cinematic options...', etc.). Your response must contain ONLY the single "
+                    "vivid paragraph of the prompt itself, ready to be sent to the video generator."
                 ),
             },
             {
@@ -61,22 +65,22 @@ async def enhance_prompt_text_async(original_prompt: str, user_id: Optional[uuid
 
     try:
         async with httpx.AsyncClient(timeout=45.0) as client:
-            response = await client.post(GROQ_API_URL, json=payload, headers=headers)
+            response = await client.post(api_url, json=payload, headers=headers)
             response.raise_for_status()
 
             data = response.json()
             enhanced_text = data["choices"][0]["message"]["content"].strip()
-            logger.info("Prompt enhanced: '{}' -> '{}'", original_prompt, enhanced_text)
+            logger.info("Prompt enhanced using {}: '{}' -> '{}'", provider_name, original_prompt, enhanced_text)
             return enhanced_text
     except httpx.TimeoutException:
-        logger.error("Groq API request timed out for prompt: '{}'", original_prompt)
+        logger.error("{} API request timed out for prompt: '{}'", provider_name, original_prompt)
         raise Exception("LLM API request timed out.")
     except httpx.RequestError as e:
-        logger.error("Error calling Groq API for prompt '{}': {}", original_prompt, e)
+        logger.error("Error calling {} API for prompt '{}': {}", provider_name, original_prompt, e)
         raise Exception(f"LLM API request failed: {e}")
     except (KeyError, IndexError, TypeError) as e:
         logger.error(
-            "Error parsing Groq API response: {} - Response: {}", e, response.text if 'response' in locals() else 'No response object'
+            "Error parsing {} API response: {} - Response: {}", provider_name, e, response.text if 'response' in locals() else 'No response object'
         )
         raise Exception(f"LLM API response parsing failed: {e}")
     except Exception as e:
