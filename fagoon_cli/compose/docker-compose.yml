@@ -1,6 +1,10 @@
 services:
   app:
+<<<<<<< HEAD
     image: ghcr.io/fagoon-ai/upgrade:2.0.0
+=======
+    image: ghcr.io/Fagoon-AI/upgrade:2.0.0
+>>>>>>> f928398 (feat: v2.0.0 - workflow API, dual-mode runtime, frontend bundled, CLI setup wizard)
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -10,7 +14,10 @@ services:
       DATA_DIR: /data
       DATABASE_URL: postgresql+asyncpg://fagoon:fagoon@db:5432/fagoon
       WEB_CONCURRENCY: "1"
+<<<<<<< HEAD
       OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-}"
+=======
+>>>>>>> f928398 (feat: v2.0.0 - workflow API, dual-mode runtime, frontend bundled, CLI setup wizard)
     volumes:
       - ${FAGOON_DATA_DIR:-~/.fagoon}:/data
     depends_on:
