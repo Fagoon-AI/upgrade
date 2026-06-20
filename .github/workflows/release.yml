@@ -1,8 +1,5 @@
 name: release
 
-# Fires ONLY on version tags (v1.2.0). Pushes to main publish nothing.
-# This tag boundary is what keeps contributor commits off users' installs.
-
 on:
   push:
     tags:
@@ -71,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
-      id-token: write   # OIDC trusted publishing; no stored token
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5

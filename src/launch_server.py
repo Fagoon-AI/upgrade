@@ -171,7 +171,8 @@ app = FastAPI(
     title=system_setting.PROJECT_NAME,
     lifespan=lifespan,
     redoc_url=None,
-    docs_url=(f"/{system_setting.API_SWAGGER_PATH.lstrip('/')}" if system_setting.API_SWAGGER_PATH else None),
+    docs_url=None,
+    openapi_url=None,
     exception_handlers={
             AppError: app_error_handler,
             RequestValidationError: validation_exception_handler,
