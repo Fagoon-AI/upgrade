@@ -25,6 +25,9 @@ COPY . .
 
 # Build frontend
 WORKDIR /app/frontend
+ENV NEXT_PUBLIC_BASE_URL=http://localhost:8000
+ENV NEXT_PUBLIC_WEBSOCKET_URL=ws://localhost:8000/ws-api
+ENV NEXT_PUBLIC_DISABLE_AUTH=false
 RUN npm ci --production=false && npm run build
 WORKDIR /app
 

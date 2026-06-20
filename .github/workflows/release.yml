@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   packages: write
+  actions: read
 
 env:
   IMAGE: ghcr.io/fagoon-ai/upgrade
