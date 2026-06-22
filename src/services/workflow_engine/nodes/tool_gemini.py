@@ -9,38 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from loguru import logger
 
-from src.services.workflow_engine.nodes.base import BaseNode, NodeExecutionError, ConnectionError
+from src.services.workflow_engine.nodes.base import BaseNode, NodeExecutionError, ConnectionError, ensure_string
 from src.services.workflow_engine.context import ExecutionContext
 from src.models.sql.workflow.connection import Connection
 from src.core.encryption import crypto
 from src.services.workflow.cost_tracking import CostCalculator
-
-
-def ensure_string(val: Any) -> str:
-    """Safely converts input values (including nested dicts/lists) into a flat string prompt."""
-    if val is None:
-        return ""
-    if isinstance(val, str):
-        return val
-    if isinstance(val, dict):
-        # Try to extract common keys or fall back to first string value found
-        for key in ["input", "prompt", "text", "output", "content", "response", "instruction"]:
-            if key in val:
-                sub_val = val[key]
-                if isinstance(sub_val, str):
-                    return sub_val
-                elif sub_val is not None:
-                    return str(sub_val)
-        for k, v in val.items():
-            if isinstance(v, str):
-                return v
-        try:
-            return json.dumps(val)
-        except Exception:
-            return str(val)
-    if isinstance(val, list):
-        return "\n".join(ensure_string(item) for item in val if item is not None)
-    return str(val)
 
 
 # MODEL CONFIGURATION
