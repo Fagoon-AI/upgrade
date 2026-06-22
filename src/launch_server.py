@@ -66,6 +66,47 @@ setup_logging()
 
 postgres_manager_instance_local: Optional[PostgresManager] = None
 
+async def _auto_pull_ollama_model():
+    from src.core.settings import system_setting
+    import httpx
+    import asyncio
+    
+    ollama_url = os.environ.get("OLLAMA_BASE_URL") or system_setting.OLLAMA_BASE_URL
+    provider = os.environ.get("FALLBACK_MODEL_PROVIDER") or getattr(system_setting, "FALLBACK_MODEL_PROVIDER", "ollama")
+    model_name = os.environ.get("FALLBACK_MODEL_NAME") or getattr(system_setting, "FALLBACK_MODEL_NAME", "llama3.2:latest")
+    
+    if provider == "ollama" and ollama_url:
+        # Strip trailing slash if present
+        ollama_url = ollama_url.rstrip("/")
+        logger.info(f"Ollama Auto-Pull: Checking local model status for '{model_name}' at {ollama_url}...")
+        try:
+            # Check if model already exists to avoid pulling again
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    r = await client.get(f"{ollama_url}/api/tags")
+                    if r.status_code == 200:
+                        local_models = [m.get("name") for m in r.json().get("models", [])]
+                        if model_name in local_models or f"{model_name}:latest" in local_models:
+                            logger.info(f"Ollama Auto-Pull: Model '{model_name}' is already present locally.")
+                            return
+                except Exception:
+                    pass # Continue to pull if the tag API is missing or fails
+                
+                # Model is not present, pull it
+                logger.info(f"Ollama Auto-Pull: Model '{model_name}' is missing locally. Initiating background pull from Ollama library...")
+                # Use long timeout for pulling
+                r = await client.post(
+                    f"{ollama_url}/api/pull",
+                    json={"name": model_name, "stream": False},
+                    timeout=600.0
+                )
+                if r.status_code == 200:
+                    logger.success(f"Ollama Auto-Pull: Model '{model_name}' successfully pulled and ready!")
+                else:
+                    logger.error(f"Ollama Auto-Pull: Failed to pull model '{model_name}'. Status code: {r.status_code}, Response: {r.text}")
+        except Exception as e:
+            logger.warning(f"Ollama Auto-Pull: Could not connect to Ollama at {ollama_url} to verify/pull model. Error: {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global postgres_manager_instance_local
@@ -144,6 +185,10 @@ async def lifespan(app: FastAPI):
         chat_service=app.state.agent_chat_service
     )
     logger.info("Singleton ChatOrchestrator initialized.")
+
+    # Automatically pull configured Ollama fallback model in the background
+    import asyncio
+    asyncio.create_task(_auto_pull_ollama_model())
 
     yield
 
