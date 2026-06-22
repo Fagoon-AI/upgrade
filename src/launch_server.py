@@ -30,6 +30,7 @@ except ImportError:
 # -----------------------------------------------------------
 
 import os
+import asyncio
 import httpx
 from loguru import logger
 from contextlib import asynccontextmanager
@@ -69,7 +70,6 @@ postgres_manager_instance_local: Optional[PostgresManager] = None
 async def _auto_pull_ollama_model():
     from src.core.settings import system_setting
     import httpx
-    import asyncio
     
     ollama_url = os.environ.get("OLLAMA_BASE_URL") or system_setting.OLLAMA_BASE_URL
     provider = os.environ.get("FALLBACK_MODEL_PROVIDER") or getattr(system_setting, "FALLBACK_MODEL_PROVIDER", "ollama")
@@ -187,7 +187,6 @@ async def lifespan(app: FastAPI):
     logger.info("Singleton ChatOrchestrator initialized.")
 
     # Automatically pull configured Ollama fallback model in the background
-    import asyncio
     asyncio.create_task(_auto_pull_ollama_model())
 
     yield
