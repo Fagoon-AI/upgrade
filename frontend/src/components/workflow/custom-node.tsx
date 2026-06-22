@@ -7,6 +7,7 @@ import { WorkflowNodeDefinition } from '@/lib/types/nodes/nodes';
 import * as Icons from 'lucide-react';
 import { Play, Pin, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useWorkflowStore } from '@/lib/store/workflow';
+import { showAlertToast } from '@/utils/toast';
 
 interface CustomNodeProps {
   id: string;
@@ -18,6 +19,23 @@ export const CustomNode = ({ id, data, selected }: CustomNodeProps) => {
   const Icon = (Icons[data.icon as keyof typeof Icons] || Icons.Box) as React.ComponentType<{ className?: string }>;
   const [isSuccess, setIsSuccess] = useState<'completed' | 'error' | undefined>(undefined);
   const { currentExecution, nodes, selectedNodeId, executeSingleNode, pinNodeOutput, toggleNodePin } = useWorkflowStore();
+
+  const handleNodeClick = () => {
+    const nodeType = (data.type || '').toLowerCase();
+    const needsStandardUrl = 
+      nodeType.includes('webhook') || 
+      nodeType.includes('stripe') || 
+      nodeType.includes('github') || 
+      nodeType.includes('twilio') ||
+      nodeType.includes('slack') ||
+      nodeType.includes('discord') ||
+      nodeType.includes('gmail');
+      
+    if (needsStandardUrl && typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      showAlertToast(`The ${data.display_name || data.type} service needs a standard URL/domain (not localhost) to receive external callbacks properly.`);
+    }
+  };
+
   useEffect(() => {
     const c = currentExecution?.nodes[id];
     if (c?.status === 'completed') {
@@ -63,10 +81,13 @@ export const CustomNode = ({ id, data, selected }: CustomNodeProps) => {
     : [];
 
   return (
-    <Card className={`w-[280px] shadow-md  relative
+    <Card 
+      onClick={handleNodeClick}
+      className={`w-[280px] shadow-md  relative
       ${isSuccess == 'completed' && 'ring-1 ring-green-300'}
       ${isSuccess == 'error' && 'ring-1 ring-red-400'}
-    ${selected ? 'ring-2 ring-blue-500/30' : ''}`}>
+    ${selected ? 'ring-2 ring-blue-500/30' : ''}`}
+    >
       <div className={`p-3 border-b flex items-center justify-between gap-2
          ${isSuccess == 'completed' && 'bg-green-200 text-black'}
          ${isSuccess == 'error' && 'bg-red-400 text-black'}
