@@ -40,7 +40,7 @@ In Lite Mode (designed for single-process local setups), secrets are handled dyn
 
 If you discover a security vulnerability in this project, **please do not open a public issue.** Instead, report it privately to ensure it can be patched before public disclosure.
 
-*   **Email**: Send a detailed description of the vulnerability, reproduction steps, and potential impact to **security@fagoon.ai** (or contact the maintainers).
+*   **Email**: Send a detailed description of the vulnerability, reproduction steps, and potential impact to **admin@fagoondigital.com** (or contact the maintainers).
 *   **Response**: We will acknowledge your report within 48 hours and work with you to analyze and resolve the issue under a responsible disclosure policy.
 
 ---
