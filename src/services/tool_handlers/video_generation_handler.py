@@ -46,9 +46,25 @@ class VideoGenerationHandler(BaseToolHandler):
         async for chunk in self.response_manager.send_event(EventType.STATUS, "Initiated video generation..."):
             yield chunk
         
+        # Resolve user's custom Gemini API Key for Veo
+        gemini_api_key = None
+        from src.services.api_key_resolver import resolve_api_key
+        import uuid
+        try:
+            resolved_key = await resolve_api_key(
+                user_id=uuid.UUID(str(user_id)),
+                provider="gemini",
+                feature="chat"
+            )
+            if resolved_key:
+                gemini_api_key = resolved_key
+        except Exception as e:
+            logger.error(f"Failed to resolve Gemini key for video generation: {e}")
+
         # 2. Run video generation using VeoVideoGenerator
         veo_config = VeoVideoGeneratorConfig(
             model="veo-2.0-generate-001",
+            api_key=gemini_api_key,
         )
         video_generator = VeoVideoGenerator(config=veo_config)
         

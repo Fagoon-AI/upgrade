@@ -77,11 +77,38 @@ class WebSearchService:
         self.crawler_service = crawler_service
         self.history = history or [] 
         self.user_id = user_id
-        self.llm_service = LLMService(
+
+    async def _get_llm_service(self) -> LLMService:
+        from src.utils.misc import get_model_id_and_service
+        from src.services.api_key_resolver import resolve_api_key
+        import uuid
+        
+        provider = "gemini"
+        model = "gemini-2.5-flash"
+        api_key = None
+        
+        m_id, service_key = get_model_id_and_service("src/tmp/model_card.yml", self.selected_model)
+        if m_id and service_key:
+            model = m_id
+            provider = service_key
+            
+        if self.user_id:
+            try:
+                resolved = await resolve_api_key(
+                    user_id=uuid.UUID(str(self.user_id)),
+                    provider=provider,
+                    feature="chat"
+                )
+                if resolved:
+                    api_key = resolved
+            except Exception as e:
+                logger.error(f"Failed to resolve API key for web search query generator: {e}")
+                
+        return LLMService(
             BaseLLMConfig(
-                model="llama-3.3-70b-versatile", 
-                provider="groq", 
-                api_key=groq_api_key
+                model=model,
+                provider=provider,
+                api_key=api_key
             )
         )
 
@@ -98,8 +125,9 @@ class WebSearchService:
         Return ONLY a valid JSON array of strings. Do NOT include explanations.
         """
         try:
+            llm_service = await self._get_llm_service()
             response = await asyncio.wait_for(
-                self.llm_service.chat_completion(user_query=self.query, system_prompt=prompt),
+                llm_service.chat_completion(user_query=self.query, system_prompt=prompt),
                 timeout=5.0
             )
             cleaned_response = response.strip().replace("`", "")
