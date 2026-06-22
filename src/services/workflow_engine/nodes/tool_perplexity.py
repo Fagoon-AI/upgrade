@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from loguru import logger
 
-from src.services.workflow_engine.nodes.base import BaseNode
+from src.services.workflow_engine.nodes.base import BaseNode, ensure_string
 from src.services.workflow_engine.context import ExecutionContext
 from src.models.sql.workflow.connection import Connection
 from src.core.encryption import crypto
@@ -357,7 +357,7 @@ class PerplexityNode(BaseNode):
             return {"status": "error", "error": "API key is required"}
 
         # Get prompt
-        prompt = input_data.get("prompt", "").strip()
+        prompt = ensure_string(input_data.get("prompt", "")).strip()
         if not prompt:
             return {"status": "error", "error": "Search query is required"}
 
@@ -366,6 +366,8 @@ class PerplexityNode(BaseNode):
             "system_prompt",
             "Be a helpful search assistant. Provide accurate, well-sourced information."
         )
+        if system_prompt is not None:
+            system_prompt = ensure_string(system_prompt)
 
         messages = [
             {"role": "system", "content": system_prompt},

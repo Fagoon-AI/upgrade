@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from loguru import logger
 
-from src.services.workflow_engine.nodes.base import BaseNode, NodeExecutionError, ConnectionError
+from src.services.workflow_engine.nodes.base import BaseNode, NodeExecutionError, ConnectionError, ensure_string
 from src.services.workflow_engine.context import ExecutionContext
 from src.models.sql.workflow.connection import Connection
 from src.core.encryption import crypto
@@ -259,7 +259,9 @@ class AgentNode(BaseNode):
                 input_data.get("messages") or
                 "You are a professional assistant."
         )
-        user_input = input_data.get("user_content", "")
+        if system_instruction is not None:
+            system_instruction = ensure_string(system_instruction)
+        user_input = ensure_string(input_data.get("user_content", ""))
         temperature = float(input_data.get("temperature", 0.3))
         connection_id = input_data.get("connection_id")
         max_output_tokens = int(input_data.get("max_output_tokens", 4096))

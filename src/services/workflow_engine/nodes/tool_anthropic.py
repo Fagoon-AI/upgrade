@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from loguru import logger
 
-from src.services.workflow_engine.nodes.base import BaseNode, NodeExecutionError, ConnectionError
+from src.services.workflow_engine.nodes.base import BaseNode, NodeExecutionError, ConnectionError, ensure_string
 from src.services.workflow_engine.context import ExecutionContext
 from src.models.sql.workflow.connection import Connection
 from src.core.encryption import crypto
@@ -260,9 +260,11 @@ class AnthropicNode(BaseNode):
         """
         # 1. Get Configuration
         connection_id = input_data.get("connection_id")
-        prompt = input_data.get("prompt", "")
+        prompt = ensure_string(input_data.get("prompt", ""))
         model_name = input_data.get("model", DEFAULT_MODEL)
         system_prompt = input_data.get("system_prompt")
+        if system_prompt is not None:
+            system_prompt = ensure_string(system_prompt)
         temperature = float(input_data.get("temperature", 0.7))
         max_tokens = int(input_data.get("max_tokens", 4096))
         extended_thinking = input_data.get("extended_thinking", False)
