@@ -4,11 +4,7 @@ Install:   pipx install fagoon-upgrade
 Usage:
     fagoon up                       Start the stack (lite mode by default)
     fagoon up --full                Start with Redis + Celery worker
-<<<<<<< HEAD
     fagoon up --ollama              Start with local Ollama LLM
-=======
-    fagoon up --ollama              Start with Ollama local LLM
->>>>>>> f928398 (feat: v2.0.0 - workflow API, dual-mode runtime, frontend bundled, CLI setup wizard)
     fagoon down                     Stop the stack
     fagoon logs [-f]                Tail logs
     fagoon config set KEY=VALUE     Write to <DATA_DIR>/config.json
@@ -79,10 +75,7 @@ def up(
     """Start the Fagoon platform."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-<<<<<<< HEAD
-=======
     # First-time setup: check if config exists
->>>>>>> f928398 (feat: v2.0.0 - workflow API, dual-mode runtime, frontend bundled, CLI setup wizard)
     cfg = _load_config()
     is_first_run = not cfg.get("_setup_done")
 
@@ -91,11 +84,8 @@ def up(
         typer.secho("  Welcome to Fagoon!", fg="green", bold=True)
         typer.secho("  Let's set up your AI platform.", fg="cyan")
         typer.secho("")
-<<<<<<< HEAD
-=======
 
         # Ask about LLM provider
->>>>>>> f928398 (feat: v2.0.0 - workflow API, dual-mode runtime, frontend bundled, CLI setup wizard)
         typer.secho("  How would you like to power your AI?", fg="white", bold=True)
         typer.secho("  1) I have an API key (OpenAI, Gemini, Groq, etc.)", fg="white")
         typer.secho("  2) Use local Ollama model (free, runs on your machine)", fg="white")
@@ -122,7 +112,6 @@ def up(
 
         elif choice == "2":
             ollama = True
-<<<<<<< HEAD
             cfg["OLLAMA_BASE_URL"] = "http://ollama:11434"
             cfg["FALLBACK_MODEL_PROVIDER"] = "ollama"
             typer.secho("")
@@ -146,10 +135,6 @@ def up(
 
             typer.secho(f"  Model: {cfg['FALLBACK_MODEL_NAME']}", fg="green")
             typer.secho("  Will be pulled automatically on first startup.", fg="cyan")
-=======
-            typer.secho("  Ollama will start alongside Fagoon.", fg="green")
-            typer.secho("  The Gemma 2B model will be pulled on first use.", fg="cyan")
->>>>>>> f928398 (feat: v2.0.0 - workflow API, dual-mode runtime, frontend bundled, CLI setup wizard)
 
         else:
             typer.secho("  No worries! Configure your LLM provider in the UI after login.", fg="yellow")
@@ -173,10 +158,6 @@ def up(
                 "JWT_SECRET", "ENCRYPTION_KEY", "OLLAMA_BASE_URL"]:
         if cfg.get(key):
             env[key] = cfg[key]
-<<<<<<< HEAD
-
-=======
->>>>>>> f928398 (feat: v2.0.0 - workflow API, dual-mode runtime, frontend bundled, CLI setup wizard)
     mode = "full" if full else "lite"
     typer.secho(f"Starting Fagoon ({mode} mode)...", fg="green")
     _run(args)

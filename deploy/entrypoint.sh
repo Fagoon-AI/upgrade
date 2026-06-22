@@ -20,11 +20,6 @@ export JWT_ALGORITHM="${JWT_ALGORITHM:-HS256}"
 # ---- Load config.json into env if it exists ----
 if [ -f "$CONFIG_PATH" ]; then
   echo "Loading config from $CONFIG_PATH..."
-<<<<<<< HEAD
-=======
-  # Extract key-value pairs from config.json and export as env vars
-  # Only set if not already set by Docker env
->>>>>>> f928398 (feat: v2.0.0 - workflow API, dual-mode runtime, frontend bundled, CLI setup wizard)
   eval "$(python3 -c "
 import json, os
 try:

@@ -1,10 +1,6 @@
 services:
   app:
-<<<<<<< HEAD
     image: ghcr.io/fagoon-ai/upgrade:2.0.0
-=======
-    image: ghcr.io/Fagoon-AI/upgrade:2.0.0
->>>>>>> f928398 (feat: v2.0.0 - workflow API, dual-mode runtime, frontend bundled, CLI setup wizard)
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -30,11 +26,7 @@ services:
       retries: 5
 
   worker:
-<<<<<<< HEAD
     image: ghcr.io/fagoon-ai/upgrade:2.0.0
-=======
-    image: ghcr.io/Fagoon-AI/upgrade:2.0.0
->>>>>>> f928398 (feat: v2.0.0 - workflow API, dual-mode runtime, frontend bundled, CLI setup wizard)
     command: uv run celery -A src.core.celery_app worker -P eventlet -c 50
     environment:
       LITE_MODE: "false"

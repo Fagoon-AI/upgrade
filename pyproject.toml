@@ -1,10 +1,6 @@
 [project]
 name = "fagoon-upgrade"
-<<<<<<< HEAD
-version = "2.0.5"
-=======
-version = "2.0.0"
->>>>>>> f928398 (feat: v2.0.0 - workflow API, dual-mode runtime, frontend bundled, CLI setup wizard)
+version = "2.0.6"
 description = "Fagoon AI Agents Workflow"
 readme = "README.md"
 requires-python = ">=3.11"

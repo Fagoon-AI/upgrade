@@ -47,7 +47,7 @@ export const imagegenExecutors: Record<string, NodeExecutor> = {
       "prompt": input.prompt,
       "user_id":user_id,
       "diffusion_model_config": {
-      // "api_key": "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",
+      // "api_key": "YOUR_OPENAI_API_KEY",
       "provider": "openai",
       "model": "dall-e-3"
   }
@@ -94,7 +94,7 @@ export const imagegenExecutors: Record<string, NodeExecutor> = {
       "user_type": "pro",
       "user_id": user_id,
       "diffusion_model_config": {
-      // "api_key": "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",
+      // "api_key": "YOUR_OPENAI_API_KEY",
       "model_type": "hugging_face",
       "model_name": "stabilityai/stable-diffusion-xl-base-1.0"
   }
