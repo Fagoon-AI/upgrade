@@ -49,7 +49,6 @@ class VideoGenerationHandler(BaseToolHandler):
         # Resolve user's custom Gemini API Key for Veo
         gemini_api_key = None
         from src.services.api_key_resolver import resolve_api_key
-        import uuid
         try:
             resolved_key = await resolve_api_key(
                 user_id=uuid.UUID(str(user_id)),
