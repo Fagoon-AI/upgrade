@@ -16,6 +16,33 @@ from src.core.encryption import crypto
 from src.services.workflow.cost_tracking import CostCalculator
 
 
+def ensure_string(val: Any) -> str:
+    """Safely converts input values (including nested dicts/lists) into a flat string prompt."""
+    if val is None:
+        return ""
+    if isinstance(val, str):
+        return val
+    if isinstance(val, dict):
+        # Try to extract common keys or fall back to first string value found
+        for key in ["input", "prompt", "text", "output", "content", "response", "instruction"]:
+            if key in val:
+                sub_val = val[key]
+                if isinstance(sub_val, str):
+                    return sub_val
+                elif sub_val is not None:
+                    return str(sub_val)
+        for k, v in val.items():
+            if isinstance(v, str):
+                return v
+        try:
+            return json.dumps(val)
+        except Exception:
+            return str(val)
+    if isinstance(val, list):
+        return "\n".join(ensure_string(item) for item in val if item is not None)
+    return str(val)
+
+
 # MODEL CONFIGURATION
 
 @dataclass(frozen=True)
@@ -265,9 +292,11 @@ class GeminiNode(BaseNode):
         """
         # 1. Get Configuration
         connection_id = input_data.get("connection_id")
-        user_prompt = input_data.get("prompt", "")
+        user_prompt = ensure_string(input_data.get("prompt", ""))
         preferred_model = input_data.get("model", "gemini-2.5-flash")
         system_instruction = input_data.get("system_instruction")
+        if system_instruction is not None:
+            system_instruction = ensure_string(system_instruction)
         temperature = float(input_data.get("temperature", 0.7))
         max_tokens = int(input_data.get("max_output_tokens", 4096))
         enable_fallback = input_data.get("enable_fallback", True)
