@@ -10,7 +10,7 @@ async def test_gemini_api_key():
     custom_key = "test_custom_gemini_key_12345"
     config = BaseLLMConfig(
         provider="gemini",
-        model="gemini-1.5-flash",
+        model="gemini-2.0-flash",
         temperature=0.7,
         max_tokens=100,
         api_key=custom_key

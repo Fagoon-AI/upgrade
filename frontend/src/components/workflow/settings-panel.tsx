@@ -203,11 +203,11 @@ export function SettingsPanel() {
             nodeDataIdLower.includes('gemini') || nodeDataIdLower.includes('google') || nodeDataIdLower.includes('vertex')) {
             options = [
               { label: "Gemini 2.5 Flash", value: "gemini-2.5-flash" },
-              { label: "Gemini 1.5 Pro", value: "gemini-1.5-pro-002" },
-              { label: "Gemini 1.5 Flash", value: "gemini-1.5-flash-002" },
+              { label: "Gemini 2.0 Flash", value: "gemini-2.0-flash" },
+              { label: "Gemini 2.0 Flash Lite", value: "gemini-2.0-flash-lite" },
               { label: "models/gemini-2.5-flash", value: "models/gemini-2.5-flash" },
-              { label: "models/gemini-1.5-pro-002", value: "models/gemini-1.5-pro-002" },
-              { label: "models/gemini-1.5-flash-002", value: "models/gemini-1.5-flash-002" }
+              { label: "models/gemini-2.0-flash", value: "models/gemini-2.0-flash" },
+              { label: "models/gemini-2.0-flash-lite", value: "models/gemini-2.0-flash-lite" }
             ];
           }
         }

@@ -1,3 +1,4 @@
 {
-  "DATABASE_URL": "postgresql+asyncpg://fagoon:fagoon@localhost:5432/fagoon"
+  "DATABASE_URL": "postgresql+asyncpg://fagoon:fagoon@localhost:5432/fagoon",
+  "EVOLUTION_API_KEY": "40ac2ad1f4312d4f40763ef3065fe3b2"
 }

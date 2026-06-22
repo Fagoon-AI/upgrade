@@ -43,6 +43,10 @@ def ensure_bootstrap(settings: Settings, env_file: str | None = ".env") -> Setti
         cfg["encryption_key"] = Fernet.generate_key().decode()
         changed = True
 
+    if not cfg.get("EVOLUTION_API_KEY"):
+        cfg["EVOLUTION_API_KEY"] = secrets.token_hex(16)
+        changed = True
+
     # Persist the resolved DB url so it is stable across restarts.
     if not cfg.get("DATABASE_URL") and settings.DATABASE_URL:
         cfg["DATABASE_URL"] = settings.DATABASE_URL

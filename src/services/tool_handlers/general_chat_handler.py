@@ -32,7 +32,7 @@ class GeneralChatHandler(BaseToolHandler):
                         
                         # Handle generic model IDs (like "gemini" or "openai") to map to proper working model IDs
                         if provider == "gemini" and model in ("gemini", None, ""):
-                            model = "gemini-1.5-flash"
+                            model = "gemini-2.5-flash"
                         elif provider == "openai" and model in ("openai", None, ""):
                             model = "gpt-4o-mini"
                         elif provider == "groq" and model in ("groq", None, ""):

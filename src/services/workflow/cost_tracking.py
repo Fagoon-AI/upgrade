@@ -24,7 +24,6 @@ RATE_CARDS: Dict[str, Dict[str, Dict[str, float]]] = {
         "gemini-2.0-flash": {"input": 0.00010, "output": 0.0004},
         "gemini-2.0-flash-lite": {"input": 0.000075, "output": 0.0003},
         "gemini-1.5-pro": {"input": 0.00125, "output": 0.00500},
-        "gemini-1.5-flash": {"input": 0.000075, "output": 0.0003},
     },
     "openai": {
         "gpt-4o": {"input": 0.0025, "output": 0.01},

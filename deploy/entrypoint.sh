@@ -23,10 +23,22 @@ if [ -f "$CONFIG_PATH" ]; then
   eval "$(python3 -c "
 import json, os
 try:
+    from cryptography.fernet import Fernet
+except ImportError:
+    Fernet = None
+
+try:
     cfg = json.load(open('$CONFIG_PATH'))
+    enc_key = cfg.get('ENCRYPTION_KEY') or os.environ.get('ENCRYPTION_KEY')
+    cipher = Fernet(enc_key.encode()) if (Fernet and enc_key) else None
+    
     for k, v in cfg.items():
         k = k.upper()
         if k not in os.environ and v:
+            if isinstance(v, str) and v.startswith('fernet:') and cipher:
+                try:
+                    v = cipher.decrypt(v[7:].encode()).decode()
+                except: pass
             print(f'export {k}=\"{v}\"')
 except: pass
 ")"

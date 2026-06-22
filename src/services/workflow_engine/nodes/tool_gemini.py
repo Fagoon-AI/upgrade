@@ -66,9 +66,9 @@ GEMINI_MODELS: Dict[str, GeminiModelConfig] = {
         max_output_tokens=8_192,
         rate_limit_rpm=60
     ),
-    "gemini-1.5-flash": GeminiModelConfig(
-        name="gemini-1.5-flash",
-        display_name="Gemini 1.5 Flash (Legacy)",
+    "gemini-2.0-flash-lite": GeminiModelConfig(
+        name="gemini-2.0-flash-lite",
+        display_name="Gemini 2.0 Flash Lite",
         context_window=1_000_000,
         max_output_tokens=8_192,
         rate_limit_rpm=1000
@@ -80,7 +80,7 @@ DEFAULT_FALLBACK_CHAIN = [
     "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-1.5-pro",
-    "gemini-1.5-flash",
+    "gemini-2.0-flash-lite",
 ]
 
 

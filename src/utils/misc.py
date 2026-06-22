@@ -117,6 +117,14 @@ def get_model_id_and_service(path, model_name) -> Tuple[Optional[str], Optional[
 
     model_name_lower = model_name.lower().strip()
 
+    # Intercept and upgrade deprecated Gemini model names to prevent 404 errors
+    if "gemini-2.0-flash" in model_name_lower or "gemini-1.5-flash" in model_name_lower:
+        if model_name_lower.startswith("models/"):
+            model_name = "models/gemini-2.5-flash"
+        else:
+            model_name = "gemini-2.5-flash"
+        model_name_lower = model_name.lower().strip()
+
     for service_key in data:
         service = data[service_key]
         models = service.get("models", [])

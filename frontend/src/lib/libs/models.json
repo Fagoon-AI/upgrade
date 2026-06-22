@@ -85,10 +85,10 @@
       "multiModal": true
     },
     {
-      "id": "gemini-1.5-flash-002",
+      "id": "gemini-2.0-flash",
       "provider": "Google Vertex AI",
       "providerId": "vertex",
-      "name": "Gemini 1.5 Flash",
+      "name": "Gemini 2.0 Flash",
       "multiModal": true
     },
     {
@@ -106,10 +106,10 @@
       "multiModal": true
     },
     {
-      "id": "models/gemini-1.5-flash-002",
+      "id": "models/gemini-2.0-flash",
       "provider": "Google Generative AI",
       "providerId": "google",
-      "name": "Gemini 1.5 Flash",
+      "name": "Gemini 2.0 Flash",
       "multiModal": true
     },
     {

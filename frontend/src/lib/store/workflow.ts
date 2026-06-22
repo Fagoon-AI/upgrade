@@ -85,11 +85,9 @@ const mapBackendNodeToDefinition = (backendNode: any): NodeDefinition => {
       if (typeLower.includes('gemini') || typeLower.includes('google') || typeLower.includes('vertex')) {
         rawOptions = [
           "gemini-2.5-flash",
-          "gemini-1.5-pro-002",
-          "gemini-1.5-flash-002",
+          "gemini-2.0-flash",
           "models/gemini-2.5-flash",
-          "models/gemini-1.5-pro-002",
-          "models/gemini-1.5-flash-002"
+          "models/gemini-2.0-flash"
         ];
       }
     }

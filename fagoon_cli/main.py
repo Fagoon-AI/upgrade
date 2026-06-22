@@ -66,6 +66,32 @@ def _save_config(cfg: dict) -> None:
         pass
 
 
+def _get_fernet(cfg: dict):
+    from cryptography.fernet import Fernet
+    key = cfg.get("ENCRYPTION_KEY")
+    if not key:
+        key = Fernet.generate_key().decode()
+        cfg["ENCRYPTION_KEY"] = key
+    return Fernet(key.encode())
+
+
+def _encrypt_val(cfg: dict, val: str) -> str:
+    if not val or val.startswith("fernet:"):
+        return val
+    f = _get_fernet(cfg)
+    return "fernet:" + f.encrypt(val.encode()).decode()
+
+
+def _decrypt_val(cfg: dict, val: str) -> str:
+    if not val or not val.startswith("fernet:"):
+        return val
+    try:
+        f = _get_fernet(cfg)
+        return f.decrypt(val[7:].encode()).decode()
+    except Exception:
+        return val
+
+
 @app.command()
 def up(
     full: bool = typer.Option(False, "--full", help="Run with Redis + Celery worker."),
@@ -75,8 +101,36 @@ def up(
     """Start the Fagoon platform."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-    # First-time setup: check if config exists
+    # Load existing config
     cfg = _load_config()
+
+    # Migrate .env if it exists and hasn't been migrated
+    env_path = Path(".env")
+    if env_path.exists() and not cfg.get("_env_migrated"):
+        typer.secho("Found local .env file. Migrating sensitive keys to config.json...", fg="cyan")
+        from cryptography.fernet import Fernet
+        
+        # Ensure we have an encryption key
+        if not cfg.get("ENCRYPTION_KEY"):
+            cfg["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+
+        with open(env_path, "r") as f:
+            for line in f:
+                if "=" in line and not line.startswith("#"):
+                    k, v = line.strip().split("=", 1)
+                    k = k.strip().upper()
+                    v = v.strip().strip("'\"")
+                    if v:
+                        # Encrypt sensitive keys
+                        if any(s in k.lower() for s in ("key", "secret", "password", "token")):
+                            cfg[k] = _encrypt_val(cfg, v)
+                        else:
+                            cfg[k] = v
+        cfg["_env_migrated"] = True
+        _save_config(cfg)
+        typer.secho("Migration complete.", fg="green")
+
+    # First-time setup: check if config exists
     is_first_run = not cfg.get("_setup_done")
 
     if is_first_run and not skip_setup:
@@ -154,10 +208,20 @@ def up(
 
     # Pass saved config as env vars to compose
     cfg = _load_config()
+
+    # Generate EVOLUTION_API_KEY if missing
+    if not cfg.get("EVOLUTION_API_KEY"):
+        import secrets
+        raw_key = secrets.token_hex(16)
+        cfg["EVOLUTION_API_KEY"] = _encrypt_val(cfg, raw_key)
+        _save_config(cfg)
+        typer.secho("Generated and encrypted EVOLUTION_API_KEY for WhatsApp gateway.", fg="blue")
+
     for key in ["OPENAI_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY", "ANTHROPIC_API_KEY",
-                "JWT_SECRET", "ENCRYPTION_KEY", "OLLAMA_BASE_URL"]:
-        if cfg.get(key):
-            env[key] = cfg[key]
+                "JWT_SECRET", "ENCRYPTION_KEY", "OLLAMA_BASE_URL", "EVOLUTION_API_KEY", "DATABASE_URL"]:
+        val = cfg.get(key)
+        if val:
+            env[key] = _decrypt_val(cfg, val)
     mode = "full" if full else "lite"
     typer.secho(f"Starting Fagoon ({mode} mode)...", fg="green")
     _run(args)
@@ -165,7 +229,6 @@ def up(
     typer.secho("  Fagoon is running!", fg="green", bold=True)
     typer.secho("  Frontend:  http://localhost:3000", fg="cyan")
     typer.secho("  Backend:   http://localhost:8000", fg="cyan")
-    typer.secho("  API Docs:  http://localhost:8000/docs", fg="cyan")
     typer.secho("", fg="green")
 
 

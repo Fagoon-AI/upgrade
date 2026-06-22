@@ -15,11 +15,16 @@ services:
       JWT_SECRET: "fagoon-default-secret-change-in-production"
       JWT_ALGORITHM: "HS256"
       NEXT_PUBLIC_BASE_URL: "http://localhost:8000"
+      EVOLUTION_API_KEY: "${EVOLUTION_API_KEY:-}"
+      EVOLUTION_API_URL: "http://evolution-api:8080"
+      WEBHOOK_URL: "http://app:8000"
     volumes:
       - ${FAGOON_DATA_DIR:-~/.fagoon}:/data
     depends_on:
       db:
         condition: service_healthy
+      evolution-api:
+        condition: service_started
 
   db:
     image: pgvector/pgvector:pg16
@@ -36,6 +41,49 @@ services:
       timeout: 5s
       retries: 10
 
+  # ---- WhatsApp Gateway (Evolution API) ----
+  evolution-api:
+    image: evoapicloud/evolution-api:v2.3.2
+    container_name: evolution_api_container
+    ports:
+      - "8080:8080"
+    environment:
+      - AUTHENTICATION_TYPE=apikey
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY}
+      - WPP_LID_MODE=false
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://evolution:secretpassword@evolution-db:5432/evolution?schema=public
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution_api
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://evolution-redis:6379
+      - WEBSOCKET_ENABLED=false
+      - RABBITMQ_ENABLED=false
+      - SQS_ENABLED=false
+    volumes:
+      - evolution_instances:/Evolution/instances
+    depends_on:
+      - evolution-db
+      - evolution-redis
+    restart: unless-stopped
+
+  evolution-db:
+    image: postgres:15-alpine
+    container_name: evolution_api_db
+    environment:
+      - POSTGRES_USER=evolution
+      - POSTGRES_PASSWORD=secretpassword
+      - POSTGRES_DB=evolution
+    volumes:
+      - evolution_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  evolution-redis:
+    image: redis:alpine
+    container_name: evolution_api_redis
+    restart: unless-stopped
+    volumes:
+      - evolution_redis_data:/data
+
   ollama:
     image: ollama/ollama:latest
     profiles: ["ollama"]
@@ -48,3 +96,6 @@ volumes:
   fagoon_data:
   fagoon_db:
   fagoon_ollama:
+  evolution_instances:
+  evolution_db_data:
+  evolution_redis_data:

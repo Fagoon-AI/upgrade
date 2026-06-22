@@ -13,12 +13,17 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/1
       WEB_CONCURRENCY: "2"
       NEXT_PUBLIC_BASE_URL: "http://localhost:8000"
+      EVOLUTION_API_KEY: "${EVOLUTION_API_KEY:-}"
+      EVOLUTION_API_URL: "http://evolution-api:8080"
+      WEBHOOK_URL: "http://app:8000"
     volumes:
       - fagoon_data:/data
     depends_on:
       db:
         condition: service_healthy
       redis:
+        condition: service_started
+      evolution-api:
         condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8000/openapi.json || exit 1"]
@@ -45,6 +50,49 @@ services:
       app:
         condition: service_healthy
 
+  # ---- WhatsApp Gateway (Evolution API) ----
+  evolution-api:
+    image: evoapicloud/evolution-api:v2.3.2
+    container_name: evolution_api_container_full
+    ports:
+      - "8080:8080"
+    environment:
+      - AUTHENTICATION_TYPE=apikey
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY}
+      - WPP_LID_MODE=false
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://evolution:secretpassword@evolution-db:5432/evolution?schema=public
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution_api
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://evolution-redis:6379
+      - WEBSOCKET_ENABLED=false
+      - RABBITMQ_ENABLED=false
+      - SQS_ENABLED=false
+    volumes:
+      - evolution_instances:/Evolution/instances
+    depends_on:
+      - evolution-db
+      - evolution-redis
+    restart: unless-stopped
+
+  evolution-db:
+    image: postgres:15-alpine
+    container_name: evolution_api_db_full
+    environment:
+      - POSTGRES_USER=evolution
+      - POSTGRES_PASSWORD=secretpassword
+      - POSTGRES_DB=evolution
+    volumes:
+      - evolution_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  evolution-redis:
+    image: redis:alpine
+    container_name: evolution_api_redis_full
+    restart: unless-stopped
+    volumes:
+      - evolution_redis_data:/data
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -67,3 +115,6 @@ services:
 volumes:
   fagoon_data:
   fagoon_db:
+  evolution_instances:
+  evolution_db_data:
+  evolution_redis_data:

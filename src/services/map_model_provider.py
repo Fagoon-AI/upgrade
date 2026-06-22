@@ -1,7 +1,6 @@
 from typing import Optional
 
 MODEL_REGISTRY: dict[str, str] = {
-    "gemini-1.5-flash": "gemini",
     "gemini-1.5-pro": "gemini",
     "gemini-2.0-flash": "gemini",
     "gemini-2.5-flash": "gemini",

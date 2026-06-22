@@ -220,7 +220,7 @@ class RouterNode(BaseNode):
                     "name": "model",
                     "label": "AI Model",
                     "type": "select",
-                    "options": ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"],
+                    "options": ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite"],
                     "default": "gemini-2.0-flash"
                 }
             ],
