@@ -18,7 +18,7 @@ Fagoon uses a modern Python 3.12+ stack managed with `uv` for lightning-fast pac
 ### Setup Your Local Environment
 1.  **Fork and Clone**:
     ```bash
-    git clone https://github.com/YOUR_USERNAME/upgrade.git
+    [git clone https://github.com/Fagoon-AI/upgrade.git
     cd upgrade
     ```
 2.  **Synchronize Dependencies**:
