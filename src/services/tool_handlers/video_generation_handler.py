@@ -142,7 +142,12 @@ class VideoGenerationHandler(BaseToolHandler):
                         "error_message": str(e)
                     }
                 )
-            error_message = f"I'm sorry, I encountered an error while generating your video: {str(e)}"
+            error_str = str(e)
+            if "filtered or blocked by Google's strict safety" in error_str:
+                error_message = "I could not generate that video because the prompt was blocked by Google's Responsible AI safety filters. Please try rephrasing your prompt to avoid restricted content (e.g., real people, copyrighted characters, or inappropriate themes)."
+            else:
+                error_message = f"I'm sorry, I encountered an error while generating your video: {error_str}"
+                
             self.response_manager.append_message_chunk(error_message)
             async for chunk in self.response_manager.send_event(EventType.LLM_RESPONSE, error_message):
                 yield chunk
