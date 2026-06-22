@@ -22,7 +22,6 @@ interface UserState {
     setTokens: (token: number) => void;
     setAgentCreateLeft: (left: number) => void;
 
-    checkToken: () => Promise<{ success: boolean; tokens: number; agentCreateLeft: number } | boolean>;
     verifySession: () => Promise<boolean>;
     checkCanCreateAgent: () => Promise<boolean>;
     logout: () => void;
@@ -96,27 +95,6 @@ export const useUserStore = create<UserState>()(
                     localStorage.removeItem('access_token');
                     localStorage.removeItem('upgrade-token');
                     localStorage.removeItem('user');
-                }
-            },
-
-            checkToken: async () => {
-                const userId = get().userId;
-                if (!userId) {
-                    return { success: false, tokens: 0, agentCreateLeft: 0 };
-                }
-                try {
-                    const response = await axiosInstance.get(`${API_ENDPOINTS.AGENT}/user/checkToken`);
-                    const data = response.data;
-                    set(
-                        produce((state: UserState) => {
-                            state.tokens = data.tokens;
-                            state.agentCreateLeft = data.agentCreateLeft;
-                        })
-                    );
-                    return { success: true, tokens: data.tokens, agentCreateLeft: data.agentCreateLeft };
-                } catch (error) {
-                    console.error('Error checking token:', error);
-                    return { success: false, tokens: 0, agentCreateLeft: 0 };
                 }
             },
 

@@ -40,10 +40,7 @@ import { showSuccessToast, showErrorToast } from "@/utils/toast";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import WorkflowDashboard from '@/components/workflow/dashboard/workflow-dashboard';
-import WorkflowExecutionLogs from '@/components/workflow/dashboard/execution-logs';
-import { API_BASE_URL } from '@/utils/api/api';
-import { useQuery } from '@tanstack/react-query';
-import { getNodesRegistry, getNodeDetails } from '@/lib/api/workflow';
+import { getNodeDetails } from '@/lib/api/workflow';
 import axiosInstance from '@/lib/api/axios';
 
 // Node type definitions
@@ -165,8 +162,8 @@ export default function WorkflowPage() {
                     const isStaticValFilled = staticValue !== undefined && staticValue !== null && String(staticValue).trim() !== '';
 
                     // Check 2: Is there an incoming edge targeting this handle?
-                    const hasIncomingConnection = edges.some(edge => 
-                        edge.target === node.id && 
+                    const hasIncomingConnection = edges.some(edge =>
+                        edge.target === node.id &&
                         (edge.targetHandle === fieldName || edge.targetHandle === 'input' || edge.targetHandle === 'prompt')
                     );
 
@@ -362,7 +359,7 @@ export default function WorkflowPage() {
      * Viewport control handlers
      */
     const handleZoomIn = () => reactFlow.zoomIn();
-    
+
 
     const handleZoomOut = () => {
         reactFlow.zoomOut();
@@ -515,7 +512,7 @@ export default function WorkflowPage() {
 
             {/* Mobile backdrop for Settings Panels */}
             {(selectedNodeId || selectedEdgeId) && (
-                <div 
+                <div
                     onClick={() => {
                         setSelectedNode(null);
                         setSelectedEdge(null);
@@ -564,22 +561,9 @@ export default function WorkflowPage() {
                         <DialogTitle>Workflows Dashboard</DialogTitle>
                         <DialogDescription>Monitor and analyze your workflow executions</DialogDescription>
                     </DialogHeader>
-                    <Tabs defaultValue="dashboard" className="w-full">
-                        <div className="px-6">
-                            <TabsList className="grid w-full grid-cols-2">
-                                <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-                                <TabsTrigger value="logs">Execution Logs</TabsTrigger>
-                            </TabsList>
-                        </div>
                         <ScrollArea className="h-[calc(80vh-120px)] px-6 py-4">
-                            <TabsContent value="dashboard" className="mt-0">
-                                <WorkflowDashboard />
-                            </TabsContent>
-                            <TabsContent value="logs" className="mt-0">
-                                <WorkflowExecutionLogs />
-                            </TabsContent>
+                            <WorkflowDashboard />
                         </ScrollArea>
-                    </Tabs>
                 </DialogContent>
             </Dialog>
         </div>

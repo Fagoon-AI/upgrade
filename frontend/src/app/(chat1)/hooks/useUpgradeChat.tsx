@@ -33,7 +33,6 @@ type ChatContextType = {
     handleNewMessage: (message: string, params?: string) => Promise<void>
     resetChat: () => void
     fetchConversations: (id: string) => Promise<void>
-    getChatTitle: (id: string) => Promise<void>
     activeStatus: string | null
     setActiveStatus: (status: string | null) => void
 }
@@ -534,14 +533,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             console.log(e)
         }
     }
-    const getChatTitle = async (conversationId: string) => {
-        try {
-            const response = await chatApi.generateUpgradeChatTitle(conversationId)
-            setChatTitle(response.data.title)
-        } catch (e) {
-            console.log(e)
-        }
-    }
     const enhancePrompt = async (prompt: string) => {
         if (!prompt) return;
         setIsEnhancingPrompt(true);
@@ -580,7 +571,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
                 handleNewMessage,
                 resetChat,
                 fetchConversations,
-                getChatTitle,
                 chatTitle,
                 activeStatus,
                 setActiveStatus
