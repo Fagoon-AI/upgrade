@@ -70,10 +70,10 @@ class LLMService:
                 else:
                     logger.warning(
                         f"No valid API key found for provider '{self._config.provider}'. "
-                        f"Failing over to local fallback model (Ollama - gemma:2b)..."
+                        f"Failing over to local fallback model (Ollama - {system_setting.FALLBACK_MODEL_NAME})..."
                     )
                     self._config.provider = "ollama"
-                    self._config.model = "gemma:2b"
+                    self._config.model = system_setting.FALLBACK_MODEL_NAME
                     self._config.api_key = None
 
     @property

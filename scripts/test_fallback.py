@@ -14,14 +14,15 @@ async def test_fallback():
         api_key=""
     )
     
-    # We expect LLMService to fallback to ollama and gemma:2b!
+    # We expect LLMService to fallback to ollama and configured fallback model!
+    from src.core.settings import system_setting
     service = LLMService(config)
     print(f"Resulting Provider: {service.config.provider}")
     print(f"Resulting Model: {service.config.model}")
     
     assert service.config.provider == "ollama", "Provider did not failover to ollama!"
-    assert service.config.model == "gemma:2b", "Model did not failover to gemma:2b!"
-    print("SUCCESS: Fallback logic intercepts missing keys and resolves to Ollama + Gemma 2B successfully!")
+    assert service.config.model == system_setting.FALLBACK_MODEL_NAME, f"Model did not failover to {system_setting.FALLBACK_MODEL_NAME}!"
+    print(f"SUCCESS: Fallback logic intercepts missing keys and resolves to Ollama + {system_setting.FALLBACK_MODEL_NAME} successfully!")
 
 if __name__ == "__main__":
     asyncio.run(test_fallback())

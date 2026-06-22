@@ -171,6 +171,9 @@ class Settings(BaseSettings):
     SMART_MODEL_PROVIDER: str = "gemini"
     SMART_MODEL_ID: str = "gemini-2.5-pro"
 
+    FALLBACK_MODEL_NAME: str = "llama3.2:latest"
+    FALLBACK_MODEL_PROVIDER: str = "ollama"
+
     # Channel webhook / integration configuration
     REDIS_URL: str = ""
     WEBHOOK_VERIFY_TOKEN: Optional[str] = None
