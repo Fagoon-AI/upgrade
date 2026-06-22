@@ -106,7 +106,7 @@ class ChatStreamOrchestrator:
                 selected_tools = [ToolType.AUDIO_GENERATION.value]
             else:
                 selected_tools = await analyze_and_select_tools(
-                    conversation_history, self.context.request.web_search_enabled
+                    conversation_history, self.context.request.web_search_enabled, user_id=self.context.user_id
                 )
 
             async for chunk in self._execute_tool_and_stream(conversation_history, selected_tools):

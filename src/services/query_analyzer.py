@@ -88,6 +88,7 @@ def build_prompt(
 async def analyze_and_select_tools(
         history: List[Dict],
         web_search_enabled: bool = False,
+        user_id: Optional[str] = None,
 ) -> List[str]:
     """
     Uses a hybrid approach to intelligently determine which tools to activate.
@@ -121,6 +122,17 @@ async def analyze_and_select_tools(
         logger.info(f"Rule-based tool selection: User message '{query}' is a video generation request. Selecting 'video_generation' tool.")
         return [ToolType.VIDEO_GENERATION.value]
 
+    # Rule 1.6: Image generation direct matching
+    image_triggers = [
+        "generate image", "generate an image", "make an image", "make image", "create an image", "create image",
+        "draw a picture", "draw picture", "draw an image", "draw image", "create a picture", "create picture",
+        "generate a picture", "generate picture", "paint a picture", "paint picture", "generate a drawing",
+        "make a drawing", "draw a", "generate a painting", "make a painting"
+    ]
+    if any(query.startswith(trigger) for trigger in image_triggers):
+        logger.info(f"Rule-based tool selection: User message '{query}' is an image generation request. Selecting 'image_generation' tool.")
+        return [ToolType.IMAGE_GENERATION.value]
+
     # --- FIX 1: Protect Rule 2 with the web_search_enabled toggle ---
     # Only allow rule-based web search matching if the feature is explicitly enabled by the user
     if web_search_enabled:
@@ -138,10 +150,28 @@ async def analyze_and_select_tools(
     # Fallback: Use LLM for more complex queries that don't match simple rules.
     logger.info("No simple rules matched. Using LLM for tool analysis.")
     from src.core.settings import system_setting
+
+    # Dynamically resolve user's key for the tool selection LLM
+    api_key = None
+    if user_id:
+        from src.services.api_key_resolver import resolve_api_key
+        import uuid
+        try:
+            resolved = await resolve_api_key(
+                user_id=uuid.UUID(str(user_id)),
+                provider=system_setting.FAST_MODEL_PROVIDER,
+                feature="chat"
+            )
+            if resolved:
+                api_key = resolved
+        except Exception as e:
+            logger.error(f"Failed to resolve API key for tool analyzer LLM: {e}")
+
     llm_service = LLMService(
         BaseLLMConfig(
             model=system_setting.FAST_MODEL_ID,
             provider=system_setting.FAST_MODEL_PROVIDER,
+            api_key=api_key
         )
     )
     try:

@@ -208,7 +208,7 @@ class ChatOrchestrator:
         agent_tools = agent.get("tools", []) if isinstance(agent, dict) else getattr(agent, "tools", [])
         web_search_enabled = "web_search" in agent_tools or "webSearch" in agent_tools or "websearch" in agent_tools
 
-        selected_tools = await analyze_and_select_tools(temp_history, web_search_enabled=web_search_enabled)
+        selected_tools = await analyze_and_select_tools(temp_history, web_search_enabled=web_search_enabled, user_id=user_id)
         selected_tool = selected_tools[0] if selected_tools else "rag"
         logger.info(f"Query Analyzer decided to route to: {selected_tool}")
 
