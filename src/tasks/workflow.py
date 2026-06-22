@@ -131,7 +131,8 @@ async def execute_workflow_logic(
 
         except Exception as e:
             logger.error(
-                f"Workflow execution error: {e}",
+                "Workflow execution error: {}",
+                str(e),
                 extra={
                     "execution_id": execution_id,
                     "workflow_id": workflow_id,
