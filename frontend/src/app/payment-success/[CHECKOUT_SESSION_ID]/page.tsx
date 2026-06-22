@@ -30,7 +30,12 @@ const PaymentSuccess: React.FC = () => {
       }
 
       try {
-        const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY2YWYwY2U3MDJmZTRjYzA0ZDNlZTYyMSIsImlhdCI6MTczODkyMzI0NCwiZXhwIjoxNzM5NTI4MDQ0fQ.lp1HdmK5QwvpHRXaQjCCTLuOevkQw9Cnbc9wslBNGL4";
+        const getCookie = (name: string): string | null => {
+          if (typeof document === 'undefined') return null;
+          const match = document.cookie.match(new RegExp(`(^|;)\\s*${name}\\s*=\\s*([^;]+)`));
+          return match ? match[2] : null;
+        };
+        const token = getCookie("jwt") || (typeof window !== 'undefined' ? localStorage.getItem('upgrade-token') : null) || "";
 
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:2321";
         const response = await fetch(`${API_BASE_URL}/api/v1/payment/complete-checkout-session/${CHECKOUT_SESSION_ID}`, {

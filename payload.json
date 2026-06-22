@@ -1,1 +1,0 @@
-{"instanceName": "agent-new123", "qrcode": true, "webhook": {"url": "http://host.docker.internal:8000/api/v1/whatsapp-session/webhook/agent-new123", "byEvents": true, "base64": true, "events": ["QRCODE_UPDATED", "CONNECTION_UPDATE"]}}
