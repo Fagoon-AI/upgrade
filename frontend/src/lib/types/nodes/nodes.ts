@@ -71,6 +71,7 @@ export interface NodePort {
 export interface NodeSetting {
   id: string;
   name: string;
+  label: string;
   type: SettingType;
   description?: string;
   default?: any;

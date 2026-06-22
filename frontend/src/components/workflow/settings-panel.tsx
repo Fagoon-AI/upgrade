@@ -10,7 +10,6 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { useWorkflowStore } from '@/lib/store/workflow';
 import { NodeDefinition, NodePort, NodeSetting, SettingType } from '@/lib/types/nodes/nodes';
-import { UploadWorkflowFileToGCS } from '@/lib/storage/file';
 import { API_BASE_URL } from '@/utils/api/api';
 import {
   Dialog,
@@ -113,24 +112,6 @@ export function SettingsPanel() {
     return undefined;
   };
   const renderSetting = (setting: NodeSetting) => {
-    const uploadToGcs = async (file: File | undefined) => {
-      if (!file) {
-        console.error('No file selected for upload');
-        return;
-      }
-      const u = localStorage.getItem('user');
-      if (!u) {
-        console.error('User ID not found in localStorage');
-        return;
-      }
-      const user = JSON.parse(u);
-      const formData = new FormData();
-      formData.append('data', file);
-      formData.append('user_id', user._id);
-      const response = await axiosInstance.post('/api/workflow/upload-to-gcp', formData)
-      console.log('File uploaded to GCS:', response.data.file_url);
-      handleChange(response.data.file_url);
-    }
     const value = getSettingValue(setting.name);
 
     const handleChange = (newValue: unknown) => {
@@ -167,17 +148,16 @@ export function SettingsPanel() {
             step={setting.step || 1}
           />
         );
-      case 'file':
-        return (
-          <Input type='file' onChange={(e) => uploadToGcs(e.target.files?.[0])} />
-        )
 
       case 'boolean':
         return (
-          <Switch
-            checked={Boolean(value)}
-            onCheckedChange={handleChange}
-          />
+          <>
+            <br />
+            <Switch
+              checked={Boolean(value)}
+              onCheckedChange={handleChange}
+            />
+          </>
         );
 
       case 'textarea':
@@ -220,7 +200,7 @@ export function SettingsPanel() {
           const nodeTypeLower = selectedNode.type?.toLowerCase() || '';
           const nodeDataIdLower = (selectedNode.data as any)?.id?.toLowerCase() || '';
           if (nodeTypeLower.includes('gemini') || nodeTypeLower.includes('google') || nodeTypeLower.includes('vertex') ||
-              nodeDataIdLower.includes('gemini') || nodeDataIdLower.includes('google') || nodeDataIdLower.includes('vertex')) {
+            nodeDataIdLower.includes('gemini') || nodeDataIdLower.includes('google') || nodeDataIdLower.includes('vertex')) {
             options = [
               { label: "Gemini 2.5 Flash", value: "gemini-2.5-flash" },
               { label: "Gemini 1.5 Pro", value: "gemini-1.5-pro-002" },
@@ -301,16 +281,21 @@ export function SettingsPanel() {
 
     return inputs.map((input) => {
       return (
-        <Input
-          key={input.id}
-          type="text"
-          placeholder={input.id}
-          value={input.default !== undefined ? String(input.default) : ''}
-          onChange={(e) => {
-            handleInputChange(e.target.value, input.id);
-          }}
-          className="w-full"
-        />
+        <div key={input.id} className="space-y-2 mb-4">
+          <Label htmlFor={input.id}>
+            {input.id}
+          </Label>
+          <Input
+            id={input.id}
+            type="text"
+            placeholder={input.id}
+            value={input.default !== undefined ? String(input.default) : ''}
+            onChange={(e) => {
+              handleInputChange(e.target.value, input.id);
+            }}
+            className="w-full"
+          />
+        </div>
       );
     });
   };
@@ -327,7 +312,7 @@ export function SettingsPanel() {
       return (
         <div key={setting.name} className="space-y-2 mb-4">
           <Label htmlFor={setting.name}>
-            {setting.name}
+            {setting.label.includes("Connection") ? "Key" : setting.label}
             {setting.required && <span className="text-red-500 ml-1">*</span>}
           </Label>
           {renderSetting(setting)}
@@ -343,7 +328,7 @@ export function SettingsPanel() {
 
   return (
     <>
-      <Card className="w-80 border-l h-full overflow-y-auto flex flex-col justify-between max-md:absolute max-md:right-0 max-md:top-0 max-md:z-30 max-md:shadow-xl bg-background">
+      <Card className="z-30 w-80 border-l h-full overflow-y-auto flex flex-col justify-between max-md:absolute max-md:right-0 max-md:top-0 max-md:shadow-xl bg-background">
         <div>
           <div className="p-4 border-b flex items-center gap-2">
             <Button
@@ -413,8 +398,8 @@ export function SettingsPanel() {
                         size="sm"
                         onClick={() => toggleNodePin(selectedNodeId)}
                         className={`h-6 px-2 text-[10px] font-medium border
-                          ${(nodeData as any).use_pinned 
-                            ? 'bg-amber-500 text-white hover:bg-amber-600 border-transparent' 
+                          ${(nodeData as any).use_pinned
+                            ? 'bg-amber-500 text-white hover:bg-amber-600 border-transparent'
                             : 'bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-900 border-muted'}`}
                       >
                         {(nodeData as any).use_pinned ? "Active" : "Inactive"}

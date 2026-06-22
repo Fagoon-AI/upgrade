@@ -60,7 +60,7 @@ export default function RootLayout({
                       >
                         <ThemeToggle />
                         {children}
-                        <PoweredBy className="fixed bottom-4 right-4 z-[9999] bg-[#0b0b0d]/50 backdrop-blur-sm px-3 py-1 rounded-full border border-zinc-800/40" />
+                        <PoweredBy className="fixed bottom-4 right-4 z-20 bg-[#0b0b0d]/50 backdrop-blur-sm px-3 py-1 rounded-full border border-zinc-800/40" />
                         {/* <div className="fixed bottom-10 right-10">
                           <NovaMiniChat />
                         </div> */}

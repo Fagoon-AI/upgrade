@@ -180,24 +180,7 @@ export const getFileUrl = async (filePath: string) => {
   return { success: true, data: finalUrl };
 };
 
-export const publishWorkflow = async (data: Record<string, unknown>) => {
-  const response = await axiosInstance.post(`/api/v1/workflow/publish`, data);
-  return response.data;
-};
-
-export const scheduleWorkflow = async (data: Record<string, unknown>) => {
-  const response = await axiosInstance.post(`/api/workflow/schedule`, data);
-  return response.data;
-};
-
-export const getAllWorkflow = async () => {
-  const response = await axiosInstance.get(`/api/v1/workflow/getall`);
-  return response.data;
-};
-
-export const getWorkflowHistory = async (userId: string) => {
-  const response = await axiosInstance.post(`/api/v1/workflow/history`, {
-    user_id: userId
-  });
+export const publishWorkflow = async (workflowId: string) => {
+  const response = await axiosInstance.post(`/api/v1/workflows/${workflowId}/publish`);
   return response.data;
 };

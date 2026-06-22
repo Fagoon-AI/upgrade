@@ -1,21 +1,5 @@
 import axiosInstance from "../axios";
 
-export const createChat = async (data: {
-  role: string;
-  message: string;
-  uuid: string | string[];
-  selected_model?: string;
-  conversation_id: string | string[];
-  user_id: string | null;
-  data?: string | null;
-  internet_search?: boolean;
-  tokenUsage?: number;
-  isAssignmentMode?: boolean;
-}) => {
-  const response = await axiosInstance.post(`/api/v1/chat/create/chat`, data);
-  return response.data;
-};
-
 export const enhancePrompt = async (query: string) => {
   const response = await axiosInstance.post("/api/v1/enhance", { query });
   return response.data;
@@ -39,16 +23,6 @@ export const textToSpeech = async (chat: string) => {
   return response.data;
 };
 
-export const getChatHistory = async (historyId: string | string[]) => {
-  const response = await axiosInstance.get(`/api/v1/chat/get/chat/${historyId}`);
-  return response.data;
-};
-
-export const checkTokens = async () => {
-  const response = await axiosInstance.get(`/api/v1/chat/checkToken`);
-  return response.data;
-};
-
 export const initUpgradeChat = async () => {
   const response = await axiosInstance.post("/api/v1/upgrade/chat");
   return response.data;
@@ -66,11 +40,6 @@ export const deleteUpgradeConversation = async (conversationId: string) => {
 
 export const getUpgradeChatIds = async () => {
   const response = await axiosInstance.get(`/api/v1/upgrade/chat/conversations`);
-  return response.data;
-}
-
-export const generateUpgradeChatTitle = async (conversationId: string) => {
-  const response = await axiosInstance.post(`/api/v1/upgrade/chat/generate-title?conversation_id=${conversationId}`);
   return response.data;
 };
 

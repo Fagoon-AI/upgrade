@@ -34,18 +34,28 @@ export const CustomNode = ({ id, data, selected }: CustomNodeProps) => {
   }, [nodes?.length])
 
   const rawInputs = (data as any)?.inputs;
-
-  // Check if there is a 'prompt' field in the node's fields array to map handles intelligently
-  const hasPromptField = Array.isArray((data as any)?.fields) &&
-    (data as any).fields.some((f: any) => f.name === 'prompt');
-
-  const defaultInputs = hasPromptField
-    ? [{ id: 'prompt', name: 'Prompt' }]
-    : [{ id: 'input', name: 'Input' }];
-
-  const inputsArray: Array<{ id: string; name: string }> = Array.isArray(rawInputs) && rawInputs.length > 0
+  let baseInputs: Array<{ id: string; name: string }> = Array.isArray(rawInputs) && rawInputs.length > 0
     ? rawInputs
-    : defaultInputs;
+    : [];
+
+  const textareaFields = data.fields?.filter((f) => f.type === 'textarea') || [];
+  const textareaInputs = textareaFields.map((f) => ({
+    id: f.name,
+    name: f.label || f.name,
+  }));
+
+  // Combine them, avoiding duplicates by id
+  const combinedInputs = [...baseInputs];
+  for (const taInput of textareaInputs) {
+    if (!combinedInputs.some((i) => i.id === taInput.id)) {
+      combinedInputs.push(taInput);
+    }
+  }
+
+  // Fallback to a single 'input' if nothing is found
+  const inputsArray = combinedInputs.length > 0 
+    ? combinedInputs 
+    : [{ id: 'input', name: 'Input' }];
 
   const rawOutputs = (data as any)?.outputs;
   const outputsArray: string[] = Array.isArray(rawOutputs)
@@ -56,18 +66,16 @@ export const CustomNode = ({ id, data, selected }: CustomNodeProps) => {
     <Card className={`w-[280px] shadow-md  relative
       ${isSuccess == 'completed' && 'ring-1 ring-green-300'}
       ${isSuccess == 'error' && 'ring-1 ring-red-400'}
-    ${selected ? 'ring-2 ring-blue-200' : ''}`}>
+    ${selected ? 'ring-2 ring-blue-500/30' : ''}`}>
       <div className={`p-3 border-b flex items-center justify-between gap-2
          ${isSuccess == 'completed' && 'bg-green-200 text-black'}
          ${isSuccess == 'error' && 'bg-red-400 text-black'}
          rounded-xl`
       }>
-        {/* {JSON.stringify(data)} */}
-        {selectedNodeId === id &&
-          <div className='absolute top-[-20px]'>
-            wohoo
-          </div>
-        }
+        {/* Elegant glowing pulsing selection ring */}
+        {(selected || selectedNodeId === id) && (
+          <div className="absolute inset-[-4px] border-2 border-blue-500/80 rounded-2xl animate-pulse pointer-events-none z-10" />
+        )}
         <div className="flex items-center gap-2 min-w-0">
           <Icon className="h-5 w-5 " />
           <h3 className="font-medium text-sm truncate">{data.display_name}</h3>

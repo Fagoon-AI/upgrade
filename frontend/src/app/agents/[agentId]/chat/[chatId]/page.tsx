@@ -268,7 +268,7 @@ export default function Component() {
             ) : (
                 <div className="flex-1 flex flex-col overflow-auto max-h-screen">
                     <div className="z-10 backdrop-blur-sm border-b">
-                        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center">
+                        <div className="max-w-5xl mx-auto px-4 py-3 md:py-2 flex items-center">
                             <Button variant="ghost" size="icon" className="mr-2">
                                 <ChevronLeft className="h-5 w-5" />
                                 <span className="sr-only">Back</span>

@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import axios from '@/lib/api/axios';
 import { X, Send, Trash2, Download, Copy, Bot } from "lucide-react";
+import DOMPurify from "dompurify";
 import Skeleton from "@/components/Skeleton";
 import GradientBackground from "@/components/GradientBackground";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -59,45 +60,49 @@ const ChatSkeleton: React.FC = () => (
 const MessageBubble: React.FC<{
   message: ChatMessage;
   onCopy: () => void;
-}> = ({ message, onCopy }) => (
-  <div
-    className={`flex ${message.role === "user" ? "justify-end" : "justify-start"
-      } relative group`}
-  >
+}> = ({ message, onCopy }) => {
+  const sanitizedContent = typeof window !== "undefined" ? DOMPurify.sanitize(message.content) : message.content;
+
+  return (
     <div
-      className={`
-        ${message.role === "user"
-          ? "bg-blue-500 text-white shadow-lg"
-          : "bg-white dark:bg-gray-800 shadow-md"
-        } 
-        p-4 rounded-lg max-w-[80%] break-words relative transition-all duration-200
-      `}
+      className={`flex ${message.role === "user" ? "justify-end" : "justify-start"
+        } relative group`}
     >
-      {message.role === "assistant" && (
-        <div className="absolute -left-8 top-2">
-          <Bot className="w-6 h-6 text-gray-500" />
-        </div>
-      )}
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw]}
-        className="prose dark:prose-invert max-w-none"
+      <div
+        className={`
+          ${message.role === "user"
+            ? "bg-blue-500 text-white shadow-lg"
+            : "bg-white dark:bg-gray-800 shadow-md"
+          } 
+          p-4 rounded-lg max-w-[80%] break-words relative transition-all duration-200
+        `}
       >
-        {message.content}
-      </ReactMarkdown>
-      <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-2">
-        <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
-        <button
-          onClick={onCopy}
-          className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-          title="Copy message"
+        {message.role === "assistant" && (
+          <div className="absolute -left-8 top-2">
+            <Bot className="w-6 h-6 text-gray-500" />
+          </div>
+        )}
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw]}
+          className="prose dark:prose-invert max-w-none"
         >
-          <Copy className="w-4 h-4" />
-        </button>
+          {sanitizedContent}
+        </ReactMarkdown>
+        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-2">
+          <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
+          <button
+            onClick={onCopy}
+            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+            title="Copy message"
+          >
+            <Copy className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const AgentChatInner: React.FC = () => {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -239,7 +244,7 @@ const AgentChatInner: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen max-w-7xl justify-center mx-auto">
-      <header className="border-b dark:border-gray-700 p-4 flex items-center justify-between bg-white dark:bg-gray-800 shadow-sm">
+      <header className="border-b dark:border-gray-700 p-4 md:py-2.5 md:px-4 flex items-center justify-between bg-white dark:bg-gray-800 shadow-sm">
         <div className="flex items-center space-x-4">
           <img src="/Icon.svg" alt="AI Icon" className="w-8 h-8" />
           {selectedAgent && (

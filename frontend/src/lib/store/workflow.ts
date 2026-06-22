@@ -125,9 +125,19 @@ const mapBackendNodeToDefinition = (backendNode: any): NodeDefinition => {
     };
   });
 
-  const inputs: NodePort[] = [
-    { id: 'input', name: 'Input', type: 'any', required: false }
-  ];
+  // Dynamically map fields to input ports, excluding credential selection fields
+  const inputs: NodePort[] = (backendNode.fields || [])
+    .filter((f: any) => f.type !== 'connection_select' && f.name !== 'connection_id')
+    .map((f: any) => ({
+      id: f.name,
+      name: f.label || f.name,
+      type: 'any',
+      required: !!f.required
+    }));
+
+  if (inputs.length === 0) {
+    inputs.push({ id: 'input', name: 'Input', type: 'any', required: false });
+  }
 
   const outputs: NodePort[] = (backendNode.outputs || ['output']).map((outName: string) => ({
     id: outName,
@@ -845,7 +855,7 @@ const traces = Array.isArray(detailData)
             const rawNodes = workflow.graph_definition?.nodes || workflow.nodes || [];
             const rawEdges = workflow.graph_definition?.edges || workflow.edges || [];
 
-            // Dynamically remap legacy edge targetHandles from 'input' to 'prompt' if the target node requires 'prompt'
+            // Dynamically remap legacy edge targetHandles from 'input' to 'prompt' or the first available input field
             const mappedEdges = rawEdges.map((edge: any) => {
               const targetNode = rawNodes.find((n: any) => n.id === edge.target);
               if (targetNode) {
@@ -853,8 +863,18 @@ const traces = Array.isArray(detailData)
                 const hasPromptField = Array.isArray(nodeData?.fields) &&
                   nodeData.fields.some((f: any) => f.name === 'prompt');
 
-                if (hasPromptField && edge.targetHandle === 'input') {
-                  return { ...edge, targetHandle: 'prompt' };
+                if (edge.targetHandle === 'input') {
+                  if (hasPromptField) {
+                    return { ...edge, targetHandle: 'prompt' };
+                  }
+                  
+                  // If 'input' is not a valid handle in the node's inputs list, map to the first available handle
+                  const hasInputHandle = Array.isArray(nodeData?.inputs) &&
+                    nodeData.inputs.some((i: any) => i.id === 'input');
+
+                  if (!hasInputHandle && Array.isArray(nodeData?.inputs) && nodeData.inputs.length > 0) {
+                    return { ...edge, targetHandle: nodeData.inputs[0].id };
+                  }
                 }
               }
               return edge;
