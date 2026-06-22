@@ -7,8 +7,10 @@ export const createWorkflow = async (workflowData: CreateWorkflowPayload) => {
   return response.data;
 };
 
-export const getWorkflows = async (): Promise<GetWorkflowsResponse> => {
-  const response = await axiosInstance.get(`/api/v1/workflows`);
+export const getWorkflows = async (skip: number = 0, limit: number = 10): Promise<GetWorkflowsResponse> => {
+  const response = await axiosInstance.get(`/api/v1/workflows`, {
+    params: { skip, limit }
+  });
   return response.data;
 };
 

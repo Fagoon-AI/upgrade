@@ -6,7 +6,7 @@ import { WiTime2 } from "react-icons/wi";
 import LoadingPage from '@/app/loading';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useWorkflowStore } from '@/lib/store/workflow';
 import { LuWorkflow } from 'react-icons/lu';
 import { getWorkflows } from '@/lib/api/workflow';
@@ -15,34 +15,49 @@ const WorkflowDashboard = () => {
     const router = useRouter()
     const [workflows, setWorkflows] = useState<any[]>([])
     const [isLoading, setLoading] = useState(false)
+    const [page, setPage] = useState(1)
+    const [totalCount, setTotalCount] = useState(0)
+    const [publishedCount, setPublishedCount] = useState(0)
+    const [hasMore, setHasMore] = useState(false)
+    const limit = 10
     const { loadWorkflow } = useWorkflowStore()
 
-    useEffect(() => {
-        const fetchWorkflows = async () => {
-            try {
-                setLoading(true);
-                const responseData = await getWorkflows();
-                const workflowsList = responseData?.data || (responseData as any)?.workflows || (Array.isArray(responseData) ? responseData : []);
-                
-                // Map workflows to ensure they have the exact structure needed by the dashboard
-                const mappedWorkflows = workflowsList.map((workflow: any) => ({
-                    ...workflow,
-                    id: workflow.id || workflow._id,
-                    name: workflow.name || "Untitled Workflow",
-                    nodes: workflow.graph_definition?.nodes || workflow.nodes || [],
-                    edges: workflow.graph_definition?.edges || workflow.edges || [],
-                    createdAt: workflow.created_at || workflow.createdAt || new Date().toISOString(),
-                    updatedAt: workflow.updated_at || workflow.updatedAt || new Date().toISOString(),
-                }));
-                
-                setWorkflows(mappedWorkflows);
-                setLoading(false);
-            } catch (error) {
-                setLoading(false);
-            }
+    const fetchWorkflows = async (currentPage: number) => {
+        try {
+            setLoading(true);
+            const skip = (currentPage - 1) * limit;
+            const responseData = await getWorkflows(skip, limit);
+            const workflowsList = responseData?.data || (responseData as any)?.workflows || (Array.isArray(responseData) ? responseData : []);
+            
+            // Map workflows to ensure they have the exact structure needed by the dashboard
+            const mappedWorkflows = workflowsList.map((workflow: any) => ({
+                ...workflow,
+                id: workflow.id || workflow._id,
+                name: workflow.name || "Untitled Workflow",
+                nodes: workflow.graph_definition?.nodes || workflow.nodes || [],
+                edges: workflow.graph_definition?.edges || workflow.edges || [],
+                createdAt: workflow.created_at || workflow.createdAt || new Date().toISOString(),
+                updatedAt: workflow.updated_at || workflow.updatedAt || new Date().toISOString(),
+            }));
+            
+            setWorkflows(mappedWorkflows);
+            
+            // Meta calculations
+            const total = responseData.meta?.total ?? mappedWorkflows.length;
+            setTotalCount(total);
+            setHasMore(responseData.meta?.has_more ?? (mappedWorkflows.length === limit));
+            
+            // Count published items on this page
+            setPublishedCount(workflowsList.filter((i: any) => i.published === true).length);
+            setLoading(false);
+        } catch (error) {
+            setLoading(false);
         }
-        fetchWorkflows()
-    }, [])
+    }
+
+    useEffect(() => {
+        fetchWorkflows(page)
+    }, [page])
 
     const createNewWorkflow = async () => {
         try {
@@ -63,13 +78,13 @@ const WorkflowDashboard = () => {
                 <div className="bg-white/40 flex-1 backdrop-blur-3xl border border-gray-100 dark:border-gray-700  dark:bg-[#2f2f2f] rounded-lg shadow-md p-6 flex flex-col justify-between">
                     <div className='w-full h-full flex flex-col gap-2 text-sm'>
                         Total Workflows
-                        <div className='text-2xl font-extrabold'>{workflows.length || 0}</div>
+                        <div className='text-2xl font-extrabold'>{totalCount || workflows.length || 0}</div>
                     </div>
                 </div>
                 <div className="bg-white/40 flex-1 backdrop-blur-3xl border border-gray-100 dark:border-gray-700  dark:bg-[#2f2f2f] rounded-lg shadow-md p-6 flex flex-col justify-between">
                     <div className='w-full h-full flex flex-col gap-2 text-sm'>
-                        Published Workflows
-                        <div className='text-2xl font-extrabold'>{workflows?.filter(i => i.published === true).length}</div>
+                        Published Workflows (Page)
+                        <div className='text-2xl font-extrabold'>{publishedCount}</div>
                     </div>
                 </div>
             </div>
@@ -81,6 +96,22 @@ const WorkflowDashboard = () => {
                 {isLoading ? <LoadingPage /> :
 
                     <div className='flex gap-3 flex-wrap'>
+                        {/* 1. Create New Workflow CARD MOVED TO TOP */}
+                        <Card 
+                            onClick={createNewWorkflow}
+                            className="cursor-pointer flex flex-col items-center justify-center border-dashed w-full hover:bg-accent/20 transition-colors"
+                        >
+                            <CardContent className="flex flex-col items-center justify-center py-8 w-full">
+                                <div className='flex flex-col items-center gap-2 w-full'>
+                                    <div className="h-20 w-20 rounded-full border border-slate-200 dark:border-neutral-800 bg-background flex items-center justify-center shadow-sm hover:bg-accent transition-colors">
+                                        <Plus className="h-10 w-10 text-slate-500 dark:text-neutral-400" />
+                                    </div>
+                                    <p className="mt-4 text-sm font-medium text-center">Create New Workflow</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* 2. Listed Workflows */}
                         {workflows.map((workflow: any) => (
                             <div key={workflow.id} className="bg-white/40 backdrop-blur-3xl border border-gray-100 dark:border-gray-700  dark:bg-[#2f2f2f] rounded-lg shadow-md flex 
                         flex-col justify-between w-full">
@@ -105,21 +136,35 @@ const WorkflowDashboard = () => {
                                 </div>
                             </div>
                         ))}
-                        <Card 
-                            onClick={createNewWorkflow}
-                            className="cursor-pointer flex flex-col items-center justify-center border-dashed w-full hover:bg-accent/20 transition-colors"
-                        >
-                            <CardContent className="flex flex-col items-center justify-center py-8 w-full">
-                                <div className='flex flex-col items-center gap-2 w-full'>
-                                    <div className="h-20 w-20 rounded-full border border-slate-200 dark:border-neutral-800 bg-background flex items-center justify-center shadow-sm hover:bg-accent transition-colors">
-                                        <Plus className="h-10 w-10 text-slate-500 dark:text-neutral-400" />
-                                    </div>
-                                    <p className="mt-4 text-sm font-medium text-center">Create New Workflow</p>
-                                </div>
-                            </CardContent>
-                        </Card>
                     </div>
                 }
+
+                {/* 3. Pagination Controls */}
+                {!isLoading && totalCount > limit && (
+                    <div className="flex items-center justify-center gap-4 mt-6">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={page === 1}
+                            className="flex items-center gap-1"
+                        >
+                            <ChevronLeft className="h-4 w-4" /> Previous
+                        </Button>
+                        <span className="text-sm font-medium">
+                            Page {page} of {Math.ceil(totalCount / limit)}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPage(p => p + 1)}
+                            disabled={!hasMore || (page * limit >= totalCount)}
+                            className="flex items-center gap-1"
+                        >
+                            Next <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                )}
 
             </div>
         </div>
