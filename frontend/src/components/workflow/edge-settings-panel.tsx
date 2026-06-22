@@ -33,7 +33,7 @@ export function EdgeSettingsPanel() {
   };
 
   return (
-    <Card className="w-80 border-l h-full overflow-y-auto flex flex-col justify-between bg-background max-md:absolute max-md:right-0 max-md:top-0 max-md:z-30 max-md:shadow-xl">
+    <Card className="z-30 w-80 border-l h-full overflow-y-auto flex flex-col justify-between bg-background max-md:absolute max-md:right-0 max-md:top-0 max-md:shadow-xl">
       <div>
         <div className="p-4 border-b flex items-center justify-between">
           <h3 className="font-medium text-lg">Connection Settings</h3>

@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { showErrorToast, showSuccessToast } from "@/utils/toast";
-import { getAllWorkflow, getWorkflows } from "@/lib/api/workflow";
+import { getWorkflows } from "@/lib/api/workflow";
 import { getMyAgents, listAgents } from "@/lib/api/agent";
 
 const PROVIDERS = [

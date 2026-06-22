@@ -32,7 +32,6 @@ import { useRouter } from "next/navigation";
 import { useWorkflowStore } from "@/lib/store/workflow";
 import { searchNode } from "@/lib/api/workflow";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { PoweredBy } from "../common/PoweredBy";
 
 interface NodeSidebarProps {
   onNodeSelect: (nodeId: string) => void;
@@ -269,21 +268,20 @@ export function NodeSidebar({ onNodeSelect, onOpenDashboard }: NodeSidebarProps)
         {!sidebarCollapsed ? (
           <>
             {renderSidebarButton(<LuLayoutDashboard className="h-4 w-4" />, "Dashboard", () => router.push('/workflow'))}
-            {renderSidebarButton(<History className="h-4 w-4" />, "History")}
-            {renderSidebarButton(
+            {/* {renderSidebarButton(<History className="h-4 w-4" />, "History")} */}
+            {/* {renderSidebarButton(
               <BookOpen className="h-4 w-4" />,
               "Documentation"
-            )}
-            {renderSidebarButton(<Settings className="h-4 w-4" />, "Settings")}
-            <div className="flex items-center justify-between">
+            )} */}
+            {/* {renderSidebarButton(<Settings className="h-4 w-4" />, "Settings")} */}
+            {/* <div className="flex items-center justify-between">
               {renderSidebarButton(<HelpCircle className="h-4 w-4" />, "Help")}
-              {/* <ThemeToggle /> */}
-            </div>
+            </div> */}
           </>
         ) : (
           <div className="flex flex-col items-center gap-2">
 
-            <Tooltip>
+            {/* <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon">
                   <History className="h-4 w-4" />
@@ -314,7 +312,7 @@ export function NodeSidebar({ onNodeSelect, onOpenDashboard }: NodeSidebarProps)
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right">Help</TooltipContent>
-            </Tooltip>
+            </Tooltip> */}
             {/* <ThemeToggle /> */}
           </div>
         )}

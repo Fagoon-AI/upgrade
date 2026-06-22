@@ -3,30 +3,19 @@ import { Button } from '@/components/ui/button'
 import { HumanizeTimestamp } from '@/utils/data/date';
 import React, { useEffect, useState } from 'react'
 import { WiTime2 } from "react-icons/wi";
-import { VscDebugStart } from "react-icons/vsc";
-import { BsCalendar2Date } from "react-icons/bs";
-import { showSuccessToast } from "@/utils/toast";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { MdContentCopy, MdDeleteOutline } from "react-icons/md";
-import ScheduleDialog from './schedule-dialog';
 import LoadingPage from '@/app/loading';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Plus } from 'lucide-react';
 import { useWorkflowStore } from '@/lib/store/workflow';
-import { Input } from '@/components/ui/input';
 import { LuWorkflow } from 'react-icons/lu';
 import { getWorkflows } from '@/lib/api/workflow';
 
 const WorkflowDashboard = () => {
     const router = useRouter()
     const [workflows, setWorkflows] = useState<any[]>([])
-    const [currentWorkflow, setCurrentWorkflow] = useState<undefined | any>(undefined)
-    const [currentScheduleWorkflow, setCurrentScheduleWorkflow] = useState<undefined | any>(undefined)
     const [isLoading, setLoading] = useState(false)
-    const [newWorkflowName, setNewWorkflowName] = useState<string>('')
     const { loadWorkflow } = useWorkflowStore()
-
 
     useEffect(() => {
         const fetchWorkflows = async () => {
@@ -55,54 +44,19 @@ const WorkflowDashboard = () => {
         fetchWorkflows()
     }, [])
 
-    const ScheduleHandler = (id: string) => {
-        const workflow = workflows.find(w => w.id == id)
-        if (!workflow) return;
-        let hasApiNode = false
-        for (const n of workflow.nodes) {
-            console.log(n.data.id)
-            if (n.data.id == 'api-input') {
-                hasApiNode = true
-                break
-            }
-        }
-        if (!hasApiNode) {
-            showSuccessToast('API nodes should be present to execute as API')
-            return
-        }
-        setCurrentScheduleWorkflow(workflow)
-    }
-
-    const APIHandler = (id: string) => {
-        const workflow = workflows.find(w => w.id == id)
-        if (!workflow) return;
-        let hasApiNode = false
-        for (const n of workflow.nodes) {
-            console.log(n.data.id)
-            if (n.data.id == 'api-input') {
-                hasApiNode = true
-                break
-            }
-        }
-        if (!hasApiNode) {
-            showSuccessToast('API nodes should be present to execute as API')
-            return
-        }
-        setCurrentWorkflow(workflow)
-    }
     const createNewWorkflow = async () => {
         try {
             const { createWorkflow, setCurrentExecutionSavedId } = useWorkflowStore.getState();
             useWorkflowStore.setState({ nodes: [], edges: [] });
             const newFlowId = createWorkflow("Untitled Workflow");
             setCurrentExecutionSavedId(newFlowId);
-            setNewWorkflowName('');
             
             router.push(`/workflow/app`);
         } catch (e) {
             console.error("Error creating new workflow:", e);
         }
     }
+
     return (
         <div className='flex flex-col gap-7'>
             <div className='flex justify-between gap-5'>
@@ -132,7 +86,6 @@ const WorkflowDashboard = () => {
                         flex-col justify-between w-full">
                                 <div className='w-full h-full flex justify-between gap-2 text-sm p-2'>
                                     {workflow.name}
-                                    {/* <MdDeleteOutline /> */}
                                 </div>
                                 <div className='px-2 pb-2'>
                                     Nodes: {workflow.nodes.length}
@@ -149,16 +102,6 @@ const WorkflowDashboard = () => {
                                             router.push(`/workflow/app`)
                                         }}
                                     >< LuWorkflow />Load</Button>
-                                    {workflow.published &&
-                                        <div className='flex flex-col items-center gap-2 w-full'>
-                                            <Button className='w-full' variant={'outline'}
-                                                onClick={() => APIHandler(workflow.id)}
-                                            >< VscDebugStart />Use API</Button>
-                                            <Button className='w-full'
-                                                onClick={() => ScheduleHandler(workflow.id)}
-                                            ><BsCalendar2Date />Schedule</Button>
-                                        </div>
-                                    }
                                 </div>
                             </div>
                         ))}
@@ -179,53 +122,6 @@ const WorkflowDashboard = () => {
                 }
 
             </div>
-
-            <Dialog open={currentScheduleWorkflow} onOpenChange={(v) => {
-                if (!v) {
-                    setCurrentScheduleWorkflow(undefined)
-                }
-            }}>
-                <DialogContent>
-                    <ScheduleDialog id={currentScheduleWorkflow?.id} />
-                </DialogContent>
-            </Dialog>
-
-            <Dialog open={currentWorkflow} onOpenChange={(v) => {
-                if (!v) {
-                    setCurrentWorkflow(undefined)
-                }
-            }}>
-                <DialogContent>
-                    To Use the API, use the given API url:
-                    <div className='flex items-center gap-2'>
-                        <MdContentCopy
-                            className='cursor-pointer'
-                            onClick={() => {
-                                const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://fagoon.tech';
-                                navigator.clipboard.writeText(`${baseUrl}/api/workflow/execute-api?workflow_id=${currentWorkflow?.id}`)
-                                showSuccessToast('Copied to Clipboard')
-                            }} />
-                        <div className='line-clamp-1'>
-                            {typeof window !== 'undefined' ? window.location.hostname : 'fagoon.tech'}/api/workflow/execute-api?workflow_id={currentWorkflow?.id}
-                        </div>
-                    </div>
-                    <div>
-                        API bdoy example:
-                        <div>
-                            <code>
-                                <pre>{JSON.stringify({ api_key: "enter your api key", input: "your workflow input for the API" }, null, 2)}</pre>
-                            </code>
-                        </div>
-                    </div>
-                    <div className='text-sm dark:text-gray-400'>Visit the{" "}
-                        <span className='hover:underline cursor-pointer'
-                            onClick={() => router.push('/profile')}
-                        >
-                            User Dashboard
-                        </span>
-                        {" "}for the api key</div>
-                </DialogContent>
-            </Dialog>
         </div>
     )
 }

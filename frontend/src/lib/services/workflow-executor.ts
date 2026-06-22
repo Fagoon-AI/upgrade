@@ -122,12 +122,14 @@ private async gatherInputs(edges: Edge[], nodes: Node[], userInput: string, node
     }
   // }else{
     const currentNode = nodes.find(n => n.id == node_id);
-    
-    currentNode?.data?.inputs.forEach(i=>{
-      if(i.default){
-        inputs[i.id] = inputs[i.id]? inputs[i.id]+ i.default: i.default 
-      }
-    })
+    const nodeInputs = (currentNode?.data as any)?.inputs;
+    if (Array.isArray(nodeInputs)) {
+      nodeInputs.forEach((i: any) => {
+        if (i.default) {
+          inputs[i.id] = inputs[i.id] ? inputs[i.id] + i.default : i.default;
+        }
+      });
+    }
   // }
   return inputs;
 }
