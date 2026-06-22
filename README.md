@@ -1,8 +1,19 @@
-# Fagoon Upgrade
+<h1 align="center">
+  <img src="frontend/public/Icon.svg" alt="Upgrade Icon" width="45" height="45" style="vertical-align: middle; margin-right: 10px;" />
+  Upgrade
+</h1>
 
-**Self-hosted AI platform with workflow automation, agents, chat, and API generation.**
+<p align="center">
+  <strong>Self-hosted AI platform with workflow automation, agents, chat, and API generation.</strong>
+</p>
 
-Build AI workflows visually, publish them as REST APIs, deploy agents, and chat with LLMs — all running on your own machine.
+<p align="center">
+  Build AI workflows visually, publish them as REST APIs, deploy agents, and chat with LLMs — all running on your own machine.
+</p>
+
+<p align="center">
+  <video src="frontend/public/Upgrade.mp4" width="100%" controls autoplay muted loop></video>
+</p>
 
 ---
 
@@ -222,6 +233,21 @@ fagoon up
 - **Docker:** `docker pull ghcr.io/fagoon-ai/upgrade:2.0.4`
 - **GitHub:** [github.com/Fagoon-AI/upgrade](https://github.com/Fagoon-AI/upgrade)
 
+---
+
+## Founder's Note
+
+> "When Big Tech started restricting their technology, AI lost its most important feature: inclusion. AI shouldn't belong to one corporation or one country, it belongs to everyone.
+>
+> Fagoon AI stands firmly by the open source community. To prove it, we are open sourcing one of our largest internal projects: Upgrade.
+>
+> Upgrade allows you to host and modify open source/API models, craft powerful AI agents, and deploy them instantly via API or WhatsApp. We're putting the power back in the hands of the developers, and we will be continuously rolling out new packages and updates.
+>
+> Let's keep AI open."
+>
+> **Shekhar Adhikari**  
+> Founder of Fagoon AI
+
 ## License
 
-MIT
+[Apache-2.0 license](https://www.apache.org/licenses/LICENSE-2.0)
