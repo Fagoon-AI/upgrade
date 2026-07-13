@@ -10,7 +10,7 @@ from src.core.database import get_database_manager
 from src.services.workflow_engine.executor import WorkflowExecutor
 from src.dao.workflow_dao import WorkflowDAO
 from src.models.sql.workflow.workflow import Workflow
-from src.models.sql.workflow.execution import WorkflowExecution, ExecutionStatus, NodeExecutionTrace
+from src.models.sql.workflow.execution import WorkflowExecution, ExecutionStatus
 
 
 from src.api.v1.routers.workflow.streams import emit_trace
@@ -60,6 +60,12 @@ async def execute_workflow_logic(
             # 3. Get global variables
             global_vars = workflow.global_variables or {}
 
+            # Mark execution as RUNNING now that it's actually starting
+            execution = await db.get(WorkflowExecution, UUID(execution_id))
+            if execution:
+                execution.mark_running()
+                await db.commit()
+
             # 4. Create executor
             executor = WorkflowExecutor(
                 graph_definition=workflow.graph_definition,
@@ -83,28 +89,14 @@ async def execute_workflow_logic(
                 single_node_id=single_node_id
             )
 
-            # Update execution record with success status and results
+            # Update execution record with success status and results.
+            # Node traces are persisted incrementally by the executor as each
+            # node completes (see WorkflowExecutor._persist_trace), so there's
+            # no bulk trace write here anymore.
             execution = await db.get(WorkflowExecution, UUID(execution_id))
             if execution:
-                execution.status = ExecutionStatus.COMPLETED
-                execution.finished_at = datetime.now(timezone.utc)
-                execution.results = result
+                execution.mark_completed(results=result)
                 execution.context_data = result
-
-                # Save execution traces
-                for trace_data in executor.get_traces():
-                    trace = NodeExecutionTrace(
-                        execution_id=UUID(execution_id),
-                        node_id=trace_data["node_id"],
-                        node_type=trace_data["node_type"],
-                        status=trace_data["status"],
-                        inputs=trace_data.get("inputs", {}),
-                        outputs=trace_data.get("outputs", {}),
-                        error_message=trace_data.get("error_message"),
-                        duration_ms=trace_data.get("duration_ms", 0),
-                        attempt_number=trace_data.get("attempt_number", 1)
-                    )
-                    db.add(trace)
 
                 await db.commit()
 
@@ -162,12 +154,7 @@ async def _mark_execution_failed(
             execution = await db.get(WorkflowExecution, UUID(execution_id))
 
             if execution:
-                execution.status = ExecutionStatus.FAILED
-                execution.finished_at = datetime.now(timezone.utc)
-
-                if not execution.context_data:
-                    execution.context_data = {}
-                execution.context_data["error"] = error_message
+                execution.mark_failed(error_message)
 
                 await db.commit()
 
@@ -215,23 +202,34 @@ async def cancel_execution_logic(
         if not execution:
             return {"status": "error", "message": "Execution not found"}
 
-        if execution.status in [ExecutionStatus.COMPLETED, ExecutionStatus.FAILED]:
+        if execution.is_terminal:
             return {
                 "status": "error",
                 "message": f"Cannot cancel {execution.status.value} execution"
             }
 
-        execution.status = ExecutionStatus.FAILED
-        execution.finished_at = datetime.now(timezone.utc)
+        _revoke_celery_task(execution.celery_task_id)
 
-        if not execution.context_data:
-            execution.context_data = {}
-        execution.context_data["error"] = reason
-        execution.context_data["cancelled"] = True
+        execution.mark_cancelled(reason)
 
         await db.commit()
 
         return {"status": "cancelled", "execution_id": execution_id}
+
+
+def _revoke_celery_task(task_id: Optional[str]) -> None:
+    """Revokes the Celery task backing an execution, if one is tracked (full mode only)."""
+    if not task_id:
+        return
+    try:
+        from src.core.settings import get_settings
+        if get_settings().lite_mode:
+            return
+        from src.core.task_processing.celery_app import celery_app
+        celery_app.control.revoke(task_id, terminate=True, signal="SIGTERM")
+        logger.info(f"Revoked Celery task {task_id}")
+    except Exception as e:
+        logger.warning(f"Failed to revoke Celery task {task_id}: {e}")
 
 
 async def cleanup_stale_executions_logic(

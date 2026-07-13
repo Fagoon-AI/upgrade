@@ -19,6 +19,7 @@ from jinja2 import Environment, BaseLoader, UndefinedError, TemplateSyntaxError,
 from src.services.workflow_engine.context import ExecutionContext, ContextState, create_execution_context
 from src.services.workflow_engine.registry import get_registry, NodeNotFoundError
 from src.services.workflow_engine.nodes.base import BaseNode, NodeExecutionError
+from src.models.sql.workflow.execution import NodeExecutionTrace
 
 
 # CIRCUIT BREAKER
@@ -950,6 +951,7 @@ class WorkflowExecutor:
                     self._total_cost += trace.cost_usd
 
                 self.traces.append(trace)
+                await self._persist_trace(db, context.execution_id, trace)
 
                 # Update context
                 if loop_item is not None:
@@ -982,6 +984,7 @@ class WorkflowExecutor:
                 trace.error_message = str(e)
                 trace.completed_at = datetime.now(timezone.utc)
                 self.traces.append(trace)
+                await self._persist_trace(db, context.execution_id, trace)
 
                 await self._emit_trace({
                     "node_id": node_id,
@@ -1009,6 +1012,7 @@ class WorkflowExecutor:
                 trace.error_message = str(e)
                 trace.completed_at = datetime.now(timezone.utc)
                 self.traces.append(trace)
+                await self._persist_trace(db, context.execution_id, trace)
 
                 await self._emit_trace({
                     "node_id": node_id,
@@ -1107,6 +1111,34 @@ class WorkflowExecutor:
                 })
             except Exception as e:
                 logger.warning(f"Trace callback failed: {e}")
+
+    async def _persist_trace(
+            self,
+            db: AsyncSession,
+            execution_id: str,
+            trace: NodeTrace
+    ) -> None:
+        """
+        Persists a single node trace immediately, so the /timeline endpoint
+        reflects live progress instead of only appearing after the whole
+        workflow finishes.
+        """
+        try:
+            db.add(NodeExecutionTrace(
+                execution_id=UUID(execution_id),
+                node_id=trace.node_id,
+                node_type=trace.node_type,
+                status=trace.status,
+                inputs=trace._mask_secrets(trace.inputs),
+                outputs=trace._mask_secrets(trace.outputs) if trace.outputs else {},
+                error_message=trace.error_message,
+                duration_ms=trace.duration_ms,
+                attempt_number=trace.attempt_number,
+            ))
+            await db.commit()
+        except Exception as e:
+            logger.warning(f"Failed to persist node trace for {trace.node_id}: {e}")
+            await db.rollback()
 
     def get_traces(self) -> List[Dict[str, Any]]:
         """Returns all execution traces."""

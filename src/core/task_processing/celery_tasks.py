@@ -193,7 +193,8 @@ def execute_workflow_task(
         execution_id: str,
         workflow_id: str,
         initial_input: dict,
-        resume_node_id: str | None = None
+        resume_node_id: str | None = None,
+        single_node_id: str | None = None
 ) -> dict:
     from celery.exceptions import SoftTimeLimitExceeded, Reject
     import traceback
@@ -206,6 +207,7 @@ def execute_workflow_task(
                 workflow_id=workflow_id,
                 initial_input=initial_input,
                 resume_node_id=resume_node_id,
+                single_node_id=single_node_id,
             )
         )
         return result
