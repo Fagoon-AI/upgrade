@@ -6,9 +6,10 @@ from uuid import UUID
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Header, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
+from pydantic import BaseModel
 from loguru import logger
 
 from src.core.database import get_db
@@ -150,12 +151,16 @@ async def revoke_workflow_api(
     return APIResponse(success=True, message="Workflow API revoked")
 
 
+class UpdateWorkflowApiRequest(BaseModel):
+    is_active: Optional[bool] = None
+    rate_limit: Optional[int] = None
+    timeout: Optional[int] = None
+
+
 @router.patch("/workflows/{workflow_id}/api", response_model=APIResponse)
 async def update_workflow_api(
     workflow_id: str,
-    is_active: Optional[bool] = None,
-    rate_limit_per_minute: Optional[int] = None,
-    timeout_seconds: Optional[int] = None,
+    body: UpdateWorkflowApiRequest,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -170,12 +175,12 @@ async def update_workflow_api(
     if not api_record:
         raise HTTPException(status_code=404, detail="No API found")
 
-    if is_active is not None:
-        api_record.is_active = is_active
-    if rate_limit_per_minute is not None:
-        api_record.rate_limit_per_minute = max(1, min(rate_limit_per_minute, 1000))
-    if timeout_seconds is not None:
-        api_record.timeout_seconds = max(10, min(timeout_seconds, 600))
+    if body.is_active is not None:
+        api_record.is_active = body.is_active
+    if body.rate_limit is not None:
+        api_record.rate_limit_per_minute = max(1, min(body.rate_limit, 1000))
+    if body.timeout is not None:
+        api_record.timeout_seconds = max(10, min(body.timeout, 600))
 
     await db.commit()
 
@@ -246,9 +251,9 @@ async def execute_workflow_via_api(
         id=execution_id,
         workflow_id=workflow.id,
         status=ExecutionStatus.PENDING,
-        initial_input=initial_input,
+        trigger_type="API",
         graph_snapshot=workflow.graph_definition,
-        triggered_by="api",
+        context_data={"input": initial_input},
     )
     db.add(execution)
     await db.commit()

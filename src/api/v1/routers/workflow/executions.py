@@ -179,42 +179,26 @@ async def run_workflow(
     )
 
     # Dispatch to worker via dual-mode queue abstraction
-    if body.async_execution:
-        request.app.state.queue.enqueue(
-            "execute_workflow_task",
-            execution_id=str(new_execution.id),
-            workflow_id=str(workflow.id),
-            initial_input=body.initial_input,
-            single_node_id=body.single_node_id
-        )
+    task_id = request.app.state.queue.enqueue(
+        "execute_workflow_task",
+        execution_id=str(new_execution.id),
+        workflow_id=str(workflow.id),
+        initial_input=body.initial_input,
+        single_node_id=body.single_node_id
+    )
 
-        return APIResponse(
-            success=True,
-            message="Workflow execution started",
-            data={
-                "execution_id": str(new_execution.id),
-                "status": "PENDING",
-                "async": True
-            }
-        )
-    else:
-        # Synchronous execution (not recommended for production)
-        request.app.state.queue.enqueue(
-            "execute_workflow_task",
-            execution_id=str(new_execution.id),
-            workflow_id=str(workflow.id),
-            initial_input=body.initial_input,
-            single_node_id=body.single_node_id
-        )
+    new_execution.celery_task_id = task_id
+    await db.commit()
 
-        return APIResponse(
-            success=True,
-            message="Workflow execution queued",
-            data={
-                "execution_id": str(new_execution.id),
-                "status": "PENDING"
-            }
-        )
+    return APIResponse(
+        success=True,
+        message="Workflow execution started" if body.async_execution else "Workflow execution queued",
+        data={
+            "execution_id": str(new_execution.id),
+            "status": "PENDING",
+            "async": body.async_execution
+        }
+    )
 
 
 @router.get(
@@ -274,12 +258,10 @@ async def cancel_execution(
             detail=f"Cannot cancel execution with status: {execution.status.value}"
         )
 
-    # Update status
-    execution.status = ExecutionStatus.FAILED
-    execution.finished_at = datetime.now(timezone.utc)
-    if not execution.context_data:
-        execution.context_data = {}
-    execution.context_data["error"] = "Cancelled by user"
+    from src.tasks.workflow import _revoke_celery_task
+    _revoke_celery_task(execution.celery_task_id)
+
+    execution.mark_cancelled("Cancelled by user")
 
     await db.commit()
 
@@ -331,13 +313,15 @@ async def resume_execution(
     await db.commit()
 
     # Dispatch resume task via dual-mode queue abstraction
-    request.app.state.queue.enqueue(
+    task_id = request.app.state.queue.enqueue(
         "execute_workflow_task",
         execution_id=str(execution.id),
         workflow_id=str(execution.workflow_id),
         initial_input=body.input_data,
         resume_node_id=body.node_id
     )
+    execution.celery_task_id = task_id
+    await db.commit()
 
     logger.info(
         f"Execution resumed: {execution_id} from node {body.node_id}",
@@ -397,12 +381,14 @@ async def retry_execution(
         original_input = start_output.get("initial_input", {})
 
     # Dispatch via dual-mode queue abstraction
-    request.app.state.queue.enqueue(
+    task_id = request.app.state.queue.enqueue(
         "execute_workflow_task",
         execution_id=str(new_execution.id),
         workflow_id=str(workflow.id),
         initial_input=original_input
     )
+    new_execution.celery_task_id = task_id
+    await db.commit()
 
     return APIResponse(
         success=True,

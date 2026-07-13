@@ -138,6 +138,13 @@ class WorkflowExecution(SQLModel, table=True):
         description="Execution end time"
     )
 
+    # Celery task tracking (full mode only; None in lite mode)
+    celery_task_id: Optional[str] = Field(
+        default=None,
+        sa_column=Column(String(255), index=True),
+        description="ID of the Celery task running this execution, used to revoke on cancel"
+    )
+
     # Relationships
     workflow: "Workflow" = Relationship(back_populates="executions")
 
@@ -243,6 +250,15 @@ class WorkflowExecution(SQLModel, table=True):
         if self.context_data is None:
             self.context_data = {}
         self.context_data["pause_reason"] = reason
+
+    def mark_cancelled(self, reason: str = "Cancelled by user") -> None:
+        """Marks execution as cancelled by the user."""
+        self.status = ExecutionStatus.CANCELLED
+        self.finished_at = datetime.now(timezone.utc)
+        if self.context_data is None:
+            self.context_data = {}
+        self.context_data["error"] = reason
+        self.context_data["cancelled"] = True
 
     def to_dict(self, include_context: bool = False) -> Dict[str, Any]:
         """

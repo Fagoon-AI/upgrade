@@ -32,7 +32,7 @@ services:
 
   worker:
     image: ghcr.io/fagoon-ai/upgrade:2.0.0
-    command: uv run celery -A src.core.celery_app worker -P eventlet -c 50
+    command: uv run celery -A src.core.task_processing.celery_app worker -P eventlet -c 50
     environment:
       LITE_MODE: "false"
       DATA_DIR: /data
