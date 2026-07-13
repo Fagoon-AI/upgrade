@@ -75,6 +75,7 @@ class Agent(Base):
 
     owner = relationship("User", back_populates="agents")
     chat_histories = relationship("AgentChatHistory", back_populates="agent")
+    api_key = relationship("AgentAPI", back_populates="agent", uselist=False, cascade="all, delete-orphan")
 
 class AgentChatHistory(Base):
     __tablename__ = "agent_chat_histories"
@@ -223,3 +224,6 @@ class WhatsAppSession(Base):
 
 # Import vibe coder models so Alembic can find them via Base metadata
 from src.models.sql.vibe_coder_models import VibeCodeExecution, UserLLMConfigDB
+
+# Import Agent API model so Alembic can find it via Base metadata
+from src.models.sql.agent_api import AgentAPI

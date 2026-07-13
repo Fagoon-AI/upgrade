@@ -59,3 +59,39 @@ export const deleteAgent = async (agentId: string) => {
   const response = await axiosInstance.delete(`/api/v1/agent/${agentId}`);
   return response.data;
 };
+
+//* Agent API (publish agent as an external chat API)
+
+export const publishAgentApi = async (agentId: string) => {
+  const response = await axiosInstance.post(
+    `/api/v1/agent/${agentId}/publish-api`
+  );
+  return response.data;
+};
+
+export const getAgentApiInfo = async (agentId: string) => {
+  const response = await axiosInstance.get(
+    `/api/v1/agent/${agentId}/api-info`
+  );
+  return response.data;
+};
+
+export const updateAgentApi = async (
+  agentId: string,
+  data: {
+    rate_limit?: number;
+    timeout?: number;
+    is_active?: boolean;
+  }
+) => {
+  const response = await axiosInstance.patch(
+    `/api/v1/agent/${agentId}/api`,
+    data
+  );
+  return response.data;
+};
+
+export const revokeAgentApi = async (agentId: string) => {
+  const response = await axiosInstance.delete(`/api/v1/agent/${agentId}/api`);
+  return response.data;
+};

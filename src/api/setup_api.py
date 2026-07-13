@@ -27,6 +27,7 @@ from src.api.v1.routers.agents import (
     agents_router,
     modelcard_router,
     agent_chat,
+    agent_api,
 )
 from src.api.v1.routers.upgrade import chat, support_bot
 from src.api.v1.routers.external import rfm_support_bot
@@ -190,5 +191,6 @@ def setup_and_combine_all_routers() -> APIRouter:
     router.include_router(workflow_templates.router, prefix="/workflow-templates", tags=["Workflow Presets"])
     router.include_router(discovery.router, prefix="/discovery", tags=["Discovery"])
     router.include_router(workflow_api.router, tags=["Workflow API"])
+    router.include_router(agent_api.router, tags=["Agent API"])
 
     return router
